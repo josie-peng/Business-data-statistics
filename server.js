@@ -12,8 +12,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// 路由注册（后续逐步添加）
-// app.use('/api/auth', require('./routes/auth'));
+// 路由注册
+app.use('/api/auth', require('./routes/auth'));
 
 // API 404
 app.use('/api', (req, res) => {
