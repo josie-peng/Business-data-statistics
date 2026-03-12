@@ -14,6 +14,8 @@ app.get('/api/health', (req, res) => {
 
 // 路由注册
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api', require('./routes/records'));
+app.use('/api', require('./routes/import-export'));
 
 // API 404
 app.use('/api', (req, res) => {
