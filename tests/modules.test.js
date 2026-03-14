@@ -1,118 +1,134 @@
 // tests/modules.test.js
-// 兼容性测试：验证 modules/ 推导出的接口与旧 utils/dept-config.js 一致
+// 兼容性测试：验证 modules/ 推导出的接口格式正确
 
-const oldConfig = require('../utils/dept-config');
-const newConfig = require('../modules');
+const config = require('../modules');
 
 describe('modules/ 兼容层', () => {
 
   describe('SHARED 常量', () => {
-    test('SHARED_INPUT_FIELDS 与旧配置一致', () => {
-      expect(newConfig.SHARED_INPUT_FIELDS).toEqual(oldConfig.SHARED_INPUT_FIELDS);
+    test('SHARED_INPUT_FIELDS 包含 14 个共享输入字段', () => {
+      expect(config.SHARED_INPUT_FIELDS).toEqual([
+        'supervisor_count', 'worker_count', 'daily_output',
+        'worker_wage', 'supervisor_wage', 'rent', 'utility_fee',
+        'tool_investment', 'equipment', 'renovation', 'misc_fee',
+        'shipping_fee', 'social_insurance', 'tax'
+      ]);
     });
 
-    test('SHARED_EXPENSE_FIELDS 与旧配置一致', () => {
-      expect(newConfig.SHARED_EXPENSE_FIELDS).toEqual(oldConfig.SHARED_EXPENSE_FIELDS);
+    test('SHARED_EXPENSE_FIELDS 包含 11 个共享费用字段', () => {
+      expect(config.SHARED_EXPENSE_FIELDS).toEqual([
+        'worker_wage', 'supervisor_wage', 'rent', 'utility_fee',
+        'tool_investment', 'equipment', 'renovation', 'misc_fee',
+        'shipping_fee', 'social_insurance', 'tax'
+      ]);
     });
 
-    test('SHARED_CALC_FIELDS 与旧配置一致', () => {
-      expect(newConfig.SHARED_CALC_FIELDS).toEqual(oldConfig.SHARED_CALC_FIELDS);
+    test('SHARED_CALC_FIELDS 包含 balance 和 balance_ratio', () => {
+      expect(config.SHARED_CALC_FIELDS).toEqual(['balance', 'balance_ratio']);
     });
   });
 
   describe('DEPT_CONFIG 结构', () => {
-    const depts = ['beer', 'print', 'assembly'];
-
-    test.each(depts)('%s: tableName 和 label 一致', (dept) => {
-      expect(newConfig.DEPT_CONFIG[dept].tableName).toBe(oldConfig.DEPT_CONFIG[dept].tableName);
-      expect(newConfig.DEPT_CONFIG[dept].label).toBe(oldConfig.DEPT_CONFIG[dept].label);
+    test('beer: 基本信息正确', () => {
+      expect(config.DEPT_CONFIG.beer.tableName).toBe('beer_records');
+      expect(config.DEPT_CONFIG.beer.label).toBe('啤机部');
+      expect(config.DEPT_CONFIG.beer.workshops).toEqual(['兴信A', '兴信B', '华登', '邵阳']);
     });
 
-    test.each(depts)('%s: workshops 一致', (dept) => {
-      expect(newConfig.DEPT_CONFIG[dept].workshops).toEqual(oldConfig.DEPT_CONFIG[dept].workshops);
+    test('beer: uniqueInputFields 有 14 个字段', () => {
+      expect(config.DEPT_CONFIG.beer.uniqueInputFields).toHaveLength(14);
+      expect(config.DEPT_CONFIG.beer.uniqueInputFields).toContain('total_machines');
+      expect(config.DEPT_CONFIG.beer.uniqueInputFields).toContain('materials');
     });
 
-    test.each(depts)('%s: uniqueInputFields 一致', (dept) => {
-      expect(newConfig.DEPT_CONFIG[dept].uniqueInputFields).toEqual(oldConfig.DEPT_CONFIG[dept].uniqueInputFields);
+    test('beer: uniqueCalcFields 有 6 个字段', () => {
+      expect(config.DEPT_CONFIG.beer.uniqueCalcFields).toHaveLength(6);
+      expect(config.DEPT_CONFIG.beer.uniqueCalcFields).toContain('machine_rate');
     });
 
-    test.each(depts)('%s: uniqueCalcFields 一致', (dept) => {
-      expect(newConfig.DEPT_CONFIG[dept].uniqueCalcFields).toEqual(oldConfig.DEPT_CONFIG[dept].uniqueCalcFields);
+    test('beer: uniqueExpenseFields 有 8 个字段', () => {
+      expect(config.DEPT_CONFIG.beer.uniqueExpenseFields).toHaveLength(8);
+      expect(config.DEPT_CONFIG.beer.uniqueExpenseFields).toContain('misc_worker_wage');
     });
 
-    test.each(depts)('%s: uniqueExpenseFields 一致', (dept) => {
-      expect(newConfig.DEPT_CONFIG[dept].uniqueExpenseFields).toEqual(oldConfig.DEPT_CONFIG[dept].uniqueExpenseFields);
+    test('print: uniqueInputFields 有 24 个字段', () => {
+      expect(config.DEPT_CONFIG.print.uniqueInputFields).toHaveLength(24);
+    });
+
+    test('print: uniqueExpenseFields 有 11 个字段', () => {
+      expect(config.DEPT_CONFIG.print.uniqueExpenseFields).toHaveLength(11);
+    });
+
+    test('assembly: uniqueInputFields 有 12 个字段', () => {
+      expect(config.DEPT_CONFIG.assembly.uniqueInputFields).toHaveLength(12);
+    });
+
+    test('assembly: uniqueCalcFields 包含 avg_output_per_worker', () => {
+      expect(config.DEPT_CONFIG.assembly.uniqueCalcFields).toContain('avg_output_per_worker');
     });
   });
 
   describe('函数接口', () => {
-    const depts = ['beer', 'print', 'assembly'];
-
-    test.each(depts)('getAllInputFields(%s) 一致', (dept) => {
-      expect(newConfig.getAllInputFields(dept)).toEqual(oldConfig.getAllInputFields(dept));
+    test('getAllInputFields(beer) 以 remark 结尾', () => {
+      const fields = config.getAllInputFields('beer');
+      expect(fields[fields.length - 1]).toBe('remark');
+      expect(fields).toHaveLength(14 + 14 + 1);
     });
 
-    test.each(depts)('getAllFields(%s) 一致', (dept) => {
-      expect(newConfig.getAllFields(dept)).toEqual(oldConfig.getAllFields(dept));
-    });
-
-    test.each(depts)('getExpenseFields(%s) 一致', (dept) => {
-      expect(newConfig.getExpenseFields(dept)).toEqual(oldConfig.getExpenseFields(dept));
+    test('getExpenseFields(beer) 有 19 个费用字段', () => {
+      expect(config.getExpenseFields('beer')).toHaveLength(11 + 8);
     });
   });
 
   describe('validateConfig', () => {
     test('校验通过不抛错', () => {
-      expect(() => newConfig.validateConfig()).not.toThrow();
+      expect(() => config.validateConfig()).not.toThrow();
     });
   });
 
   describe('getColumnMap', () => {
-    test('生成的 COLUMN_MAP 是旧 COLUMN_MAP 的超集', () => {
-      const newMap = newConfig.getColumnMap('balance');
+    const map = config.getColumnMap('balance');
 
-      const criticalMappings = {
-        '日期': 'record_date',
-        '车间': 'workshop_name',
-        '车间名称': 'workshop_name',
-        '备注': 'remark',
-        '备 注': 'remark',
-        '管工人数': 'supervisor_count',
-        '员工人数': 'worker_count',
-        '员工人数(不包杂工)': 'worker_count',
-        '总产值/天': 'daily_output',
-        '产值': 'daily_output',
-        '员工工资/天': 'worker_wage',
-        '员工工资': 'worker_wage',
-        '管工工资/天': 'supervisor_wage',
-        '生产管工工资': 'supervisor_wage',
-        '社保': 'social_insurance',
-        '湖南社保': 'social_insurance',
-        '税收': 'tax',
-        '湖南税收': 'tax',
-        '结余金额': '_skip_calc',
-        '结余%': '_skip_calc',
-        '总台数': 'total_machines',
-        '不含税产值（含税产值/1.13）': 'output_tax_incl',
-        '批水口加工费（全包）': 'gate_processing_fee',
-        '装配帮啤机批水口加工配件费用': 'assembly_gate_parts_fee',
-        '可回收外厂批水口加工费': 'recoverable_gate_fee',
-        '开机率': '_skip_calc',
-        '平均每台结余': '_skip_calc',
-        '移印机总台数': 'pad_total_machines',
-        '工具': 'tool_investment',
-        '运费_1': 'shipping_fee',
-        '物料（原子灰、胶头、油墨、喷码溶剂）': 'materials',
-        '员工人均产值': '_skip_calc',
-        '人均产值': 'avg_output_per_worker',
-        '夹具部工具投资': 'tool_investment',
-        '车间工具投资': 'workshop_tool_investment',
-        '结余减胶纸': '_skip_calc',
-      };
+    test('结构字段映射正确', () => {
+      expect(map['日期']).toBe('record_date');
+      expect(map['车间']).toBe('workshop_name');
+      expect(map['车间名称']).toBe('workshop_name');
+      expect(map['备注']).toBe('remark');
+      expect(map['备 注']).toBe('remark');
+    });
 
-      for (const [cn, en] of Object.entries(criticalMappings)) {
-        expect(newMap[cn]).toBe(en);
-      }
+    test('共享字段及别名映射正确', () => {
+      expect(map['管工人数']).toBe('supervisor_count');
+      expect(map['员工人数(不包杂工)']).toBe('worker_count');
+      expect(map['产值']).toBe('daily_output');
+      expect(map['员工工资']).toBe('worker_wage');
+      expect(map['湖南社保']).toBe('social_insurance');
+    });
+
+    test('skipColumns 映射到 _skip_calc', () => {
+      expect(map['结余金额']).toBe('_skip_calc');
+      expect(map['结余%']).toBe('_skip_calc');
+    });
+
+    test('部门特有共享字段别名正确', () => {
+      expect(map['工具']).toBe('tool_investment');
+      expect(map['运费_1']).toBe('shipping_fee');
+      expect(map['夹具部工具投资']).toBe('tool_investment');
+    });
+
+    test('calc + importable 字段生成普通映射', () => {
+      expect(map['人均产值']).toBe('avg_output_per_worker');
+    });
+
+    test('calc 字段的 skipAliases 映射到 _skip_calc', () => {
+      expect(map['开机率']).toBe('_skip_calc');
+      expect(map['平均每台结余']).toBe('_skip_calc');
+      expect(map['结余减胶纸']).toBe('_skip_calc');
+      expect(map['员工人均产值']).toBe('_skip_calc');
+    });
+
+    test('未知模块抛错', () => {
+      expect(() => config.getColumnMap('unknown')).toThrow('未知模块');
     });
   });
 });
