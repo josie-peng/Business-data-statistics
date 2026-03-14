@@ -1,4 +1,4 @@
-const { calculateRecord } = require('../utils/calc');
+const { calculateRecord } = require('../modules/balance/calc');
 
 describe('calculateRecord', () => {
   test('beer: balance = output - all expenses', () => {
