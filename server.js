@@ -2,6 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+// 启动时校验部门费用字段配置一致性
+const { validateConfig } = require('./modules');
+validateConfig();
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -33,7 +37,7 @@ app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 6001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
