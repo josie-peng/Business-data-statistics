@@ -454,7 +454,31 @@ migrate().catch(e => { console.error(e); process.exit(1); });
 "
 ```
 
-- [ ] **Step 2: 更新 init.sql 建表语句**
+- [ ] **Step 2: 迁移装配部"湖南社保/湖南税收"数据**
+
+之前"湖南社保"和"湖南税收"是共有字段 `social_insurance` 和 `tax` 的别名，导入的数据写在了共有字段里。现在需要把装配部的这些数据迁移到新的独立字段。
+
+```bash
+cd "d:/03-AI related/02-Business data statistics" && node -e "
+const db = require('./db/postgres');
+async function migrate() {
+  // 将装配部的 social_insurance 数据复制到 hunan_social_insurance
+  await db.query('UPDATE assembly_records SET hunan_social_insurance = social_insurance WHERE social_insurance > 0');
+  // 将装配部的 tax 数据复制到 hunan_tax
+  await db.query('UPDATE assembly_records SET hunan_tax = tax WHERE tax > 0');
+  // 清空装配部的共有社保和税收字段（因为装配部的社保/税收实际是湖南的）
+  // 注意：如果装配部确实有清溪社保/税收数据，不要执行这两行！
+  // await db.query('UPDATE assembly_records SET social_insurance = 0, tax = 0');
+  console.log('Data migration done');
+  process.exit(0);
+}
+migrate().catch(e => { console.error(e); process.exit(1); });
+"
+```
+
+> **重要**：迁移前请确认装配部是否同时有清溪社保和湖南社保数据。如果只有湖南社保（没有清溪的），迁移后还需要把共有字段清零。
+
+- [ ] **Step 3: 更新 init.sql 建表语句**
 
 在 `assembly_records` 表的 `workshop_tool_investment` 行后（约第231行），添加：
 ```sql
@@ -709,7 +733,118 @@ git commit -m "feat(frontend): rewrite getDeptColumns with group-based insertion
 
 ---
 
-### Task 6: 最终验证与提交
+### Task 6: 修改导出列顺序匹配前端显示
+
+**Files:**
+- Modify: `routes/import-export.js:125-161`
+
+当前导出使用 `Object.keys(r)` 遍历数据库记录，列顺序跟随数据库列定义顺序。需要改为按前端 `getDeptColumns` 的顺序输出。
+
+- [ ] **Step 1: 在 import-export.js 中引入前端列顺序配置**
+
+由于前端列顺序定义在 `app.js`（浏览器端），后端无法直接引用。需要在 `modules/index.js` 中新增一个函数，从 config.js 推导出每个部门的完整列顺序。
+
+在 `modules/index.js` 中添加 `getOrderedFields` 函数（在 `module.exports` 前）：
+
+```javascript
+// 获取部门的有序字段列表（用于导出时保证列顺序）
+// 顺序逻辑与前端 getDeptColumns 一致：台数→人数→时间→产值→工资→共有费用→结余→独有费用→备注
+function getOrderedFields(dept) {
+  const config = balanceConfig.departments[dept];
+  if (!config) return [];
+
+  const unique = config.uniqueFields || [];
+
+  // 字段分组（与前端 getDeptColumns 逻辑一致）
+  const machineFields = ['total_machines', 'running_machines', 'run_hours', 'machine_rate',
+    'pad_total_machines', 'pad_running_machines', 'pad_machine_rate',
+    'spray_total_machines', 'spray_running_machines', 'spray_machine_rate'];
+  const peopleFields = ['misc_workers', 'gate_workers'];
+  const timeFields = ['work_hours', 'total_hours'];
+  const outputFields = ['output_tax_incl', 'avg_output_per_machine', 'avg_output_per_worker'];
+  const wageFields = ['misc_worker_wage', 'wage_ratio', 'planned_wage_tax', 'actual_wage'];
+
+  const groups = { machines: [], people: [], time: [], output: [], wage: [], afterBalance: [] };
+  for (const f of unique) {
+    const name = f.field;
+    if (machineFields.includes(name)) groups.machines.push(f);
+    else if (peopleFields.includes(name)) groups.people.push(f);
+    else if (timeFields.includes(name)) groups.time.push(f);
+    else if (outputFields.includes(name)) groups.output.push(f);
+    else if (wageFields.includes(name)) groups.wage.push(f);
+    else groups.afterBalance.push(f);
+  }
+
+  // 共享字段
+  const sharedPeople = balanceConfig.sharedFields.filter(f => ['supervisor_count', 'worker_count'].includes(f.field));
+  const sharedOutput = balanceConfig.sharedFields.filter(f => f.field === 'daily_output');
+  const sharedWage = balanceConfig.sharedFields.filter(f => ['worker_wage', 'supervisor_wage'].includes(f.field));
+  const sharedExpense = balanceConfig.sharedFields.filter(f => f.expense && !['worker_wage', 'supervisor_wage'].includes(f.field));
+  const sharedCalc = balanceConfig.sharedCalcFields;
+
+  // 结构字段
+  const structural = balanceConfig.structuralFields.filter(f => f.field !== 'remark');
+  const remark = balanceConfig.structuralFields.filter(f => f.field === 'remark');
+
+  return [
+    ...structural,
+    ...groups.machines,
+    ...sharedPeople, ...groups.people,
+    ...groups.time,
+    ...sharedOutput, ...groups.output,
+    ...sharedWage, ...groups.wage,
+    ...sharedExpense,
+    ...sharedCalc,
+    ...groups.afterBalance,
+    ...remark
+  ].map(f => f.field);
+}
+```
+
+在 `module.exports` 中添加 `getOrderedFields`。
+
+- [ ] **Step 2: 修改导出逻辑使用有序字段**
+
+修改 `routes/import-export.js` 的导出部分（约第142-151行），替换为：
+
+```javascript
+  const { getOrderedFields } = require('../modules');
+  const orderedFields = getOrderedFields(dept);
+
+  const exportData = records.map(r => {
+    const row = {};
+    // 按照前端显示顺序输出列
+    for (const field of orderedFields) {
+      if (r[field] !== undefined) {
+        const label = REVERSE_COLUMN_MAP[field] || field;
+        row[label] = r[field];
+      }
+    }
+    // 补充有序列表中可能遗漏的字段（防御性）
+    Object.keys(r).forEach(key => {
+      const label = REVERSE_COLUMN_MAP[key] || key;
+      if (!['id', 'workshop_id', 'created_by', 'updated_by', 'created_at', 'updated_at'].includes(key) && !row[label]) {
+        row[label] = r[key];
+      }
+    });
+    return row;
+  });
+```
+
+- [ ] **Step 3: 验证导出顺序**
+
+导出一份啤机部的 Excel，检查列顺序是否为：日期→车间→总台数→开机台数→开机时间→开机率→管工人数→...
+
+- [ ] **Step 4: 提交**
+
+```bash
+git add modules/index.js routes/import-export.js
+git commit -m "feat(export): align Excel export column order with frontend display order"
+```
+
+---
+
+### Task 7: 最终验证与提交
 
 - [ ] **Step 1: 运行全部测试**
 
