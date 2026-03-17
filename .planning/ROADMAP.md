@@ -29,7 +29,12 @@
   3. 统计组可以对指定月份执行锁定操作，锁定人列显示姓名而非数字ID
   4. Excel 导入后，数据立即在页面显示，刷新后仍然存在
   5. 车间管理中新建/编辑车间时，公司字段被正确保存
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — P0后端修复：路由顺序、workshops company字段、汇总SQL、安全中间件
+- [ ] 01-02-PLAN.md — 前端修复：prop对齐、字段名修正、动态下拉、CSS变量
+- [ ] 01-03-PLAN.md — BUG-11/12调查修复 + Jest回归测试套件 + 用户验证
 
 ### Phase 2: 录入体验升级
 **Goal**: 录入员可以用键盘驱动的高效流程完成每日数据录入，单行数据的录入击键次数减少约60%
@@ -79,7 +84,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. BUG修复与基础稳定 | 0/? | Not started | - |
+| 1. BUG修复与基础稳定 | 0/3 | Planning complete | - |
 | 2. 录入体验升级 | 0/? | Not started | - |
 | 3. 数据准确性 | 0/? | Not started | - |
 | 4. 导入导出增强 | 0/? | Not started | - |
@@ -124,4 +129,4 @@
 ---
 
 *Created: 2026-03-17*
-*Last updated: 2026-03-17 after initial roadmap creation*
+*Last updated: 2026-03-17 after Phase 1 planning complete — 3 plans created*
