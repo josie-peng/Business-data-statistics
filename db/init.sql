@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS workshops (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   region VARCHAR(50) NOT NULL,
-  department VARCHAR(50) NOT NULL,
+  department VARCHAR(50),
   sort_order INT DEFAULT 0,
   status VARCHAR(20) DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS beer_records (
   assembly_gate_parts_fee NUMERIC(12,2) DEFAULT 0,
   recoverable_gate_fee NUMERIC(12,2) DEFAULT 0,
   material_supplement NUMERIC(12,2) DEFAULT 0,
+  materials NUMERIC(12,2) DEFAULT 0,
   avg_balance_per_machine NUMERIC(14,2) DEFAULT 0,
   -- 元数据
   created_by INT,
@@ -179,6 +180,8 @@ CREATE TABLE IF NOT EXISTS print_records (
   mold_fee_ratio NUMERIC(8,4) DEFAULT 0,
   hunan_mold_fee NUMERIC(12,2) DEFAULT 0,
   indonesia_mold_fee NUMERIC(12,2) DEFAULT 0,
+  hunan_mold_ratio NUMERIC(8,4) DEFAULT 0,
+  indonesia_mold_ratio NUMERIC(8,4) DEFAULT 0,
   total_ratio NUMERIC(8,4) DEFAULT 0,
   -- 元数据
   created_by INT,
@@ -227,6 +230,10 @@ CREATE TABLE IF NOT EXISTS assembly_records (
   tool_invest_ratio NUMERIC(8,4) DEFAULT 0,
   borrowed_worker_wage NUMERIC(12,2) DEFAULT 0,
   borrowed_wage_ratio NUMERIC(8,4) DEFAULT 0,
+  workshop_tool_investment NUMERIC(12,2) DEFAULT 0,
+  hunan_social_insurance NUMERIC(12,2) DEFAULT 0,
+  hunan_tax NUMERIC(12,2) DEFAULT 0,
+  fixture_tool_investment NUMERIC(12,2) DEFAULT 0,
   -- 元数据
   created_by INT,
   updated_by INT,
@@ -236,7 +243,7 @@ CREATE TABLE IF NOT EXISTS assembly_records (
 
 -- 初始数据：默认管理员（密码: admin123）
 INSERT INTO users (username, password_hash, name, role, batch_permission)
-VALUES ('admin', '$2b$10$y9MYV4Ppt7G81x3xDx8m/.57pldSY2LDPWPo1BYSEjyNh77Mrcux6', '系统管理员', 'stats', true)
+VALUES ('RRxing', '$2b$10$ze7gVY5.pNxvkkm2mlJI9efDNtKHHj5XBMmZl71vNSC.zLL8y1qie', '系统管理员', 'stats', true)
 ON CONFLICT (username) DO NOTHING;
 
 -- 初始车间数据

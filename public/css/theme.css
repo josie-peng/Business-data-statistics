@@ -1,6 +1,6 @@
 /* ===== 莫兰迪配色方案 ===== */
 :root {
-  --primary: #7030A0;
+  --primary: #7F41C0;
   --primary-light: #A88DF3;
   --primary-dark: #5B2480;
   --detail-header: #3D8361;
@@ -8,9 +8,9 @@
   --secondary-pink: #E88EA0;
   --neutral-green: #B8D8C8;
   --neutral-bg: #F5F3F7;
-  --sidebar-bg: #2D2040;
+  --sidebar-bg: #7F41C0;
   --sidebar-text: #E0D8E8;
-  --sidebar-active: #7030A0;
+  --sidebar-active: #7F41C0;
   --text-primary: #333;
   --text-secondary: #666;
   --border-color: #E0D8E8;
@@ -20,6 +20,7 @@
   --editable-bg: #FFFDE7;
   --calc-bg: #E8F5E9;
   --summary-bg: #F3E5F5;
+  --detail-header-dark: #2d6b4a;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -30,7 +31,7 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 
 /* ===== 侧边栏 ===== */
 .sidebar {
-  width: 220px;
+  width: 180px;
   background: var(--sidebar-bg);
   color: var(--sidebar-text);
   display: flex;
@@ -46,29 +47,29 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .sidebar.collapsed { width: 64px; }
 .sidebar-header {
   padding: 20px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255,255,255,0.15);
   display: flex;
   align-items: center;
   gap: 10px;
 }
 .sidebar-header h1 {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
-  overflow: hidden;
+  color: #fff;
 }
 .sidebar-toggle {
   cursor: pointer;
-  color: var(--sidebar-text);
+  color: rgba(255,255,255,0.6);
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: 13px;
   padding: 4px;
 }
 
 .sidebar-menu { padding: 8px 0; flex: 1; }
 .menu-group-title {
-  padding: 12px 20px 6px;
+  padding: 12px 14px 6px;
   font-size: 12px;
   color: rgba(255,255,255,0.4);
   text-transform: uppercase;
@@ -77,7 +78,7 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 10px 20px;
+  padding: 10px 14px;
   cursor: pointer;
   transition: all 0.2s;
   gap: 10px;
@@ -88,9 +89,10 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 }
 .menu-item:hover { background: rgba(255,255,255,0.08); }
 .menu-item.active {
-  background: rgba(112, 48, 160, 0.3);
+  background: rgba(255,255,255,0.15);
   border-left-color: var(--primary-light);
   color: #fff;
+  font-weight: bold;
 }
 .menu-item .icon { width: 20px; text-align: center; }
 .menu-item.sub-item { padding-left: 50px; font-size: 13px; }
@@ -99,7 +101,7 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 /* ===== 主内容区 ===== */
 .main-content {
   flex: 1;
-  margin-left: 220px;
+  margin-left: 180px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -142,17 +144,32 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 16px;
   background: #fff;
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
+/* 强制缩短日期范围选择器 */
+.toolbar .el-date-editor--daterange {
+  width: 190px !important;
+  min-width: 190px !important;
+  max-width: 190px !important;
+}
+.toolbar .el-date-editor--daterange .el-range-input {
+  width: 60px !important;
+  font-size: 12px !important;
+}
+.toolbar .el-date-editor--daterange .el-range-separator {
+  width: 20px !important;
+  padding: 0 2px !important;
+  font-size: 12px !important;
+}
 .toolbar .quick-btns { display: flex; gap: 6px; }
 .toolbar .quick-btns button {
-  padding: 4px 10px;
+  padding: 3px 8px;
   border: 1px solid var(--border-color);
   background: #fff;
   border-radius: 4px;
@@ -201,17 +218,32 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 
 /* Element Plus 表格主题覆盖 */
 .el-table th.el-table__cell {
-  background: var(--primary) !important;
+  background: var(--detail-header) !important;
   color: #fff !important;
   font-weight: 600;
-  font-size: 13px;
-  padding: 8px 0;
+  font-size: 12px;
+  height: 30px !important;
+  padding: 0 6px !important;
+  line-height: 30px;
+}
+/* 计算字段表头：紫色（通过 header-cell-class-name 函数添加） */
+.el-table th.el-table__cell.th-calc {
+  background: #6A35A3 !important;
+}
+.el-table .th-calc .cell {
+  color: #fff !important;
 }
 .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
   background: #FAFAFE;
 }
 .el-table .el-table__body tr:hover > td.el-table__cell {
   background: rgba(112, 48, 160, 0.06) !important;
+}
+/* 数据行高 28px */
+.el-table td.el-table__cell {
+  height: 28px !important;
+  padding: 0 8px !important;
+  line-height: 28px;
 }
 
 /* 可编辑单元格 */
@@ -231,11 +263,11 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   background: #fff;
 }
 
-/* 计算字段 */
+/* 计算字段单元格 */
 .cell-calculated {
-  background: var(--calc-bg) !important;
+  background: #F3EDF7 !important;
   font-weight: 600;
-  color: var(--detail-header);
+  color: #6A35A3;
 }
 
 /* 结余列 */
@@ -243,36 +275,60 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .cell-balance.positive { color: var(--detail-header); }
 .cell-balance.negative { color: var(--danger); }
 
-/* ===== 底部固定合计区 ===== */
+/* ===== 表头批注气泡 ===== */
+.header-note-bubble {
+  position: absolute;
+  background: #E88EA0;
+  border: 1px solid #d47a8c;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #fff;
+  z-index: 999;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
+  max-width: 300px;
+  white-space: normal;
+  pointer-events: none;
+}
+.header-note-bubble .note-full { font-weight: bold; color: #fff; }
+.header-note-bubble .note-formula { color: #ffe0e6; margin-top: 2px; }
+
+/* ===== 底部固定合计区（紧凑版） ===== */
 .summary-footer {
   position: sticky;
   bottom: 0;
   background: #fff;
-  border-top: 3px solid var(--primary);
+  border-top: 3px solid var(--detail-header);
   box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
   z-index: 50;
   max-height: 280px;
   overflow-y: auto;
 }
 .summary-footer .summary-header-row {
-  background: var(--primary);
+  background: var(--detail-header);
   color: #fff;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 11px;
 }
-.summary-footer .summary-header-row td { padding: 6px 8px; }
-.summary-footer .workshop-row td { padding: 4px 8px; font-size: 13px; }
+/* 合计栏计算列紫色表头 */
+.summary-footer .summary-header-row td.sh-calc {
+  background: #6A35A3;
+}
+.summary-footer .summary-header-row td { padding: 0 4px; height: 24px; line-height: 24px; }
+.summary-footer .workshop-row td { padding: 0 4px; font-size: 11px; height: 24px; line-height: 24px; }
 .summary-footer .region-row {
   background: var(--summary-bg);
   font-weight: 600;
 }
+.summary-footer .region-row td { font-size: 11px; height: 24px; line-height: 24px; padding: 0 4px; }
 .summary-footer .total-row {
-  background: var(--primary);
+  background: var(--detail-header);
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 12px;
 }
-.summary-footer .total-row td { padding: 6px 8px; }
+.summary-footer .total-row td { padding: 0 4px; height: 26px; line-height: 26px; }
 
 /* ===== 登录页 ===== */
 .login-page {
@@ -345,6 +401,15 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 }
 .el-pagination .el-pager li.is-active {
   background: var(--primary) !important;
+}
+
+/* ===== 三工汇总页主题 ===== */
+.summary-theme .el-table th.el-table__cell {
+  background: var(--primary-light) !important;
+}
+.summary-total-row {
+  background: var(--primary-light);
+  color: #fff;
 }
 
 /* ===== 金额格式化 ===== */

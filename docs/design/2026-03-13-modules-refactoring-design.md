@@ -8,7 +8,7 @@
 
 ### 1.1 当前问题
 
-系统将从"三工结余"扩展为多个平行模块（人数统计、设备统计、利润统计、接单统计等）。当前配置分散在 4 个文件中，新增字段需要同步修改 4 处：
+系统未来可能扩展新的平行模块（具体模块待定）。当前配置分散在 4 个文件中，新增字段需要同步修改 4 处：
 
 | # | 文件 | 内容 |
 |---|------|------|
@@ -49,13 +49,25 @@ module.exports = {
   key: 'balance',
   label: '三工结余',
 
+  // 结构字段：每条记录必有的非数据字段（日期、车间、备注）
+  // 这些字段不参与计算，但需要在 COLUMN_MAP 中映射
+  structuralFields: [
+    { field: 'record_date', label: '日期', aliases: [] },
+    { field: 'workshop_name', label: '车间', aliases: ['车间名称'] },
+    { field: 'remark', label: '备注', aliases: ['备 注'] },
+  ],
+
   // 所有部门共享的字段
   sharedFields: [
     { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false },
-    { field: 'worker_count', label: '员工人数', type: 'integer', input: true, expense: false },
-    { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false },
-    { field: 'worker_wage', label: '员工工资/天', type: 'number', input: true, expense: true },
-    { field: 'supervisor_wage', label: '管工工资/天', type: 'number', input: true, expense: true },
+    { field: 'worker_count', label: '员工人数', type: 'integer', input: true, expense: false,
+      aliases: ['员工人数(不包杂工)'] },
+    { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false,
+      aliases: ['产值'] },
+    { field: 'worker_wage', label: '员工工资/天', type: 'number', input: true, expense: true,
+      aliases: ['员工工资'] },
+    { field: 'supervisor_wage', label: '管工工资/天', type: 'number', input: true, expense: true,
+      aliases: ['生产管工工资'] },
     { field: 'rent', label: '房租', type: 'number', input: true, expense: true },
     { field: 'utility_fee', label: '水电费', type: 'number', input: true, expense: true },
     { field: 'tool_investment', label: '工具投资', type: 'number', input: true, expense: true },
@@ -83,10 +95,11 @@ module.exports = {
       tableName: 'beer_records',
       label: '啤机部',
       workshops: ['兴信A', '兴信B', '华登', '邵阳'],
+      // 部门特有的共享字段别名（Excel 表头在不同部门 Excel 中叫法不同）
+      sharedFieldAliases: {},
       uniqueFields: [
         // input: true, expense: false — 输入但不扣减
-        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false,
-          aliases: ['总台数'] },
+        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false },
         { field: 'running_machines', label: '开机台数', type: 'integer', input: true, expense: false },
         { field: 'misc_workers', label: '杂工人数', type: 'integer', input: true, expense: false },
         { field: 'gate_workers', label: '批水口人数', type: 'integer', input: true, expense: false },
@@ -120,30 +133,179 @@ module.exports = {
           skipAliases: ['平均每台结余'] },
       ]
     },
-    // print 和 assembly 结构相同，字段不同
-    print: { /* ... 完整字段列表在实现时填入 ... */ },
-    assembly: { /* ... 完整字段列表在实现时填入 ... */ },
+    print: {
+      tableName: 'print_records',
+      label: '印喷部',
+      workshops: ['兴信A', '华登', '邵阳'],
+      // 印喷 Excel 中共享字段的特殊列名
+      sharedFieldAliases: {
+        tool_investment: ['工具'],       // 印喷 Excel 用 '工具' 而非 '工具投资'
+        shipping_fee: ['运费_1'],        // 印喷 Excel 用 '运费_1' 表示运费
+      },
+      uniqueFields: [
+        { field: 'pad_total_machines', label: '移印机总台数', type: 'integer', input: true, expense: false,
+          aliases: ['移印总台数'] },
+        { field: 'pad_running_machines', label: '每天开机台数', type: 'integer', input: true, expense: false,
+          aliases: ['移印开机台数'] },
+        { field: 'spray_total_machines', label: '喷油机总台数', type: 'integer', input: true, expense: false,
+          aliases: ['喷油总台数'] },
+        { field: 'spray_running_machines', label: '每天开机台数_1', type: 'integer', input: true, expense: false },
+        { field: 'misc_workers', label: '杂工人数', type: 'integer', input: true, expense: false },
+        { field: 'work_hours', label: '工时', type: 'number', input: true, expense: false,
+          aliases: ['工作时间'] },
+        { field: 'total_hours', label: '总时间', type: 'number', input: true, expense: false,
+          aliases: ['总工时'] },
+        { field: 'output_tax_incl', label: '总产值含税', type: 'number', input: true, expense: false },
+        { field: 'subsidy', label: '补贴', type: 'number', input: true, expense: true },
+        { field: 'materials', label: '物料（原子灰、胶头、油墨、喷码溶剂）', type: 'number', input: true, expense: true,
+          aliases: ['物料(原子灰、胶头、油墨、喷码溶剂)'] },
+        { field: 'repair_fee', label: '维修费', type: 'number', input: true, expense: true },
+        { field: 'oil_water_amount', label: '油水金额', type: 'number', input: true, expense: true },
+        { field: 'no_output_wage', label: '无产值工资', type: 'number', input: true, expense: true,
+          aliases: ['无产出工资'] },
+        { field: 'recoverable_wage', label: '可收回工资', type: 'number', input: true, expense: false,
+          aliases: ['可回收工资'] },
+        { field: 'recoverable_indonesia_wage', label: '可收回印尼工资', type: 'number', input: true, expense: false,
+          aliases: ['可回收印尼工资'] },
+        { field: 'non_recoverable_tool_fee', label: '不可回收工具费', type: 'number', input: true, expense: true },
+        { field: 'recoverable_tool_fee', label: '可收回工具费', type: 'number', input: true, expense: false,
+          aliases: ['可回收工具费'] },
+        { field: 'recoverable_paint', label: '可回收油漆金额', type: 'number', input: true, expense: false,
+          aliases: ['可回收油漆'] },
+        { field: 'dept_recoverable_wage', label: '车发部回收工资', type: 'number', input: true, expense: false,
+          aliases: ['部门可回收工资'] },
+        { field: 'assembly_wage_paid', label: '付装配工资', type: 'number', input: true, expense: true,
+          aliases: ['装配工资代付'] },
+        { field: 'office_wage', label: '做办工资', type: 'number', input: true, expense: true,
+          aliases: ['办公室工资'] },
+        { field: 'auto_mold_fee', label: '自动机模费', type: 'number', input: true, expense: true,
+          aliases: ['自动模费'] },
+        { field: 'hunan_mold_fee', label: '发湖南模费', type: 'number', input: true, expense: true,
+          aliases: ['湖南模费'] },
+        { field: 'indonesia_mold_fee', label: '发印尼模费', type: 'number', input: true, expense: true,
+          aliases: ['印尼模费'] },
+        // calc: true — 计算字段
+        { field: 'pad_machine_rate', label: '移印开机率', type: 'ratio', calc: true,
+          skipAliases: ['开机率'] },
+        { field: 'spray_machine_rate', label: '喷油开机率', type: 'ratio', calc: true,
+          skipAliases: ['开机率_1'] },
+        { field: 'avg_output_per_worker', label: '员工人均产值', type: 'number', calc: true,
+          skipAliases: ['员工人均产值'] },
+        { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
+          skipAliases: ['总工资占产值%'] },
+        { field: 'office_wage_ratio', label: '做办工资占比%', type: 'ratio', calc: true,
+          skipAliases: ['所占比例'] },
+        { field: 'mold_fee_ratio', label: '模费占产值%', type: 'ratio', calc: true,
+          skipAliases: ['模费占产值%', '模费占产值%_1'] },
+        { field: 'total_ratio', label: '合计%', type: 'ratio', calc: true,
+          skipAliases: ['发印尼模费占产值%', '合计%'] },
+      ]
+    },
+    assembly: {
+      tableName: 'assembly_records',
+      label: '装配部',
+      workshops: ['兴信A', '兴信B', '华登', '邵阳'],
+      // 装配 Excel 中共享字段的特殊列名
+      sharedFieldAliases: {
+        tool_investment: ['夹具部工具投资'],  // 装配 Excel 中 '夹具部工具投资' 指的是共享的 tool_investment
+      },
+      uniqueFields: [
+        // ★ 特殊：calc + importable — 既是计算字段又可从 Excel 导入
+        // 导入时若 Excel 有此列则取导入值，否则按公式计算
+        { field: 'avg_output_per_worker', label: '人均产值', type: 'number', calc: true, importable: true },
+        { field: 'planned_wage_tax', label: '计划总工资含*1.13', type: 'number', input: true, expense: false,
+          aliases: ['计划工资含税'] },
+        { field: 'actual_wage', label: '实际总工资', type: 'number', input: true, expense: true,
+          aliases: ['实际工资'] },
+        { field: 'workshop_repair', label: '车间维修费', type: 'number', input: true, expense: true,
+          aliases: ['车间维修'] },
+        { field: 'electrical_repair', label: '机电部维修费', type: 'number', input: true, expense: true,
+          aliases: ['电工维修'] },
+        { field: 'workshop_materials', label: '车间物料费', type: 'number', input: true, expense: true,
+          aliases: ['车间物料'] },
+        { field: 'stretch_film', label: '拉伸膜', type: 'number', input: true, expense: true },
+        { field: 'supplement', label: '补料', type: 'number', input: true, expense: true },
+        { field: 'housing_subsidy', label: '外宿补贴', type: 'number', input: true, expense: true,
+          aliases: ['住房补贴'] },
+        { field: 'recoverable_electricity', label: '可回收电费', type: 'number', input: true, expense: false },
+        { field: 'tape', label: '胶纸', type: 'number', input: true, expense: true,
+          aliases: ['胶带'] },
+        { field: 'borrowed_worker_wage', label: '外借人员工资', type: 'number', input: true, expense: true,
+          aliases: ['借调工人工资'] },
+        { field: 'workshop_tool_investment', label: '车间工具投资', type: 'number', input: true, expense: true },
+        // calc: true — 计算字段
+        { field: 'balance_minus_tape', label: '结余减胶纸', type: 'number', calc: true,
+          skipAliases: ['结余减胶纸'] },
+        { field: 'balance_tape_ratio', label: '减胶纸后结余占计划工资%', type: 'ratio', calc: true,
+          skipAliases: ['减胶纸后结余占计划工资%'] },
+        { field: 'tool_invest_ratio', label: '工具投资占计划工资%', type: 'ratio', calc: true,
+          skipAliases: ['工具投资占计划工资%'] },
+        { field: 'borrowed_wage_ratio', label: '外借人员工资占计划工资%', type: 'ratio', calc: true,
+          skipAliases: ['外借人员工资占计划工资%'] },
+      ]
+    },
   }
 };
 ```
 
-### 3.2 aliases 和 skipAliases 说明
+### 3.2 字段标记和别名系统
 
-- `aliases`：Excel 导入时，这些中文列名都映射到同一个英文字段（替代 COLUMN_MAP 的多对一映射）
-- `skipAliases`：Excel 导入时，这些列名应被跳过（计算字段，不需要导入）
-- 字段的 `label` 本身也自动作为 alias（不需要重复写）
+**字段标记：**
 
-### 3.3 从对象数组推导出旧格式
+| 标记 | 含义 | 示例 |
+|------|------|------|
+| `input: true` | 用户可输入的字段 | 员工人数、房租 |
+| `expense: true` | 参与结余扣减的费用项 | 房租、工资（expense 必须同时是 input） |
+| `calc: true` | 公式计算字段，不可输入 | 开机率、结余% |
+| `calc: true, importable: true` | 计算字段，但 Excel 导入时可覆盖 | 装配部的人均产值 |
+
+**别名系统：**
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `label` | 字段主名称，自动作为导入别名 | `'房租'` → `rent` |
+| `aliases` | 同一字段在 Excel 中的其他列名 | `['湖南社保']` → `social_insurance` |
+| `skipAliases` | 计算字段在 Excel 中的列名，导入时跳过 | `['开机率']` → `_skip_calc` |
+
+**部门特有的共享字段别名（`sharedFieldAliases`）：**
+
+不同部门的 Excel 表头对同一个共享字段可能叫法不同。例如：
+- 印喷 Excel 用 `'工具'` 指代共享字段 `tool_investment`（其他部门叫 `'工具投资'`）
+- 装配 Excel 用 `'夹具部工具投资'` 指代共享字段 `tool_investment`
+
+这些部门特有别名放在 `departments.xxx.sharedFieldAliases` 中，兼容层生成 COLUMN_MAP 时合并。
+
+**`importable` 标记说明：**
+
+装配部的 `avg_output_per_worker`（人均产值）比较特殊：
+- 它是计算字段（`calc: true`），正常情况下由公式推导
+- 但在 Excel 导入时，`'人均产值'` 列的值应导入到该字段（`importable: true`）
+- 兼容层处理：`importable: true` 的计算字段，其 label 生成普通映射（非 `_skip_calc`）
+
+### 3.3 structuralFields 说明
+
+`structuralFields` 定义每条记录必有的非数据字段（日期、车间、备注）。它们：
+- 不参与任何计算
+- 不出现在 `input/expense/calc` 字段列表中
+- 但需要在 COLUMN_MAP 中映射（Excel 导入时识别这些列）
+- `remark` 会被 `getAllInputFields()` 自动追加到末尾（保持现有行为）
+
+### 3.4 从对象数组推导出旧格式
 
 兼容层通过 filter + map 推导：
 
 ```
-input: true 的字段  →  uniqueInputFields 数组
-expense: true 的字段  →  uniqueExpenseFields 数组
-calc: true 的字段  →  uniqueCalcFields 数组
-所有 aliases  →  COLUMN_MAP 对象
-所有 skipAliases  →  COLUMN_MAP 中的 '_skip_calc' 条目
+structuralFields          →  COLUMN_MAP 中的 record_date/workshop_name/remark 映射
+input: true 的字段        →  uniqueInputFields 数组
+expense: true 的字段      →  uniqueExpenseFields 数组
+calc: true 的字段         →  uniqueCalcFields 数组
+所有 aliases              →  COLUMN_MAP 对象
+所有 skipAliases          →  COLUMN_MAP 中的 '_skip_calc' 条目
+sharedFieldAliases        →  COLUMN_MAP 对象（按部门合并）
+importable 的 calc 字段   →  COLUMN_MAP 中的普通映射（非 _skip_calc）
 ```
+
+**注意：** `getColumnMap(moduleKey)` 不按部门区分——它合并所有部门的别名到同一个 map。这与当前 COLUMN_MAP 行为一致（一个全局 map，所有部门共用）。部门特有别名不会冲突，因为不同部门的 Excel 列名不同。
 
 ## 4. modules/index.js 兼容层
 
@@ -278,10 +440,10 @@ REVERSE_COLUMN_MAP 的生成逻辑保持不变（已在模块外，从 COLUMN_MA
 
 ## 10. 未来扩展路径
 
-新增模块（如人数统计）时：
+新增模块时（具体模块待用户确认，以下为结构示例）：
 
-1. 创建 `modules/headcount/config.js`（定义字段和别名）
-2. 创建 `modules/headcount/calc.js`（定义计算公式）
+1. 创建 `modules/<模块名>/config.js`（定义字段和别名）
+2. 创建 `modules/<模块名>/calc.js`（定义计算公式）
 3. 在 `modules/index.js` 注册新模块
 4. 数据库新建对应的表
 5. 前端 `app.js` 添加对应的 UI 配置（等做了 API 下发后这步也可省略）
