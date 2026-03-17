@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS workshops (
   name VARCHAR(100) NOT NULL,
   region VARCHAR(50) NOT NULL,
   department VARCHAR(50),
+  company VARCHAR(100),
   sort_order INT DEFAULT 0,
   status VARCHAR(20) DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT NOW()

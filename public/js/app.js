@@ -319,7 +319,8 @@ const DeptRecordsPage = {
           <el-table-column prop="record_date" label="日期" width="110" fixed="left" sortable>
             <template #default="{ row }">{{ row.record_date ? row.record_date.substring(0, 10) : '' }}</template>
           </el-table-column>
-          <el-table-column prop="workshop" label="车间" width="80" fixed="left" />
+          <!-- BUG-02: prop 对齐后端 w.name AS workshop_name -->
+          <el-table-column prop="workshop_name" label="车间" width="80" fixed="left" />
           <el-table-column v-for="col in columns" :key="col.field" :prop="col.field"
                            :label="col.shortLabel || col.label"
                            :width="getColumnWidth(col)" :min-width="getColumnWidth(col)"
@@ -337,7 +338,7 @@ const DeptRecordsPage = {
                        @input="limitDecimals($event)"
                        autofocus
                        :type="col.type === 'text' ? 'text' : 'text'"
-                       style="width:100%; border:2px solid #7F41C0; outline:none; padding:0 4px; font-size:13px; text-align:right; background:#fff;" />
+                       style="width:100%; border:2px solid var(--primary); outline:none; padding:0 4px; font-size:13px; text-align:right; background:#fff;" />
               </div>
               <div v-else @dblclick="startEdit(row, col)"
                    :class="getCellClasses(row, col)"
@@ -959,11 +960,10 @@ const UserManagementPage = {
               <el-option label="录入员" value="entry" />
             </el-select>
           </el-form-item>
+          <!-- BUG-09: 硬编码部门下拉改为动态生成 -->
           <el-form-item label="部门">
             <el-select v-model="userForm.department" clearable style="width:100%">
-              <el-option label="啤机部" value="beer" />
-              <el-option label="印喷部" value="print" />
-              <el-option label="装配部" value="assembly" />
+              <el-option v-for="(label, key) in ALL_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -988,11 +988,10 @@ const UserManagementPage = {
               <el-option label="录入员" value="entry" />
             </el-select>
           </el-form-item>
+          <!-- BUG-09: 硬编码部门下拉改为动态生成 -->
           <el-form-item label="部门">
             <el-select v-model="editForm.department" clearable style="width:100%">
-              <el-option label="啤机部" value="beer" />
-              <el-option label="印喷部" value="print" />
-              <el-option label="装配部" value="assembly" />
+              <el-option v-for="(label, key) in ALL_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -1048,7 +1047,8 @@ const UserManagementPage = {
       userForm: { username: '', name: '', password: '', role: 'entry', department: '' },
       editForm: { id: null, username: '', name: '', role: '', department: '' },
       resetPwdForm: { id: null, username: '', password: '' },
-      moduleForm: { id: null, name: '', modules: [] }
+      moduleForm: { id: null, name: '', modules: [] },
+      ALL_DEPARTMENTS // BUG-09: 暴露部门映射供模板动态渲染
     };
   },
   created() {
@@ -1335,7 +1335,8 @@ const DataLocks = {
             {{ row.department ? (ALL_DEPARTMENTS[row.department] || row.department) : '全部' }}
           </template>
         </el-table-column>
-        <el-table-column prop="locked_by" label="锁定人" width="120" />
+        <!-- BUG-07: prop 对齐后端 u.name AS locked_by_name -->
+        <el-table-column prop="locked_by_name" label="锁定人" width="120" />
         <el-table-column prop="locked_at" label="锁定时间" width="180">
           <template #default="{ row }">{{ row.locked_at ? row.locked_at.substring(0, 19).replace('T', ' ') : '' }}</template>
         </el-table-column>
@@ -1352,10 +1353,10 @@ const DataLocks = {
             <el-date-picker v-model="lockForm.lock_month" type="month" placeholder="选择月份" value-format="YYYY-MM" style="width:100%" />
           </el-form-item>
           <el-form-item label="部门">
-            <el-select v-model="lockForm.dept" clearable placeholder="全部部门" style="width:100%">
-              <el-option label="啤机部" value="beer" />
-              <el-option label="印喷部" value="print" />
-              <el-option label="装配部" value="assembly" />
+            <!-- BUG-04: v-model 对齐后端字段名 department -->
+            <!-- BUG-08: 硬编码部门下拉改为动态生成 -->
+            <el-select v-model="lockForm.department" clearable placeholder="全部部门" style="width:100%">
+              <el-option v-for="(label, key) in ALL_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -1372,7 +1373,7 @@ const DataLocks = {
       loading: false,
       saving: false,
       lockDialogVisible: false,
-      lockForm: { lock_month: '', dept: '' },
+      lockForm: { lock_month: '', department: '' }, // BUG-04: 字段名对齐后端 req.body.department
       ALL_DEPARTMENTS
     };
   },
@@ -1392,7 +1393,8 @@ const DataLocks = {
       }
     },
     showLockDialog() {
-      this.lockForm = { lock_month: '', dept: '' };
+      // BUG-04: 字段名对齐后端 req.body.department
+      this.lockForm = { lock_month: '', department: '' };
       this.lockDialogVisible = true;
     },
     async handleLock() {

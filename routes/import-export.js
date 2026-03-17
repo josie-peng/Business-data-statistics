@@ -3,7 +3,7 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const router = express.Router();
 const { getAll, query } = require('../db/postgres');
-const { authenticate, checkDataLock } = require('../middleware/auth');
+const { authenticate, checkDataLock, modulePermission } = require('../middleware/auth');
 const { DEPT_CONFIG, getAllInputFields, getColumnMap } = require('../modules');
 const { calculateRecord } = require('../modules/balance/calc');
 const { logAction } = require('../middleware/audit');
@@ -26,7 +26,7 @@ Object.entries(COLUMN_MAP).forEach(([cn, en]) => {
 });
 
 // POST /api/:dept/import
-router.post('/:dept/import', authenticate, upload.single('file'), async (req, res) => {
+router.post('/:dept/import', authenticate, modulePermission('balance'), upload.single('file'), async (req, res) => {
   try {
     const { dept } = req.params;
     const config = DEPT_CONFIG[dept];

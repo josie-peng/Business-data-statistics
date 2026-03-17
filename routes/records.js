@@ -38,7 +38,7 @@ router.get('/:dept/records', authenticate, validateDept, asyncHandler(async (req
 }));
 
 // POST /api/:dept/records
-router.post('/:dept/records', authenticate, validateDept, checkDataLock, asyncHandler(async (req, res) => {
+router.post('/:dept/records', authenticate, modulePermission('balance'), validateDept, checkDataLock, asyncHandler(async (req, res) => {
   const { dept } = req.params;
   const config = DEPT_CONFIG[dept];
   const inputFields = getAllInputFields(dept);
@@ -68,7 +68,7 @@ router.post('/:dept/records', authenticate, validateDept, checkDataLock, asyncHa
 }));
 
 // PUT /api/:dept/records/:id
-router.put('/:dept/records/:id', authenticate, validateDept, checkDataLock, asyncHandler(async (req, res) => {
+router.put('/:dept/records/:id', authenticate, modulePermission('balance'), validateDept, checkDataLock, asyncHandler(async (req, res) => {
   const { dept, id } = req.params;
   const config = DEPT_CONFIG[dept];
   const old = await getOne(`SELECT * FROM ${config.tableName} WHERE id = ?`, [id]);
@@ -92,20 +92,8 @@ router.put('/:dept/records/:id', authenticate, validateDept, checkDataLock, asyn
   res.json({ success: true, data: updated });
 }));
 
-// DELETE /api/:dept/records/:id
-router.delete('/:dept/records/:id', authenticate, validateDept, asyncHandler(async (req, res) => {
-  const { dept, id } = req.params;
-  const config = DEPT_CONFIG[dept];
-  const old = await getOne(`SELECT * FROM ${config.tableName} WHERE id = ?`, [id]);
-  if (!old) return res.status(404).json({ success: false, message: '记录不存在' });
-
-  await query(`DELETE FROM ${config.tableName} WHERE id = ?`, [id]);
-  await logAction(req.user.id, req.user.name, 'delete', config.tableName, id, old, null);
-  res.json({ success: true });
-}));
-
-// DELETE /api/:dept/records/batch
-router.delete('/:dept/records/batch', authenticate, validateDept, asyncHandler(async (req, res) => {
+// DELETE /api/:dept/records/batch（必须在 /:id 之前注册，否则 "batch" 会被匹配为 :id）
+router.delete('/:dept/records/batch', authenticate, modulePermission('balance'), validateDept, asyncHandler(async (req, res) => {
   const { dept } = req.params;
   const { ids } = req.body;
   if (!ids || !ids.length) return res.status(400).json({ success: false, message: '请选择记录' });
@@ -121,11 +109,32 @@ router.delete('/:dept/records/batch', authenticate, validateDept, asyncHandler(a
   res.json({ success: true, deleted: ids.length });
 }));
 
+// DELETE /api/:dept/records/:id
+router.delete('/:dept/records/:id', authenticate, modulePermission('balance'), validateDept, checkDataLock, asyncHandler(async (req, res) => {
+  const { dept, id } = req.params;
+  const config = DEPT_CONFIG[dept];
+  const old = await getOne(`SELECT * FROM ${config.tableName} WHERE id = ?`, [id]);
+  if (!old) return res.status(404).json({ success: false, message: '记录不存在' });
+
+  await query(`DELETE FROM ${config.tableName} WHERE id = ?`, [id]);
+  await logAction(req.user.id, req.user.name, 'delete', config.tableName, id, old, null);
+  res.json({ success: true });
+}));
+
 // GET /api/:dept/summary
 router.get('/:dept/summary', authenticate, validateDept, asyncHandler(async (req, res) => {
   const { dept } = req.params;
   const config = DEPT_CONFIG[dept];
   const { start_date, end_date } = req.query;
+
+  // 从 DEPT_CONFIG 获取部门独有字段，动态生成 SUM 子句
+  const uniqueInputFields = config.uniqueInputFields || [];
+  const uniqueExpenseFields = config.uniqueExpenseFields || [];
+  // 合并独有输入字段和独有费用字段（去重）
+  const allUniqueFields = [...new Set([...uniqueInputFields, ...uniqueExpenseFields])];
+  const uniqueSumClauses = allUniqueFields
+    .map(field => `SUM(r.${field}) as ${field}`)
+    .join(',\n             ');
 
   let sql = `SELECT w.name as workshop_name, w.region, w.id as workshop_id,
              SUM(r.supervisor_count) as supervisor_count,
@@ -142,7 +151,7 @@ router.get('/:dept/summary', authenticate, validateDept, asyncHandler(async (req
              SUM(r.shipping_fee) as shipping_fee,
              SUM(r.social_insurance) as social_insurance,
              SUM(r.tax) as tax,
-             SUM(r.balance) as balance
+             SUM(r.balance) as balance${uniqueSumClauses ? ',\n             ' + uniqueSumClauses : ''}
              FROM ${config.tableName} r
              LEFT JOIN workshops w ON r.workshop_id = w.id
              WHERE 1=1`;

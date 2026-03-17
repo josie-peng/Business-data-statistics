@@ -16,19 +16,19 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
 }));
 
 router.post('/', authenticate, requireStats, asyncHandler(async (req, res) => {
-  const { name, region, department, sort_order } = req.body;
+  const { name, region, department, company, sort_order } = req.body;
   const result = await query(
-    'INSERT INTO workshops (name, region, department, sort_order) VALUES (?, ?, ?, ?) RETURNING *',
-    [name, region, department || null, sort_order || 0]
+    'INSERT INTO workshops (name, region, department, company, sort_order) VALUES (?, ?, ?, ?, ?) RETURNING *',
+    [name, region, department || null, company || null, sort_order || 0]
   );
   res.json({ success: true, data: result.rows[0] });
 }));
 
 router.put('/:id', authenticate, requireStats, asyncHandler(async (req, res) => {
-  const { name, region, department, sort_order, status } = req.body;
+  const { name, region, department, company, sort_order, status } = req.body;
   const result = await query(
-    'UPDATE workshops SET name = ?, region = ?, department = ?, sort_order = ?, status = ? WHERE id = ? RETURNING *',
-    [name, region, department || null, sort_order, status || 'active', req.params.id]
+    'UPDATE workshops SET name = ?, region = ?, department = ?, company = ?, sort_order = ?, status = ? WHERE id = ? RETURNING *',
+    [name, region, department || null, company || null, sort_order, status || 'active', req.params.id]
   );
   res.json({ success: true, data: result.rows[0] });
 }));
