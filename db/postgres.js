@@ -1,4 +1,8 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// 修复时区问题：让 DATE 类型(OID=1082) 直接返回 "2026-03-09" 字符串
+// 而不是转成 JS Date 对象（Date 对象会因 UTC 转换导致日期差一天）
+types.setTypeParser(1082, val => val);
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',

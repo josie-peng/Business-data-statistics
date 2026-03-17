@@ -27,10 +27,10 @@ const DEPT_CONFIG = {
     { field: 'recoverable_gate_fee', label: '可回收批水口费', shortLabel: '回收水口', editable: true, type: 'number' },
   ]},
   print: { key: 'print', name: '印喷部', uniqueFields: [
-    { field: 'pad_total_machines', label: '移印总台数', shortLabel: '移印台数', editable: true, type: 'integer' },
+    { field: 'pad_total_machines', label: '移印机总台数', shortLabel: '移印台数', editable: true, type: 'integer' },
     { field: 'pad_running_machines', label: '移印开机台数', shortLabel: '移印开机', editable: true, type: 'integer' },
     { field: 'pad_machine_rate', label: '移印开机率', shortLabel: '移印机率', editable: false, type: 'ratio', calculated: true, formula: '移印开机台数 / 移印总台数' },
-    { field: 'spray_total_machines', label: '喷油总台数', shortLabel: '喷油台数', editable: true, type: 'integer' },
+    { field: 'spray_total_machines', label: '喷油机总台数', shortLabel: '喷油台数', editable: true, type: 'integer' },
     { field: 'spray_running_machines', label: '喷油开机台数', shortLabel: '喷油开机', editable: true, type: 'integer' },
     { field: 'spray_machine_rate', label: '喷油开机率', shortLabel: '喷油机率', editable: false, type: 'ratio', calculated: true, formula: '喷油开机台数 / 喷油总台数' },
     { field: 'misc_workers', label: '杂工人数', shortLabel: '杂工人数', editable: true, type: 'integer' },
@@ -90,6 +90,8 @@ const ALL_DEPARTMENTS = {
   electronic: '电子部', clothing: '车衣部',
   blister: '吸塑', bags: '胶袋', color_mixing: '配色'
 };
+// 三工结余模块的3个部门（数据锁定等仅限此范围）
+const BALANCE_DEPARTMENTS = { beer: '啤机部', print: '印喷部', assembly: '装配部' };
 
 // ===== 共享字段分组（shortLabel=表头简称，label=全称，双击表头显示全称+公式） =====
 const SHARED_PEOPLE = [
@@ -1332,7 +1334,7 @@ const DataLocks = {
         <el-table-column prop="lock_month" label="锁定月份" width="140" />
         <el-table-column prop="department" label="部门" width="120">
           <template #default="{ row }">
-            {{ row.department ? (ALL_DEPARTMENTS[row.department] || row.department) : '全部' }}
+            {{ row.department ? (BALANCE_DEPARTMENTS[row.department] || row.department) : '全部' }}
           </template>
         </el-table-column>
         <!-- BUG-07: prop 对齐后端 u.name AS locked_by_name -->
@@ -1356,7 +1358,7 @@ const DataLocks = {
             <!-- BUG-04: v-model 对齐后端字段名 department -->
             <!-- BUG-08: 硬编码部门下拉改为动态生成 -->
             <el-select v-model="lockForm.department" clearable placeholder="全部部门" style="width:100%">
-              <el-option v-for="(label, key) in ALL_DEPARTMENTS" :key="key" :label="label" :value="key" />
+              <el-option v-for="(label, key) in BALANCE_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -1373,8 +1375,8 @@ const DataLocks = {
       loading: false,
       saving: false,
       lockDialogVisible: false,
-      lockForm: { lock_month: '', department: '' }, // BUG-04: 字段名对齐后端 req.body.department
-      ALL_DEPARTMENTS
+      lockForm: { lock_month: '', department: '' },
+      BALANCE_DEPARTMENTS
     };
   },
   created() {

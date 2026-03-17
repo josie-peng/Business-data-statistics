@@ -12,18 +12,48 @@ const asyncHandler = require('../utils/async-handler');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // 清理列名：去换行、多余空格、冒号、全角半角括号统一
+// 人工编辑的 Excel 表头不规范：可能含换行、多余空格、全角符号等
 function cleanColumnName(name) {
-  return String(name).replace(/[\r\n]+/g, '').replace(/\s+/g, '').replace(/[:：]+$/, '').trim();
+  return String(name)
+    .replace(/[\r\n]+/g, '')   // 去换行
+    .replace(/\s+/g, '')       // 去所有空格
+    .replace(/[:：]+$/, '')    // 去尾部冒号
+    .replace(/（/g, '(').replace(/）/g, ')')  // 全角括号→半角
+    .replace(/，/g, ',')       // 全角逗号→半角
+    .trim();
 }
 
 // 从模块配置自动生成 COLUMN_MAP
 const COLUMN_MAP = getColumnMap('balance');
+
+// 预构建"归一化"映射表：把所有 COLUMN_MAP 的 key 也做 cleanColumnName 处理
+// 这样即使 config 里的 label 带全角括号，导入时也能匹配
+const NORMALIZED_MAP = {};
+Object.entries(COLUMN_MAP).forEach(([cn, en]) => {
+  const normalized = cleanColumnName(cn);
+  if (!NORMALIZED_MAP[normalized]) NORMALIZED_MAP[normalized] = en;
+});
 
 // 预计算反向映射（英文字段名 → 中文列名），用于导出
 const REVERSE_COLUMN_MAP = {};
 Object.entries(COLUMN_MAP).forEach(([cn, en]) => {
   if (!REVERSE_COLUMN_MAP[en]) REVERSE_COLUMN_MAP[en] = cn; // 保留第一个映射，避免覆盖
 });
+
+// 匹配 Excel 列名到数据库字段名
+// 尝试顺序：精确匹配 → 清理后匹配 → 归一化映射匹配
+function matchColumn(rawKey) {
+  // 1. 精确匹配（原始列名 trim 后）
+  const trimmed = rawKey.trim();
+  if (COLUMN_MAP[trimmed]) return COLUMN_MAP[trimmed];
+  // 2. 清理后匹配（去换行、空格、全角符号）
+  const cleaned = cleanColumnName(rawKey);
+  if (COLUMN_MAP[cleaned]) return COLUMN_MAP[cleaned];
+  // 3. 归一化映射匹配
+  if (NORMALIZED_MAP[cleaned]) return NORMALIZED_MAP[cleaned];
+  // 4. 未匹配，返回清理后的原始名（后续会被忽略，因为不在 allFields 中）
+  return cleaned;
+}
 
 // POST /api/:dept/import
 router.post('/:dept/import', authenticate, modulePermission('balance'), upload.single('file'), async (req, res) => {
@@ -33,7 +63,8 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
     if (!config) return res.status(400).json({ success: false, message: '无效部门' });
     if (!req.file) return res.status(400).json({ success: false, message: '请上传文件' });
 
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    // 不使用 cellDates:true，避免时区偏差导致日期差一天
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     // defval: null ensures empty cells are included; blankrows:false skips empty rows
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, blankrows: false });
@@ -55,13 +86,19 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
       const raw = rows[i];
       const record = {};
 
+      const unmapped = []; // 记录未匹配的列名，用于调试
       Object.keys(raw).forEach(key => {
-        const cleaned = cleanColumnName(key);
-        const mapped = COLUMN_MAP[cleaned] || COLUMN_MAP[key.trim()] || cleaned;
-        if (mapped !== '_skip_calc' && mapped !== '_beer_tool_extra') {
-          record[mapped] = raw[key];
+        const mapped = matchColumn(key);
+        if (mapped === '_skip_calc' || mapped === '_beer_tool_extra') return;
+        // 如果映射结果是中文（未找到英文字段名），记录为未匹配
+        if (/[\u4e00-\u9fa5]/.test(mapped)) {
+          unmapped.push(`"${cleanColumnName(key)}" → 未匹配`);
         }
+        record[mapped] = raw[key];
       });
+      if (i === 0 && unmapped.length > 0) {
+        console.log(`[Import] 第1行未匹配的列:`, unmapped);
+      }
 
       // Skip summary/total rows (合计行)
       const wsName = record.workshop_name;
@@ -69,21 +106,22 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
         continue;
       }
 
-      // Parse date: handle "2026/3/3周二" or Date objects or "2026-03-03" strings
-      if (record.record_date instanceof Date) {
-        record.record_date = record.record_date.toISOString().split('T')[0];
+      // 解析日期：Excel 序列号 / 字符串 "2026/3/3周二" / Date 对象
+      if (typeof record.record_date === 'number') {
+        // Excel 日期序列号 → 用 SSF.parse_date_code 直接解析，无时区偏差
+        const parsed = XLSX.SSF.parse_date_code(record.record_date);
+        record.record_date = `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+      } else if (record.record_date instanceof Date) {
+        // Date 对象 → 用本地时间避免 UTC 时区偏差
+        const d = record.record_date;
+        record.record_date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       } else if (typeof record.record_date === 'string') {
-        // Strip weekday suffix like "周二", "星期二"
+        // 字符串 → 去掉"周二"等后缀，解析日期格式
         let dateStr = record.record_date.replace(/[周星期][一二三四五六日天]/g, '').trim();
-        // Try parsing "2026/3/3" format
         const parts = dateStr.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
         if (parts) {
           record.record_date = `${parts[1]}-${parts[2].padStart(2, '0')}-${parts[3].padStart(2, '0')}`;
         }
-      } else if (typeof record.record_date === 'number') {
-        // Excel serial date number
-        const d = new Date((record.record_date - 25569) * 86400000);
-        record.record_date = d.toISOString().split('T')[0];
       }
 
       // Map workshop name to ID
@@ -113,6 +151,8 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
       }
     }
 
+    console.log(`[Import] 结果: 成功 ${inserted.length} 条, 失败 ${errors.length} 条`);
+    if (errors.length > 0) console.log(`[Import] 错误详情:`, errors);
     await logAction(req.user.id, req.user.name, 'import', config.tableName, null, null, { count: inserted.length });
     const errMsg = errors.length > 0 ? `\n问题行: ${errors.join('; ')}` : '';
     res.json({ success: true, count: inserted.length, imported: inserted.length, errors,

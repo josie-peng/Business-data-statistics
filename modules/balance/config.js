@@ -102,14 +102,14 @@ module.exports = {
       },
       uniqueFields: [
         // 台数组
-        { field: 'pad_total_machines', label: '移印总台数', type: 'integer', input: true, expense: false,
-          aliases: ['移印总台数'] },
+        { field: 'pad_total_machines', label: '移印机总台数', type: 'integer', input: true, expense: false,
+          aliases: ['移印总台数', '移印机总台数'] },
         { field: 'pad_running_machines', label: '每天开机台数', type: 'integer', input: true, expense: false,
           aliases: ['移印开机台数'] },
         { field: 'pad_machine_rate', label: '移印开机率', type: 'ratio', calc: true,
           skipAliases: ['开机率'] },
-        { field: 'spray_total_machines', label: '喷油总台数', type: 'integer', input: true, expense: false,
-          aliases: ['喷油总台数'] },
+        { field: 'spray_total_machines', label: '喷油机总台数', type: 'integer', input: true, expense: false,
+          aliases: ['喷油总台数', '喷油机总台数'] },
         { field: 'spray_running_machines', label: '每天开机台数_1', type: 'integer', input: true, expense: false },
         { field: 'spray_machine_rate', label: '喷油开机率', type: 'ratio', calc: true,
           skipAliases: ['开机率_1'] },
