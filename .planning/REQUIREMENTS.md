@@ -86,39 +86,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | — | Pending |
-| BUG-02 | — | Pending |
-| BUG-03 | — | Pending |
-| BUG-04 | — | Pending |
-| BUG-05 | — | Pending |
-| BUG-06 | — | Pending |
-| BUG-07 | — | Pending |
-| BUG-08 | — | Pending |
-| BUG-09 | — | Pending |
-| BUG-10 | — | Pending |
-| BUG-11 | — | Pending |
-| BUG-12 | — | Pending |
-| ENTRY-01 | — | Pending |
-| ENTRY-02 | — | Pending |
-| ENTRY-03 | — | Pending |
-| VALID-01 | — | Pending |
-| VALID-02 | — | Pending |
-| VALID-03 | — | Pending |
-| VALID-04 | — | Pending |
-| IMPEX-01 | — | Pending |
-| IMPEX-02 | — | Pending |
-| IMPEX-03 | — | Pending |
-| ADMIN-01 | — | Pending |
-| ADMIN-02 | — | Pending |
-| ADMIN-03 | — | Pending |
-| ADMIN-04 | — | Pending |
-| ADMIN-05 | — | Pending |
+| BUG-01 | Phase 1 | Pending |
+| BUG-02 | Phase 1 | Pending |
+| BUG-03 | Phase 1 | Pending |
+| BUG-04 | Phase 1 | Pending |
+| BUG-05 | Phase 1 | Pending |
+| BUG-06 | Phase 1 | Pending |
+| BUG-07 | Phase 1 | Pending |
+| BUG-08 | Phase 1 | Pending |
+| BUG-09 | Phase 1 | Pending |
+| BUG-10 | Phase 1 | Pending |
+| BUG-11 | Phase 1 | Pending |
+| BUG-12 | Phase 1 | Pending |
+| ENTRY-01 | Phase 2 | Pending |
+| ENTRY-02 | Phase 2 | Pending |
+| ENTRY-03 | Phase 2 | Pending |
+| VALID-01 | Phase 3 | Pending |
+| VALID-02 | Phase 3 | Pending |
+| VALID-03 | Phase 3 | Pending |
+| VALID-04 | Phase 3 | Pending |
+| IMPEX-01 | Phase 4 | Pending |
+| IMPEX-02 | Phase 4 | Pending |
+| IMPEX-03 | Phase 4 | Pending |
+| ADMIN-01 | Phase 5 | Pending |
+| ADMIN-02 | Phase 5 | Pending |
+| ADMIN-03 | Phase 5 | Pending |
+| ADMIN-04 | Phase 5 | Pending |
+| ADMIN-05 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 0
-- Unmapped: 27 ⚠️
+- Mapped to phases: 27
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-17*
-*Last updated: 2026-03-17 after initial definition*
+*Last updated: 2026-03-17 after roadmap creation — all 27 requirements mapped*
