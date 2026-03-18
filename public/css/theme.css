@@ -222,9 +222,10 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   color: #fff !important;
   font-weight: 600;
   font-size: 12px;
-  height: 30px !important;
-  padding: 0 6px !important;
-  line-height: 30px;
+  height: 32px !important;
+  padding: 0 4px !important;
+  line-height: 32px;
+  white-space: nowrap;
 }
 /* 计算字段表头：紫色（通过 header-cell-class-name 函数添加） */
 .el-table th.el-table__cell.th-calc {
@@ -239,11 +240,12 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .el-table .el-table__body tr:hover > td.el-table__cell {
   background: rgba(112, 48, 160, 0.06) !important;
 }
-/* 数据行高 28px */
+/* 数据行高 30px */
 .el-table td.el-table__cell {
-  height: 28px !important;
-  padding: 0 8px !important;
-  line-height: 28px;
+  height: 30px !important;
+  padding: 0 4px !important;
+  line-height: 30px;
+  white-space: nowrap;
 }
 
 /* 可编辑单元格 */
@@ -253,14 +255,27 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   position: relative;
 }
 .cell-editable:hover { background: #FFF9C4 !important; }
+/* 编辑状态：绝对定位撑满整个 td 单元格 */
+.editing-cell-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+}
 .cell-editable input {
   width: 100%;
-  border: 2px solid var(--primary-light);
-  border-radius: 3px;
-  padding: 2px 4px;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  padding: 0 4px;
   font-size: 13px;
-  outline: none;
+  text-align: right;
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
   background: #fff;
+  box-sizing: border-box;
 }
 
 /* 计算字段单元格 */
@@ -417,6 +432,19 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .amount-positive { color: var(--detail-header); }
 .amount-negative { color: var(--danger); }
 .ratio { text-align: right; }
+
+/* 新增行高亮 — 淡紫色背景，3秒渐隐动画 */
+.el-table .new-row-highlight td {
+  animation: row-highlight-fade 3s ease forwards;
+}
+@keyframes row-highlight-fade {
+  0% { background-color: #F0E6F6; }
+  100% { background-color: transparent; }
+}
+
+/* ===== 拖拽排序 ===== */
+.drag-handle:hover { cursor: grabbing; color: var(--primary) !important; }
+.sortable-ghost { background: #F0E6F6 !important; opacity: 0.7; }
 
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {

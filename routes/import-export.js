@@ -4,7 +4,7 @@ const XLSX = require('xlsx');
 const router = express.Router();
 const { getAll, query } = require('../db/postgres');
 const { authenticate, checkDataLock, modulePermission } = require('../middleware/auth');
-const { DEPT_CONFIG, getAllInputFields, getColumnMap } = require('../modules');
+const { DEPT_CONFIG, getAllInputFields, getColumnMap, getExportLabelMap } = require('../modules');
 const { calculateRecord } = require('../modules/balance/calc');
 const { logAction } = require('../middleware/audit');
 const asyncHandler = require('../utils/async-handler');
@@ -35,10 +35,8 @@ Object.entries(COLUMN_MAP).forEach(([cn, en]) => {
 });
 
 // 预计算反向映射（英文字段名 → 中文列名），用于导出
-const REVERSE_COLUMN_MAP = {};
-Object.entries(COLUMN_MAP).forEach(([cn, en]) => {
-  if (!REVERSE_COLUMN_MAP[en]) REVERSE_COLUMN_MAP[en] = cn; // 保留第一个映射，避免覆盖
-});
+// 使用 getExportLabelMap 覆盖所有字段（含计算字段），确保导出表头全部为中文
+const REVERSE_COLUMN_MAP = getExportLabelMap('balance');
 
 // 匹配 Excel 列名到数据库字段名
 // 尝试顺序：精确匹配 → 清理后匹配 → 归一化映射匹配
@@ -131,7 +129,7 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
         continue;
       }
 
-      const calculated = calculateRecord(dept, record);
+      const calculated = await calculateRecord(dept, record);
       calculated.created_by = req.user.id;
       calculated.updated_by = req.user.id;
 

@@ -315,6 +315,7 @@ const DeptRecordsPage = {
         <el-table :data="tableData" border stripe height="500" style="width:100%"
                   @selection-change="handleSelectionChange" :row-key="row => row.id"
                   :header-cell-class-name="headerCellClass"
+                  :row-class-name="getRowClass"
                   v-loading="loading" ref="dataTable">
           <el-table-column type="selection" width="40" fixed="left" />
           <el-table-column type="index" label="序号" width="50" fixed="left" />
@@ -333,16 +334,14 @@ const DeptRecordsPage = {
               </span>
             </template>
             <template #default="{ row }">
-              <div v-if="isEditing(row.id, col.field) && col.editable" style="padding:0">
+              <div v-if="isEditing(row.id, col.field) && col.editable" class="editing-cell-wrapper">
                 <input :value="row[col.field]" @blur="saveCell(row, col.field, $event)"
                        @keyup.enter="$event.target.blur()"
                        @keyup.escape="cancelEdit"
                        @input="limitDecimals($event)"
-                       autofocus
-                       :type="col.type === 'text' ? 'text' : 'text'"
-                       style="width:100%; border:2px solid var(--primary); outline:none; padding:0 4px; font-size:13px; text-align:right; background:#fff;" />
+                       autofocus />
               </div>
-              <div v-else @dblclick="startEdit(row, col)"
+              <div v-else @click="startEdit(row, col)"
                    :class="getCellClasses(row, col)"
                    :style="{ cursor: col.editable ? 'text' : 'default', padding: '0 4px' }">
                 <template v-if="col.field === 'balance'">
@@ -406,25 +405,22 @@ const DeptRecordsPage = {
         </div>
       </div>
 
-      <!-- 新增对话框 -->
-      <el-dialog v-model="addDialogVisible" title="新增记录" width="600px" destroy-on-close>
-        <el-form :model="addForm" label-width="110px" size="default">
+      <!-- 新增记录迷你弹窗（只填日期和车间，创建后行内编辑） -->
+      <el-dialog v-model="addDialogVisible" title="新增记录" width="320px" destroy-on-close>
+        <el-form :model="addForm" label-width="60px" size="default">
           <el-form-item label="日期" required>
-            <el-date-picker v-model="addForm.record_date" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width:100%" />
+            <el-date-picker v-model="addForm.record_date" type="date" placeholder="选择日期"
+                             value-format="YYYY-MM-DD" style="width:100%" />
           </el-form-item>
           <el-form-item label="车间" required>
             <el-select v-model="addForm.workshop_id" placeholder="选择车间" style="width:100%">
               <el-option v-for="w in workshopList" :key="w.id" :label="w.name" :value="w.id" />
             </el-select>
           </el-form-item>
-          <el-form-item v-for="col in editableColumns" :key="'add-'+col.field" :label="col.label">
-            <el-input v-model="addForm[col.field]" :type="col.type === 'text' ? 'text' : 'text'"
-                       :placeholder="'输入' + col.label" />
-          </el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="addDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleAdd" :loading="saving">保存</el-button>
+          <el-button type="primary" @click="handleAdd" :loading="saving">确认创建</el-button>
         </template>
       </el-dialog>
     </div>
@@ -442,6 +438,7 @@ const DeptRecordsPage = {
       isDragging: false,
       addDialogVisible: false,
       addForm: {},
+      newRowId: null,  // 最近新增的行ID，用于高亮显示
       summaryData: null,
       workshopList: []
     };
@@ -519,6 +516,9 @@ const DeptRecordsPage = {
     handleSelectionChange(rows) {
       this.selectedRows = rows;
     },
+    getRowClass({ row }) {
+      return row.id === this.newRowId ? 'new-row-highlight' : '';
+    },
     // 表头样式：计算字段列加 th-calc 类
     headerCellClass({ column }) {
       const col = this.columns.find(c => c.field === column.property);
@@ -530,6 +530,11 @@ const DeptRecordsPage = {
     startEdit(row, col) {
       if (!col.editable) return;
       this.editingCell = { rowId: row.id, field: col.field };
+      // autofocus 对动态创建的 input 无效，需手动聚焦
+      this.$nextTick(() => {
+        const input = this.$el.querySelector('.editing-cell-wrapper input');
+        if (input) input.focus();
+      });
     },
     cancelEdit() {
       this.editingCell = { rowId: null, field: null };
@@ -583,9 +588,7 @@ const DeptRecordsPage = {
     },
     getColumnWidth(col) {
       if (col.field === 'remark') return 120;
-      if (col.type === 'ratio') return 80;
-      if (col.type === 'integer') return 85;
-      return 110;
+      return 85; // 统一列宽 85px
     },
     getColumnClass(col) {
       if (col.calculated) return 'cell-calculated';
@@ -610,10 +613,8 @@ const DeptRecordsPage = {
       return val || '';
     },
     showAddDialog() {
+      // 迷你弹窗只需日期和车间，其他字段创建后行内编辑
       this.addForm = { record_date: formatDate(new Date()), workshop_id: '' };
-      this.editableColumns.forEach(c => {
-        if (!(c.field in this.addForm)) this.addForm[c.field] = '';
-      });
       this.addDialogVisible = true;
     },
     async handleAdd() {
@@ -623,10 +624,26 @@ const DeptRecordsPage = {
       }
       this.saving = true;
       try {
-        await API.post(`/${this.dept}/records`, this.addForm);
+        // POST 只发日期和车间，后端会把数值字段默认为 0
+        const res = await API.post(`/${this.dept}/records`, this.addForm);
         this.addDialogVisible = false;
         ElementPlus.ElMessage.success('新增成功');
         await this.loadData();
+        // 自动进入新行第一个可编辑单元格的编辑模式
+        const newId = res.data?.id;
+        if (newId) {
+          // 高亮新行，3秒后消除
+          this.newRowId = newId;
+          setTimeout(() => { this.newRowId = null; }, 4000); // 动画3秒，4秒后清除class
+          const firstEditable = this.columns.find(c => c.editable);
+          if (firstEditable) {
+            this.editingCell = { rowId: newId, field: firstEditable.field };
+            this.$nextTick(() => {
+              const input = this.$el?.querySelector('.data-table-wrapper input');
+              if (input) input.focus();
+            });
+          }
+        }
       } catch (err) {
         ElementPlus.ElMessage.error('新增失败: ' + (err.message || '未知错误'));
       } finally {
@@ -1170,6 +1187,9 @@ const SettingsPage = {
   template: `
     <div class="settings-page">
       <el-tabs v-model="activeTab" type="border-card">
+        <el-tab-pane label="公式配置" name="formulas">
+          <formula-config />
+        </el-tab-pane>
         <el-tab-pane label="车间管理" name="workshops">
           <workshop-settings />
         </el-tab-pane>
@@ -1186,7 +1206,767 @@ const SettingsPage = {
     </div>
   `,
   data() {
-    return { activeTab: 'workshops' };
+    return { activeTab: 'formulas' };
+  }
+};
+
+// ===== 公式配置子组件 =====
+const FormulaConfig = {
+  template: `
+    <div>
+      <!-- 顶部选择栏 -->
+      <div style="display:flex; align-items:center; gap:16px; border-bottom:1px solid var(--border-color); padding-bottom:12px; margin-bottom:16px;">
+        <span style="font-size:14px; color:#666;">部门：</span>
+        <el-radio-group v-model="currentDept" size="default" @change="loadFormulas">
+          <el-radio-button v-for="(label, key) in BALANCE_DEPARTMENTS" :key="key" :value="key">{{ label }}</el-radio-button>
+        </el-radio-group>
+        <div style="flex:1"></div>
+        <el-button size="default" @click="showConstantsDialog" style="background:#5B9BD5; border-color:#5B9BD5; color:#fff;">常量配置</el-button>
+        <el-button type="success" size="default" @click="showRecalcDialog" style="background:#57B894; border-color:#57B894;">重算历史</el-button>
+        <el-button type="primary" size="default" @click="showAddDialog">新增公式</el-button>
+      </div>
+
+      <!-- 公式卡片列表 -->
+      <div v-loading="loading" style="min-height:200px;">
+        <div v-if="formulas.length === 0 && !loading" style="text-align:center; color:#999; padding:40px;">
+          暂无公式配置，请点击"新增公式"添加
+        </div>
+        <div ref="formulaList" style="display:flex; flex-direction:column; gap:12px;">
+          <div v-for="f in formulas" :key="f.id" class="formula-card"
+               :style="{ opacity: f.enabled ? 1 : 0.5, border: '1px solid var(--border-color)', borderRadius: '8px', padding: '16px', background: '#fff' }">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span class="drag-handle" style="cursor:grab; font-size:18px; color:#999;">≡</span>
+              <div style="flex:1;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                  <span style="font-weight:600; font-size:15px;">{{ f.field_label }}</span>
+                  <el-tag size="small" type="info">{{ f.field_key }}</el-tag>
+                  <el-tag size="small" :type="f.display_format === 'percent' ? 'warning' : (f.display_format === 'currency' ? 'success' : '')">
+                    {{ {number:'数字', percent:'百分比', currency:'金额'}[f.display_format] || f.display_format }}
+                  </el-tag>
+                  <el-tag v-if="!f.enabled" size="small" type="danger">已禁用</el-tag>
+                </div>
+                <!-- 可视化公式展示 -->
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:4px;">
+                  <template v-for="(token, idx) in parseFormulaTokens(f.formula_text)" :key="idx">
+                    <span v-if="token.type === 'field'" style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px;"
+                          :style="getFieldPillStyle(token.value)">
+                      {{ getFieldLabel(token.value) }}
+                    </span>
+                    <span v-else-if="token.type === 'op'" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#7F41C0; color:#fff; font-size:14px; font-weight:bold;">
+                      {{ token.value }}
+                    </span>
+                    <span v-else-if="token.type === 'func'" style="display:inline-block; padding:2px 8px; border-radius:12px; background:#e0f2f1; border:1px solid #80cbc4; font-size:12px; color:#00695c; font-weight:600;">
+                      {{ token.value }}
+                    </span>
+                    <span v-else-if="token.type === 'const'" style="display:inline-block; padding:2px 8px; border-radius:12px; background:#fff8e1; border:1px solid #ffe082; font-size:12px; color:#f57f17; font-weight:600;">
+                      {{ '$' + token.value }}
+                    </span>
+                    <span v-else style="font-size:13px; color:#666;">{{ token.value }}</span>
+                  </template>
+                </div>
+                <div style="margin-top:4px; font-size:12px; color:#999;">{{ f.formula_text }}</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <el-button size="small" @click="showEditDialog(f)">编辑</el-button>
+                <el-button size="small" :type="f.enabled ? 'warning' : 'success'" plain @click="toggleEnabled(f)">
+                  {{ f.enabled ? '禁用' : '启用' }}
+                </el-button>
+                <el-button size="small" type="danger" plain @click="handleDelete(f)" style="color:#E88EA0;">删除</el-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 编辑弹窗 -->
+      <el-dialog v-model="editVisible" :title="isEdit ? '编辑公式' : '新增公式'" width="720px" destroy-on-close>
+        <el-form :model="form" label-width="100px" size="default">
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="公式名称" required>
+                <el-input v-model="form.field_label" placeholder="如：结余金额" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="字段名" required>
+                <el-select v-model="form.field_key" style="width:100%" placeholder="搜索或选择字段" :disabled="isEdit" filterable @change="onFieldKeyChange">
+                  <el-option-group v-for="g in allFieldOptions" :key="g.label" :label="g.label">
+                    <el-option v-for="f in g.options" :key="f.field_key"
+                      :label="f.field_key + '（' + f.field_label + ' · ' + f.typeLabel + '）'" :value="f.field_key" />
+                  </el-option-group>
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="显示格式">
+                <el-select v-model="form.display_format" style="width:100%">
+                  <el-option label="数字" value="number" />
+                  <el-option label="百分比" value="percent" />
+                  <el-option label="金额" value="currency" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="小数位数">
+                <el-input-number v-model="form.decimal_places" :min="0" :max="6" style="width:100%" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <!-- 模式切换 -->
+          <div style="margin-bottom:12px; display:flex; gap:8px;">
+            <el-button :type="editMode === 'visual' ? 'primary' : 'default'" size="small" @click="editMode = 'visual'"
+                       :style="editMode === 'visual' ? 'background:#7F41C0; border-color:#7F41C0;' : ''">可视化模式</el-button>
+            <el-button :type="editMode === 'text' ? 'primary' : 'default'" size="small" @click="editMode = 'text'"
+                       :style="editMode === 'text' ? 'background:#7F41C0; border-color:#7F41C0;' : ''">文本模式</el-button>
+          </div>
+
+          <!-- 可视化编辑区 -->
+          <div v-if="editMode === 'visual'">
+            <!-- 公式展示区 -->
+            <div style="min-height:48px; padding:12px; border:2px dashed #7F41C0; border-radius:8px; margin-bottom:12px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; background:#faf5ff;">
+              <span v-if="formulaTokens.length === 0" style="color:#999;">点击下方字段或运算符构建公式</span>
+              <template v-for="(token, idx) in formulaTokens" :key="idx">
+                <span v-if="token.type === 'field'" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:12px; font-size:13px;"
+                      :style="getFieldPillStyle(token.value)">
+                  {{ getFieldLabel(token.value) }}
+                  <span style="cursor:pointer; margin-left:2px; font-size:11px;" @click="removeToken(idx)">&times;</span>
+                </span>
+                <span v-else-if="token.type === 'op'" style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; background:#7F41C0; color:#fff; font-size:16px; font-weight:bold; cursor:pointer;" @click="removeToken(idx)">
+                  {{ token.value }}
+                </span>
+                <span v-else-if="token.type === 'func'" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:12px; background:#e0f2f1; border:1px solid #80cbc4; font-size:13px; color:#00695c; font-weight:600; cursor:pointer;" @click="removeToken(idx)">
+                  {{ token.value }}
+                  <span style="font-size:11px;">&times;</span>
+                </span>
+                <span v-else-if="token.type === 'const'" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:12px; background:#fff8e1; border:1px solid #ffe082; font-size:13px; color:#f57f17; font-weight:600; cursor:pointer;" @click="removeToken(idx)">
+                  {{ '$' + token.value }}
+                  <span style="font-size:11px;">&times;</span>
+                </span>
+                <span v-else style="font-size:14px; color:#666; cursor:pointer;" @click="removeToken(idx)">{{ token.value }}</span>
+              </template>
+            </div>
+
+            <!-- 运算符按钮 -->
+            <div style="display:flex; gap:8px; margin-bottom:12px;">
+              <el-button v-for="op in ['+', '−', '×', '÷', '(', ')']" :key="op" size="small" circle
+                         style="background:#7F41C0; color:#fff; border-color:#7F41C0; font-size:16px; font-weight:bold;"
+                         @click="addOperator(op)">{{ op }}</el-button>
+              <el-button size="small" style="background:#00695c; color:#fff; border-color:#00695c;" @click="addSumFunction">SUM()</el-button>
+            </div>
+
+            <!-- 字段选择面板 -->
+            <div style="border:1px solid var(--border-color); border-radius:8px; max-height:300px; overflow-y:auto;">
+              <div style="padding:8px;">
+                <el-input v-model="fieldSearch" placeholder="搜索字段..." size="small" clearable prefix-icon="Search" />
+              </div>
+              <!-- 共享输入字段 -->
+              <div>
+                <div style="padding:6px 12px; background:#f5f0fa; border-bottom:1px solid #e0d4f0; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
+                  <span>共享输入字段</span>
+                  <span style="color:#999;">{{ filteredSharedInputFields.length }}</span>
+                </div>
+                <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
+                  <span v-for="f in filteredSharedInputFields" :key="f.field"
+                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32;"
+                        @click="addFieldToken(f.field)">{{ f.label || f.shortLabel }}</span>
+                </div>
+              </div>
+              <!-- 费用字段 -->
+              <div>
+                <div style="padding:6px 12px; background:#fdf0f0; border-bottom:1px solid #f0d4d4; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
+                  <span>费用字段</span>
+                  <span style="color:#999;">{{ filteredExpenseFields.length }}</span>
+                </div>
+                <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
+                  <span v-for="f in filteredExpenseFields" :key="f.field"
+                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#fff3e0; border:1px solid #ffe0b2; color:#e65100;"
+                        @click="addFieldToken(f.field)">{{ f.label || f.shortLabel }}</span>
+                </div>
+              </div>
+              <!-- 部门独有字段 -->
+              <div>
+                <div style="padding:6px 12px; background:#f0f8ff; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
+                  <span>部门独有字段</span>
+                  <span style="color:#999;">{{ filteredUniqueFields.length }}</span>
+                </div>
+                <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
+                  <span v-for="f in filteredUniqueFields" :key="f.field"
+                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#e3f2fd; border:1px solid #90caf9; color:#1565c0;"
+                        @click="addFieldToken(f.field)">{{ f.label || f.shortLabel }}</span>
+                </div>
+              </div>
+              <!-- 计算字段（可引用） -->
+              <div>
+                <div style="padding:6px 12px; background:#f0faf5; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
+                  <span>计算字段（可引用）</span>
+                  <span style="color:#999;">{{ filteredCalcFields.length }}</span>
+                </div>
+                <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
+                  <span v-for="f in filteredCalcFields" :key="f.field_key || f.field"
+                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#e3f2fd; border:1px solid #90caf9; color:#0d47a1;"
+                        @click="addFieldToken(f.field_key || f.field)">{{ f.field_label || f.label }}</span>
+                </div>
+              </div>
+              <!-- 常量 -->
+              <div v-if="constantNames.length > 0">
+                <div style="padding:6px 12px; background:#fff8e1; border-bottom:1px solid #ffe082; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
+                  <span>常量（按月生效）</span>
+                  <span style="color:#999;">{{ constantNames.length }}</span>
+                </div>
+                <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
+                  <span v-for="c in constantNames" :key="c.name"
+                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#fff8e1; border:1px solid #ffe082; color:#f57f17;"
+                        @click="addConstantToken(c.name)">{{ c.label + '（$' + c.name + '）' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 文本模式 -->
+          <div v-if="editMode === 'text'">
+            <el-input v-model="form.formula_text" type="textarea" :rows="3" placeholder="如：{daily_output} - SUM(expense)" />
+            <div style="margin-top:8px; padding:10px 12px; background:#faf5ff; border:1px solid #e0d4f0; border-radius:6px; font-size:12px; color:#666; line-height:1.8;">
+              <div style="font-weight:600; color:#7F41C0; margin-bottom:4px;">公式语法说明</div>
+              <div><code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">{字段名}</code> 引用字段，如 <code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">{daily_output}</code> = 总产值/天</div>
+              <div><code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">SUM(expense)</code> 自动求和所有费用字段</div>
+              <div>运算符：<code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">+</code> <code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">-</code> <code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">*</code> <code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">/</code> <code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">()</code>，可用数字常量如 <code style="background:#f0e6f6; padding:1px 4px; border-radius:3px;">1.13</code></div>
+              <div style="margin-top:4px; font-weight:600; color:#333;">常用模板：</div>
+              <div style="color:#444;">结余 = <code style="background:#e8f5e9; padding:1px 4px; border-radius:3px;">{daily_output} - SUM(expense)</code></div>
+              <div style="color:#444;">占比 = <code style="background:#e8f5e9; padding:1px 4px; border-radius:3px;">{mold_repair} / {daily_output}</code></div>
+              <div style="color:#444;">不含税 = <code style="background:#e8f5e9; padding:1px 4px; border-radius:3px;">{daily_output} / 1.13</code></div>
+              <div style="color:#444;">多字段求和占比 = <code style="background:#e8f5e9; padding:1px 4px; border-radius:3px;">({worker_wage} + {supervisor_wage}) / {daily_output}</code></div>
+              <div style="color:#444;">引用其他公式 = <code style="background:#e8f5e9; padding:1px 4px; border-radius:3px;">{balance} / {running_machines}</code></div>
+            </div>
+          </div>
+
+          <!-- 文本预览 -->
+          <div style="margin-top:12px; padding:8px 12px; background:#f5f5f5; border-radius:6px; font-size:13px; color:#666; font-family:monospace;">
+            {{ form.formula_text || '（空公式）' }}
+          </div>
+
+          <!-- 验证结果 -->
+          <div v-if="validateResult" style="margin-top:8px;">
+            <el-alert v-if="validateResult.valid" title="公式验证通过" type="success" :closable="false" show-icon />
+            <el-alert v-else :title="'公式错误：' + validateResult.errors.join('；')" type="error" :closable="false" show-icon />
+          </div>
+        </el-form>
+        <template #footer>
+          <el-button @click="editVisible = false">取消</el-button>
+          <el-button @click="handleValidate" :loading="validating">验证</el-button>
+          <el-button type="primary" @click="handleSaveFormula" :loading="saving" style="background:#7F41C0; border-color:#7F41C0;">保存公式</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 重算历史弹窗 -->
+      <el-dialog v-model="recalcVisible" title="重算历史数据" width="480px" destroy-on-close>
+        <el-alert type="warning" :closable="false" show-icon style="margin-bottom:16px;">
+          <template #title>此操作将根据当前公式配置重新计算选定时间范围内的所有记录，原计算结果将被覆盖且不可恢复。</template>
+        </el-alert>
+        <el-form label-width="80px" size="default">
+          <el-form-item label="部门">
+            <el-select v-model="recalcForm.department" style="width:100%">
+              <el-option v-for="(label, key) in BALANCE_DEPARTMENTS" :key="key" :label="label" :value="key" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="开始日期">
+            <el-date-picker v-model="recalcForm.start_date" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="结束日期">
+            <el-date-picker v-model="recalcForm.end_date" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="recalcVisible = false">取消</el-button>
+          <el-button type="danger" @click="handleRecalculate" :loading="recalculating">确认重算</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 常量配置弹窗 -->
+      <el-dialog v-model="constVisible" title="常量配置" width="700px" destroy-on-close>
+        <div style="margin-bottom:16px;">
+          <el-alert type="info" :closable="false" show-icon>
+            <template #title>常量按月生效并向后延续。只需在值变化的月份添加记录，未设置的月份自动沿用上次的值。</template>
+          </el-alert>
+        </div>
+
+        <!-- 快捷选择 -->
+        <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
+          <span style="font-size:13px; color:#333;">快捷填入：</span>
+          <span style="display:inline-block; padding:3px 10px; border-radius:14px; font-size:12px; background:#fff8e1; border:1px solid #ffe082; color:#f57f17; cursor:pointer;" @click="constForm.name = 'tax_rate'; constForm.label = '税点'">税点 = tax_rate</span>
+          <span style="display:inline-block; padding:3px 10px; border-radius:14px; font-size:12px; background:#fff8e1; border:1px solid #ffe082; color:#f57f17; cursor:pointer;" @click="constForm.name = 'exchange_rate'; constForm.label = '汇率'">汇率 = exchange_rate</span>
+        </div>
+
+        <!-- 新增常量 -->
+        <div style="display:flex; gap:12px; margin-bottom:16px; align-items:flex-end;">
+          <div style="flex:1;">
+            <div style="font-size:13px; color:#333; margin-bottom:6px;">常量名（中文）</div>
+            <el-input v-model="constForm.label" placeholder="如：税点" size="default" />
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:13px; color:#333; margin-bottom:6px;">英文标识</div>
+            <el-input v-model="constForm.name" placeholder="如：tax_rate" size="default" />
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:13px; color:#333; margin-bottom:6px;">生效月份</div>
+            <el-date-picker v-model="constForm.effective_month" type="month" value-format="YYYY-MM" placeholder="选择月份" size="default" style="width:100%;" />
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:13px; color:#333; margin-bottom:6px;">数值</div>
+            <el-input v-model.number="constForm.value" placeholder="如：1.13" size="default" />
+          </div>
+          <el-button type="primary" size="default" @click="handleSaveConstant" :loading="constSaving" style="background:#7F41C0; border-color:#7F41C0;">保存</el-button>
+        </div>
+
+        <!-- 常量列表 -->
+        <el-table :data="constantsList" border stripe style="width:100%;" v-loading="constLoading" size="small">
+          <el-table-column prop="label" label="常量名" width="100" />
+          <el-table-column prop="name" label="英文标识" width="120">
+            <template #default="{ row }">
+              <code style="background:#f5f0fa; padding:1px 4px; border-radius:3px; color:#7F41C0;">{{ '$' + row.name }}</code>
+            </template>
+          </el-table-column>
+          <el-table-column prop="effective_month" label="生效月份" width="110" />
+          <el-table-column prop="value" label="数值" width="100" />
+          <el-table-column label="操作" width="80">
+            <template #default="{ row }">
+              <el-button size="small" type="danger" plain @click="handleDeleteConstant(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-dialog>
+    </div>
+  `,
+  data() {
+    return {
+      BALANCE_DEPARTMENTS,
+      currentDept: 'beer',
+      formulas: [],
+      fieldRegistry: [],
+      loading: false,
+      // 编辑弹窗
+      editVisible: false,
+      isEdit: false,
+      editMode: 'visual',
+      form: { field_key: '', field_label: '', formula_text: '', display_format: 'number', decimal_places: 2 },
+      formulaTokens: [],     // 可视化模式的 token 数组
+      fieldSearch: '',
+      validateResult: null,
+      validating: false,
+      saving: false,
+      // 重算弹窗
+      recalcVisible: false,
+      recalcForm: { department: 'beer', start_date: '', end_date: '' },
+      recalculating: false,
+      // 常量管理
+      constVisible: false,
+      constantsList: [],
+      constForm: { name: '', label: '', value: '', effective_month: '' },
+      constLoading: false,
+      constSaving: false,
+      constantNames: [],  // [{name, label}] 用于编辑器面板
+      // 字段标签映射（缓存）
+      fieldLabelMap: {},
+    };
+  },
+  computed: {
+    // 共享输入字段（非费用）
+    filteredSharedInputFields() {
+      const search = this.fieldSearch.toLowerCase();
+      return [...SHARED_PEOPLE, ...SHARED_OUTPUT].filter(f =>
+        !search || f.label.includes(search) || f.field.includes(search)
+      );
+    },
+    // 费用字段（共享 + 部门独有中 expense 类型）
+    filteredExpenseFields() {
+      const search = this.fieldSearch.toLowerCase();
+      const shared = [...SHARED_WAGE, ...SHARED_EXPENSE];
+      const deptConfig = DEPT_CONFIG[this.currentDept];
+      const unique = deptConfig ? deptConfig.uniqueFields.filter(f => f.editable && !f.calculated) : [];
+      // 从 fieldRegistry 中找 expense 类型的部门独有字段
+      const expenseKeys = new Set(this.fieldRegistry.filter(f => f.field_type === 'expense').map(f => f.field_key));
+      const deptExpense = unique.filter(f => expenseKeys.has(f.field));
+      return [...shared, ...deptExpense].filter(f =>
+        !search || (f.label || '').includes(search) || f.field.includes(search)
+      );
+    },
+    // 部门独有输入字段（非费用、非计算）
+    filteredUniqueFields() {
+      const search = this.fieldSearch.toLowerCase();
+      const deptConfig = DEPT_CONFIG[this.currentDept];
+      if (!deptConfig) return [];
+      const expenseKeys = new Set(this.fieldRegistry.filter(f => f.field_type === 'expense').map(f => f.field_key));
+      return deptConfig.uniqueFields
+        .filter(f => f.editable && !f.calculated && !expenseKeys.has(f.field))
+        .filter(f => !search || (f.label || '').includes(search) || f.field.includes(search));
+    },
+    // 可引用的计算字段（其他公式的结果）
+    filteredCalcFields() {
+      const search = this.fieldSearch.toLowerCase();
+      return this.formulas.filter(f =>
+        f.field_key !== this.form.field_key &&
+        (!search || f.field_label.includes(search) || f.field_key.includes(search))
+      );
+    },
+    // 所有可选字段，按类型分组（计算字段、输入字段、费用字段）
+    allFieldOptions() {
+      const typeMap = { calc: '计算', input: '输入', expense: '费用' };
+      // 从 field_registry 获取当前部门和共享字段
+      const fields = this.fieldRegistry
+        .filter(f => f.department === this.currentDept || f.department === '_shared')
+        .map(f => ({ field_key: f.field_key, field_label: f.field_label, field_type: f.field_type, data_type: f.data_type, typeLabel: typeMap[f.field_type] || f.field_type }));
+      // 兜底：从前端 DEPT_CONFIG 补充（field_registry 为空时）
+      if (fields.length === 0) {
+        const deptConfig = DEPT_CONFIG[this.currentDept];
+        if (deptConfig) {
+          for (const f of deptConfig.uniqueFields) {
+            fields.push({ field_key: f.field, field_label: f.label, field_type: f.calculated ? 'calc' : 'input', typeLabel: f.calculated ? '计算' : '输入' });
+          }
+        }
+        for (const f of [...SHARED_PEOPLE, ...SHARED_OUTPUT]) {
+          fields.push({ field_key: f.field, field_label: f.label, field_type: 'input', typeLabel: '输入' });
+        }
+        for (const f of [...SHARED_WAGE, ...SHARED_EXPENSE]) {
+          fields.push({ field_key: f.field, field_label: f.label, field_type: 'expense', typeLabel: '费用' });
+        }
+        for (const f of SHARED_BALANCE) {
+          fields.push({ field_key: f.field, field_label: f.label, field_type: 'calc', typeLabel: '计算' });
+        }
+      }
+      // 按类型分组，计算字段排第一
+      const groups = [
+        { label: '计算字段', options: fields.filter(f => f.field_type === 'calc').sort((a, b) => a.field_label.localeCompare(b.field_label, 'zh')) },
+        { label: '输入字段', options: fields.filter(f => f.field_type === 'input').sort((a, b) => a.field_label.localeCompare(b.field_label, 'zh')) },
+        { label: '费用字段', options: fields.filter(f => f.field_type === 'expense').sort((a, b) => a.field_label.localeCompare(b.field_label, 'zh')) },
+      ];
+      return groups.filter(g => g.options.length > 0);
+    }
+  },
+  watch: {
+    // 可视化模式下 token 变化时同步到 formula_text
+    formulaTokens: {
+      handler() {
+        if (this.editMode === 'visual') {
+          this.form.formula_text = this.tokensToText(this.formulaTokens);
+        }
+      },
+      deep: true
+    }
+  },
+  created() {
+    this.loadFormulas();
+  },
+  mounted() {
+    this.$nextTick(() => this.initFormulaSortable());
+  },
+  methods: {
+    async loadFormulas() {
+      this.loading = true;
+      try {
+        const [formulaRes, registryRes, constNamesRes] = await Promise.all([
+          API.getFormulas({ module: 'balance', department: this.currentDept }),
+          API.getFieldRegistry({ module: 'balance' }),
+          API.getConstantNames({ module: 'balance' })
+        ]);
+        this.formulas = formulaRes.data || [];
+        this.fieldRegistry = registryRes.data || [];
+        this.constantNames = constNamesRes.data || [];
+        // 构建字段标签映射
+        this.fieldLabelMap = {};
+        for (const f of this.fieldRegistry) {
+          this.fieldLabelMap[f.field_key] = f.field_label;
+        }
+        // 补充前端 SHARED / DEPT_CONFIG 中的字段
+        for (const f of [...SHARED_PEOPLE, ...SHARED_OUTPUT, ...SHARED_WAGE, ...SHARED_EXPENSE, ...SHARED_BALANCE]) {
+          if (!this.fieldLabelMap[f.field]) this.fieldLabelMap[f.field] = f.label;
+        }
+        const deptConfig = DEPT_CONFIG[this.currentDept];
+        if (deptConfig) {
+          for (const f of deptConfig.uniqueFields) {
+            if (!this.fieldLabelMap[f.field]) this.fieldLabelMap[f.field] = f.label;
+          }
+        }
+        this.$nextTick(() => this.initFormulaSortable());
+      } catch (err) {
+        ElementPlus.ElMessage.error('加载公式失败');
+      } finally {
+        this.loading = false;
+      }
+    },
+    initFormulaSortable() {
+      const el = this.$refs.formulaList;
+      if (!el || this._sortable) return;
+      this._sortable = Sortable.create(el, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: ({ oldIndex, newIndex }) => {
+          if (oldIndex === newIndex) return;
+          const moved = this.formulas.splice(oldIndex, 1)[0];
+          this.formulas.splice(newIndex, 0, moved);
+          this.saveFormulaSort();
+        }
+      });
+    },
+    async saveFormulaSort() {
+      const items = this.formulas.map((f, i) => ({ id: f.id, sort_order: i + 1 }));
+      try {
+        await API.sortFormulas({ items });
+        this.formulas.forEach((f, i) => { f.sort_order = i + 1; });
+        ElementPlus.ElMessage.success('排序已保存');
+      } catch (err) {
+        ElementPlus.ElMessage.error('排序保存失败');
+        await this.loadFormulas();
+      }
+    },
+
+    // === 字段/公式展示辅助 ===
+    getFieldLabel(key) {
+      return this.fieldLabelMap[key] || key;
+    },
+    getFieldPillStyle(key) {
+      // 判断字段类型给不同颜色
+      const isExpense = [...SHARED_WAGE, ...SHARED_EXPENSE].some(f => f.field === key) ||
+        this.fieldRegistry.some(f => f.field_key === key && f.field_type === 'expense');
+      const isCalc = [...SHARED_BALANCE].some(f => f.field === key) ||
+        this.formulas.some(f => f.field_key === key);
+      if (isCalc) return { background: '#e3f2fd', border: '1px solid #90caf9', color: '#1565c0' };
+      if (isExpense) return { background: '#fff3e0', border: '1px solid #ffe0b2', color: '#e65100' };
+      return { background: '#e8f5e9', border: '1px solid #c8e6c9', color: '#2e7d32' };
+    },
+    parseFormulaTokens(text) {
+      if (!text) return [];
+      const tokens = [];
+      // 匹配 {field}、$constant、SUM(tag)、运算符、数字、括号
+      const regex = /\{(\w+)\}|\$(\w+)|SUM\((\w+)\)|([+\-*/÷×−])|(\d+\.?\d*)|([()])/g;
+      let m;
+      while ((m = regex.exec(text)) !== null) {
+        if (m[1]) tokens.push({ type: 'field', value: m[1] });
+        else if (m[2]) tokens.push({ type: 'const', value: m[2] });
+        else if (m[3]) tokens.push({ type: 'func', value: 'SUM(' + m[3] + ')' });
+        else if (m[4]) {
+          const opMap = { '-': '−', '*': '×', '/': '÷' };
+          tokens.push({ type: 'op', value: opMap[m[4]] || m[4] });
+        }
+        else if (m[5]) tokens.push({ type: 'number', value: m[5] });
+        else if (m[6]) tokens.push({ type: 'paren', value: m[6] });
+      }
+      return tokens;
+    },
+
+    // === 可视化编辑操作 ===
+    addFieldToken(key) {
+      this.formulaTokens.push({ type: 'field', value: key });
+    },
+    addOperator(op) {
+      const opMap = { '−': '-', '×': '*', '÷': '/' };
+      this.formulaTokens.push({ type: 'op', value: op, raw: opMap[op] || op });
+    },
+    addSumFunction() {
+      // 弹出输入标签名
+      ElementPlus.ElMessageBox.prompt('请输入标签名（如 expense）', 'SUM 函数', {
+        confirmButtonText: '确定', cancelButtonText: '取消', inputValue: 'expense'
+      }).then(({ value }) => {
+        if (value) this.formulaTokens.push({ type: 'func', value: 'SUM(' + value + ')' });
+      }).catch(() => {});
+    },
+    addConstantToken(name) {
+      this.formulaTokens.push({ type: 'const', value: name });
+    },
+    removeToken(idx) {
+      this.formulaTokens.splice(idx, 1);
+    },
+    tokensToText(tokens) {
+      return tokens.map(t => {
+        if (t.type === 'field') return '{' + t.value + '}';
+        if (t.type === 'const') return '$' + t.value;
+        if (t.type === 'func') return t.value;
+        if (t.type === 'op') {
+          const map = { '−': '-', '×': '*', '÷': '/' };
+          return ' ' + (map[t.value] || t.value) + ' ';
+        }
+        return t.value;
+      }).join('').replace(/\s+/g, ' ').trim();
+    },
+    textToTokens(text) {
+      return this.parseFormulaTokens(text);
+    },
+
+    // === 弹窗操作 ===
+    // 选择字段名后自动填入公式名称和显示格式
+    onFieldKeyChange(key) {
+      // 从分组选项中找到匹配项，自动填入公式名称
+      for (const g of this.allFieldOptions) {
+        const opt = g.options.find(f => f.field_key === key);
+        if (opt) {
+          if (!this.form.field_label) this.form.field_label = opt.field_label;
+          // 根据数据类型推断显示格式
+          if (opt.data_type === 'ratio') {
+            this.form.display_format = 'percent';
+            this.form.decimal_places = 4;
+          }
+          break;
+        }
+      }
+    },
+    showAddDialog() {
+      this.isEdit = false;
+      this.form = { field_key: '', field_label: '', formula_text: '', display_format: 'number', decimal_places: 2 };
+      this.formulaTokens = [];
+      this.editMode = 'visual';
+      this.validateResult = null;
+      this.editVisible = true;
+    },
+    showEditDialog(f) {
+      this.isEdit = true;
+      this.form = { ...f };
+      this.formulaTokens = this.textToTokens(f.formula_text);
+      this.editMode = 'visual';
+      this.validateResult = null;
+      this.editVisible = true;
+    },
+    async handleValidate() {
+      this.validating = true;
+      try {
+        const res = await API.validateFormula({
+          module: 'balance', department: this.currentDept,
+          formula_text: this.form.formula_text, field_key: this.form.field_key
+        });
+        this.validateResult = res.data;
+      } catch (err) {
+        ElementPlus.ElMessage.error('验证请求失败');
+      } finally {
+        this.validating = false;
+      }
+    },
+    async handleSaveFormula() {
+      if (!this.form.field_key || !this.form.field_label || !this.form.formula_text) {
+        ElementPlus.ElMessage.warning('请填写公式名称、字段名和公式内容');
+        return;
+      }
+      this.saving = true;
+      try {
+        if (this.isEdit) {
+          await API.updateFormula(this.form.id, this.form);
+        } else {
+          await API.createFormula({ ...this.form, module: 'balance', department: this.currentDept, sort_order: this.formulas.length + 1 });
+        }
+        this.editVisible = false;
+        ElementPlus.ElMessage.success('保存成功');
+        await this.loadFormulas();
+      } catch (err) {
+        ElementPlus.ElMessage.error('保存失败: ' + (err.message || '未知错误'));
+      } finally {
+        this.saving = false;
+      }
+    },
+    async toggleEnabled(f) {
+      try {
+        await API.updateFormula(f.id, { enabled: !f.enabled });
+        f.enabled = !f.enabled;
+        ElementPlus.ElMessage.success(f.enabled ? '已启用' : '已禁用');
+      } catch (err) {
+        ElementPlus.ElMessage.error('操作失败');
+      }
+    },
+    async handleDelete(f) {
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '确定要删除公式 "' + f.field_label + '" 吗？删除后不可恢复。', '确认删除',
+          { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
+        );
+        await API.deleteFormula(f.id);
+        ElementPlus.ElMessage.success('删除成功');
+        await this.loadFormulas();
+      } catch (err) {
+        if (err !== 'cancel' && err !== 'close') {
+          ElementPlus.ElMessage.error('删除失败: ' + (err.message || ''));
+        }
+      }
+    },
+
+    // === 重算历史 ===
+    showRecalcDialog() {
+      this.recalcForm = { department: this.currentDept, start_date: '', end_date: '' };
+      this.recalcVisible = true;
+    },
+    async handleRecalculate() {
+      if (!this.recalcForm.start_date || !this.recalcForm.end_date) {
+        ElementPlus.ElMessage.warning('请选择时间范围');
+        return;
+      }
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '此操作将覆盖所选时间范围内的所有计算字段值，且不可撤销。确定继续？', '最终确认',
+          { type: 'error', confirmButtonText: '确定重算', cancelButtonText: '取消' }
+        );
+      } catch { return; }
+
+      this.recalculating = true;
+      try {
+        const res = await API.recalculate({ module: 'balance', ...this.recalcForm });
+        this.recalcVisible = false;
+        ElementPlus.ElMessage.success('重算完成，共处理 ' + res.data.processed + ' 条记录');
+      } catch (err) {
+        ElementPlus.ElMessage.error('重算失败: ' + (err.message || ''));
+      } finally {
+        this.recalculating = false;
+      }
+    },
+
+    // === 常量管理 ===
+    async showConstantsDialog() {
+      this.constVisible = true;
+      this.constForm = { name: '', label: '', value: '', effective_month: '' };
+      await this.loadConstants();
+    },
+    async loadConstants() {
+      this.constLoading = true;
+      try {
+        const res = await API.getConstants({ module: 'balance' });
+        this.constantsList = res.data || [];
+      } catch (err) {
+        ElementPlus.ElMessage.error('加载常量失败');
+      } finally {
+        this.constLoading = false;
+      }
+    },
+    async handleSaveConstant() {
+      if (!this.constForm.name || !this.constForm.label || !this.constForm.effective_month || this.constForm.value === '') {
+        ElementPlus.ElMessage.warning('请填写完整信息');
+        return;
+      }
+      this.constSaving = true;
+      try {
+        await API.saveConstant({ module: 'balance', ...this.constForm });
+        ElementPlus.ElMessage.success('保存成功');
+        // 保留 name 和 label 方便连续添加同一常量的不同月份
+        this.constForm.value = '';
+        this.constForm.effective_month = '';
+        await this.loadConstants();
+      } catch (err) {
+        ElementPlus.ElMessage.error('保存失败: ' + (err.message || ''));
+      } finally {
+        this.constSaving = false;
+      }
+    },
+    async handleDeleteConstant(row) {
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '删除 "' + row.label + '" 在 ' + row.effective_month + ' 的值 ' + row.value + '？', '确认删除',
+          { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
+        );
+        await API.deleteConstant(row.id);
+        ElementPlus.ElMessage.success('删除成功');
+        await this.loadConstants();
+      } catch (err) {
+        if (err !== 'cancel' && err !== 'close') {
+          ElementPlus.ElMessage.error('删除失败');
+        }
+      }
+    }
   }
 };
 
@@ -1198,7 +1978,7 @@ const WorkshopSettings = {
         <h3 style="font-size:16px;">车间列表</h3>
         <el-button type="primary" size="default" @click="showAddDialog">新增车间</el-button>
       </div>
-      <el-table :data="workshops" border stripe style="width:100%" v-loading="loading">
+      <el-table ref="workshopTable" :data="workshops" border stripe style="width:100%" v-loading="loading" row-key="id">
         <el-table-column prop="id" label="ID" width="50" />
         <el-table-column prop="region" label="厂区" width="70" />
         <el-table-column prop="company" label="公司" width="90" />
@@ -1208,7 +1988,11 @@ const WorkshopSettings = {
             {{ row.department ? (ALL_DEPARTMENTS[row.department] || row.department) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="sort_order" label="排序" width="60" />
+        <el-table-column label="排序" width="60" align="center">
+          <template #default>
+            <span class="drag-handle" style="cursor:grab; font-size:18px; color:#999; user-select:none;">≡</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="140">
           <template #default="{ row }">
             <el-button size="small" @click="showEditDialog(row)">编辑</el-button>
@@ -1235,9 +2019,7 @@ const WorkshopSettings = {
               <el-option v-for="(label, key) in ALL_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
-          <el-form-item label="排序">
-            <el-input v-model.number="form.sort_order" type="number" />
-          </el-form-item>
+          <!-- 排序通过拖拽操作，不再手动输入 -->
         </el-form>
         <template #footer>
           <el-button @click="dialogVisible = false">取消</el-button>
@@ -1261,7 +2043,44 @@ const WorkshopSettings = {
   created() {
     this.loadWorkshops();
   },
+  mounted() {
+    // 等待 DOM 渲染后初始化拖拽
+    this.$nextTick(() => this.initSortable());
+  },
   methods: {
+    initSortable() {
+      // 获取 el-table 内部的 tbody 元素
+      const table = this.$refs.workshopTable;
+      if (!table) return;
+      const tbody = table.$el.querySelector('.el-table__body-wrapper tbody');
+      if (!tbody) return;
+      Sortable.create(tbody, {
+        handle: '.drag-handle',           // 只能通过手柄拖拽
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: ({ oldIndex, newIndex }) => {
+          if (oldIndex === newIndex) return;
+          // 移动数据数组中的元素
+          const moved = this.workshops.splice(oldIndex, 1)[0];
+          this.workshops.splice(newIndex, 0, moved);
+          this.saveSortOrder();
+        }
+      });
+    },
+    async saveSortOrder() {
+      // 重新编号并调用批量更新 API（用对象包装数组，Express 默认不解析顶层数组）
+      const items = this.workshops.map((w, i) => ({ id: w.id, sort_order: i + 1 }));
+      try {
+        await API.put('/workshops/sort', { items });
+        // 同步前端数据的 sort_order
+        this.workshops.forEach((w, i) => { w.sort_order = i + 1; });
+        ElementPlus.ElMessage.success('排序已保存');
+      } catch (err) {
+        ElementPlus.ElMessage.error('排序保存失败');
+        // 失败时重新加载恢复原始顺序
+        await this.loadWorkshops();
+      }
+    },
     async loadWorkshops() {
       this.loading = true;
       try {
@@ -1795,6 +2614,7 @@ app.component('dept-records-page', DeptRecordsPage);
 app.component('summary-page', SummaryPage);
 app.component('user-management-page', UserManagementPage);
 app.component('settings-page', SettingsPage);
+app.component('formula-config', FormulaConfig);
 app.component('workshop-settings', WorkshopSettings);
 app.component('data-locks', DataLocks);
 app.component('audit-logs', AuditLogs);

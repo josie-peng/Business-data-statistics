@@ -10,6 +10,8 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+// 共享模块（前后端共用的 formula-parser.js 等）
+app.use('/shared', express.static(path.join(__dirname, 'shared')));
 
 // 健康检查
 app.get('/api/health', (req, res) => {

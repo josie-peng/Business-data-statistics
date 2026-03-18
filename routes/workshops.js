@@ -24,6 +24,19 @@ router.post('/', authenticate, requireStats, asyncHandler(async (req, res) => {
   res.json({ success: true, data: result.rows[0] });
 }));
 
+// 批量更新排序（必须在 /:id 之前注册）
+router.put('/sort', authenticate, requireStats, asyncHandler(async (req, res) => {
+  const items = req.body.items; // { items: [{id, sort_order}, ...] }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, message: '请提供排序数据' });
+  }
+  // 逐条更新 sort_order
+  for (const item of items) {
+    await query('UPDATE workshops SET sort_order = ? WHERE id = ?', [item.sort_order, item.id]);
+  }
+  res.json({ success: true });
+}));
+
 router.put('/:id', authenticate, requireStats, asyncHandler(async (req, res) => {
   const { name, region, department, company, sort_order, status } = req.body;
   const result = await query(

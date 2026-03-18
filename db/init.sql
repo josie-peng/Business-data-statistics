@@ -53,6 +53,61 @@ CREATE TABLE IF NOT EXISTS calc_rules (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 字段注册表（config.js 的数据库版本）
+CREATE TABLE IF NOT EXISTS field_registry (
+  id SERIAL PRIMARY KEY,
+  module VARCHAR(50) NOT NULL,
+  department VARCHAR(50) NOT NULL DEFAULT '_shared',
+  field_key VARCHAR(100) NOT NULL,
+  field_label VARCHAR(100) NOT NULL,
+  field_type VARCHAR(20) NOT NULL,
+  data_type VARCHAR(20) DEFAULT 'number',
+  aliases TEXT,
+  importable BOOLEAN DEFAULT true,
+  sort_order INT DEFAULT 0,
+  UNIQUE(module, department, field_key)
+);
+
+-- 字段标签/分组表
+CREATE TABLE IF NOT EXISTS field_tags (
+  id SERIAL PRIMARY KEY,
+  module VARCHAR(50) NOT NULL,
+  department VARCHAR(50) NOT NULL DEFAULT '_shared',
+  field_key VARCHAR(100) NOT NULL,
+  tag VARCHAR(50) NOT NULL,
+  UNIQUE(module, department, field_key, tag)
+);
+
+-- 公式配置主表（替代 calc_rules）
+CREATE TABLE IF NOT EXISTS formula_configs (
+  id SERIAL PRIMARY KEY,
+  module VARCHAR(50) NOT NULL,
+  department VARCHAR(50) NOT NULL,
+  field_key VARCHAR(100) NOT NULL,
+  field_label VARCHAR(100) NOT NULL,
+  formula_text TEXT NOT NULL,
+  display_format VARCHAR(20) DEFAULT 'number',
+  decimal_places INT DEFAULT 2,
+  sort_order INT DEFAULT 0,
+  enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(module, department, field_key)
+);
+
+-- 公式常量（按月生效，向后延续）
+CREATE TABLE IF NOT EXISTS formula_constants (
+  id SERIAL PRIMARY KEY,
+  module VARCHAR(50) NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  label VARCHAR(100) NOT NULL,
+  value NUMERIC(14,6) NOT NULL,
+  effective_month VARCHAR(7) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(module, name, effective_month)
+);
+
 -- 数据锁定
 CREATE TABLE IF NOT EXISTS data_locks (
   id SERIAL PRIMARY KEY,
@@ -270,3 +325,6 @@ CREATE INDEX IF NOT EXISTS idx_print_workshop ON print_records(workshop_id);
 CREATE INDEX IF NOT EXISTS idx_assembly_date ON assembly_records(record_date);
 CREATE INDEX IF NOT EXISTS idx_assembly_workshop ON assembly_records(workshop_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_field_registry_module ON field_registry(module, department);
+CREATE INDEX IF NOT EXISTS idx_field_tags_module ON field_tags(module, department);
+CREATE INDEX IF NOT EXISTS idx_formula_configs_module ON formula_configs(module, department);

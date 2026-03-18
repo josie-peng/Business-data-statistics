@@ -128,6 +128,38 @@ function getColumnMap(moduleKey) {
   return map;
 }
 
+// === 导出用：字段名→中文标签映射（包含计算字段） ===
+
+function getExportLabelMap(moduleKey) {
+  const config = MODULES[moduleKey];
+  if (!config) throw new Error(`[getExportLabelMap] 未知模块: ${moduleKey}`);
+  const map = {};
+
+  // 结构字段
+  for (const sf of config.structuralFields) {
+    map[sf.field] = sf.label;
+  }
+
+  // 共享输入字段
+  for (const f of config.sharedFields) {
+    map[f.field] = f.label;
+  }
+
+  // 共享计算字段（结余金额、结余%）
+  for (const f of config.sharedCalcFields) {
+    map[f.field] = f.label;
+  }
+
+  // 各部门独有字段（输入+计算）
+  for (const [dept, deptConf] of Object.entries(config.departments)) {
+    for (const f of deptConf.uniqueFields) {
+      if (!map[f.field]) map[f.field] = f.label;
+    }
+  }
+
+  return map;
+}
+
 // === 启动校验 ===
 
 function validateConfig() {
@@ -164,4 +196,5 @@ module.exports = {
   // 新接口
   MODULES,
   getColumnMap,
+  getExportLabelMap,
 };

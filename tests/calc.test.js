@@ -1,8 +1,8 @@
 const { calculateRecord } = require('../modules/balance/calc');
 
 describe('calculateRecord', () => {
-  test('beer: balance = output - all expenses', () => {
-    const r = calculateRecord('beer', {
+  test('beer: balance = output - all expenses', async () => {
+    const r = await calculateRecord('beer', {
       daily_output: 50000,
       worker_wage: 6000, supervisor_wage: 2000, rent: 900, utility_fee: 7000,
       tool_investment: 0, equipment: 0, renovation: 0, misc_fee: 0,
@@ -17,8 +17,8 @@ describe('calculateRecord', () => {
     expect(r.machine_rate).toBeCloseTo(30 / 42, 4);
   });
 
-  test('assembly: balance_minus_tape', () => {
-    const r = calculateRecord('assembly', {
+  test('assembly: balance_minus_tape', async () => {
+    const r = await calculateRecord('assembly', {
       daily_output: 100000,
       worker_wage: 0, supervisor_wage: 10000, rent: 800, utility_fee: 1000,
       tool_investment: 900, equipment: 0, renovation: 0, misc_fee: 0,
@@ -32,8 +32,8 @@ describe('calculateRecord', () => {
     expect(r.avg_output_per_worker).toBeCloseTo(1000, 1);
   });
 
-  test('print: pad and spray machine rates', () => {
-    const r = calculateRecord('print', {
+  test('print: pad and spray machine rates', async () => {
+    const r = await calculateRecord('print', {
       daily_output: 80000,
       worker_wage: 5000, supervisor_wage: 2000, rent: 500, utility_fee: 800,
       tool_investment: 0, equipment: 0, renovation: 0, misc_fee: 0,

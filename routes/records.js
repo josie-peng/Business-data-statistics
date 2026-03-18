@@ -46,7 +46,7 @@ router.post('/:dept/records', authenticate, modulePermission('balance'), validat
   const inserted = [];
 
   for (const raw of records) {
-    const calculated = calculateRecord(dept, raw);
+    const calculated = await calculateRecord(dept, raw);
     const allFields = [...inputFields, ...config.uniqueCalcFields, 'balance', 'balance_ratio',
                        'record_date', 'workshop_id', 'created_by', 'updated_by'];
     calculated.created_by = req.user.id;
@@ -75,7 +75,7 @@ router.put('/:dept/records/:id', authenticate, modulePermission('balance'), vali
   if (!old) return res.status(404).json({ success: false, message: '记录不存在' });
 
   const merged = { ...old, ...req.body };
-  const calculated = calculateRecord(dept, merged);
+  const calculated = await calculateRecord(dept, merged);
   calculated.updated_by = req.user.id;
   calculated.updated_at = new Date().toISOString();
 
