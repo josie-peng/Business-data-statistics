@@ -74,6 +74,7 @@
 | field_label | VARCHAR(100) NOT NULL | 中文显示名，如"结余"、"开机率" |
 | formula_text | TEXT NOT NULL | 公式文本，如 `{daily_output} - SUM(expense)` |
 | display_format | VARCHAR(20) DEFAULT 'number' | 显示格式：`number`（数字）、`percent`（百分比）、`currency`（金额） |
+| decimal_places | INT DEFAULT 2 | 小数位数（百分比默认 2 位，金额默认 2 位，普通数字默认 2 位） |
 | sort_order | INT DEFAULT 0 | 计算顺序（决定链式计算的先后） |
 | enabled | BOOLEAN DEFAULT true | 是否启用 |
 | created_at | TIMESTAMPTZ DEFAULT NOW() | 创建时间 |
@@ -87,11 +88,13 @@
 |------|------|------|
 | id | SERIAL PRIMARY KEY | 主键 |
 | module | VARCHAR(50) NOT NULL | 所属模块 |
-| department | VARCHAR(50) | 所属部门（NULL 表示跨部门标签） |
+| department | VARCHAR(50) NOT NULL DEFAULT '_shared' | 所属部门（`_shared` 表示跨部门标签） |
 | field_key | VARCHAR(100) NOT NULL | 字段英文名 |
 | tag | VARCHAR(50) NOT NULL | 标签名，如 `expense` |
 
 约束：`UNIQUE(module, department, field_key, tag)`
+
+> **设计说明：** `department` 使用 `'_shared'` 代替 NULL，避免 PostgreSQL 中 NULL 值不参与唯一约束的问题。
 
 用途：`SUM(expense)` 会查此表找出所有 `tag='expense'` 的字段自动求和。
 
@@ -103,18 +106,26 @@
 |------|------|------|
 | id | SERIAL PRIMARY KEY | 主键 |
 | module | VARCHAR(50) NOT NULL | 所属模块 |
-| department | VARCHAR(50) | 所属部门（NULL 表示共享字段） |
+| department | VARCHAR(50) NOT NULL DEFAULT '_shared' | 所属部门（`_shared` 表示共享字段） |
 | field_key | VARCHAR(100) NOT NULL | 英文字段名 |
 | field_label | VARCHAR(100) NOT NULL | 中文显示名 |
 | field_type | VARCHAR(20) NOT NULL | `input` / `expense` / `calc` |
+| data_type | VARCHAR(20) DEFAULT 'number' | 数据类型：`integer`（整数）、`number`（小数）、`ratio`（比例） |
+| aliases | TEXT | Excel 导入时的中文别名，JSON 数组格式，如 `["日产值","当日产值"]` |
+| importable | BOOLEAN DEFAULT true | 是否可从 Excel 导入（计算字段通常为 false，但有例外） |
 | sort_order | INT DEFAULT 0 | 显示顺序 |
 
 约束：`UNIQUE(module, department, field_key)`
 
+> **设计说明：** 同 `field_tags`，`department` 用 `'_shared'` 代替 NULL。`aliases` 字段用于自动生成 Excel 导入的 COLUMN_MAP，迁移时从 `config.js` 的 `aliases` 和 `skipAliases` 提取。`importable` 用于标记计算字段是否可导入（如装配部的 `avg_output_per_worker` 虽是计算字段但可导入）。
+
 #### 3.3.4 旧表处理
 
-- `calc_rules` → 被 `formula_configs` 替代，迁移后删除
-- `expense_items` → 被 `field_tags` + `field_registry` 替代，迁移后删除
+- `calc_rules` → 被 `formula_configs` 替代
+- `expense_items` → 被 `field_tags` + `field_registry` 替代
+- **迁移步骤：** 先创建新表并导入数据 → 验证数据完整性 → 更新 `routes/settings.js` 中引用旧表的 API 端点（`GET/PUT /expense-items` 和 `GET/PUT /calc-rules`）改为查询新表或移除 → 最后删除旧表
+
+> **注意：** 现有 `routes/settings.js` 中的 `/expense-items` 和 `/calc-rules` API 端点查询旧表，必须在删除旧表之前将这些端点更新为使用新表或彻底移除，否则会导致 500 错误。
 
 ### 3.4 公式编辑器 UI 设计
 
@@ -133,6 +144,7 @@
 - 公式名称（中文输入）
 - 字段名（英文，存入数据库的字段名）
 - 显示格式下拉（数字 / 百分比 / 金额）
+- 小数位数（数字输入，默认 2）
 
 **模式切换：**
 - 可视化模式（默认） / 文本模式，按钮组切换
@@ -163,48 +175,76 @@
 
 #### 3.4.3 颜色规范
 
-| 元素 | 颜色 |
-|------|------|
-| 分组标题-共享输入 | 背景 `#f5f0fa`，边框 `#e0d4f0` |
-| 分组标题-费用 | 背景 `#fdf0f0`，边框 `#f0d4d4` |
-| 分组标题-部门独有 | 背景 `#f0f8ff`，边框默认 |
-| 分组标题-计算字段 | 背景 `#f0faf5`，边框默认 |
-| 字段药片-输入 | 背景 `#e8f5e9`，边框 `#c8e6c9` |
-| 字段药片-费用 | 背景 `#fff3e0`，边框 `#ffe0b2` |
-| 字段药片-计算 | 背景 `#e3f2fd`，边框 `#90caf9` |
-| 运算符圆形 | 背景 `#7F41C0`，文字白色 |
-| 模式切换-激活 | 背景 `#7F41C0`，文字白色 |
-| 新增公式按钮 | 背景 `#57B894`，文字白色 |
-| 保存按钮 | 背景 `#7F41C0`，文字白色 |
-| 删除文字 | `#E88EA0` |
+以下颜色为公式配置模块专用的 UI 辅助色，已获用户确认：
+
+| 元素 | 颜色 | 说明 |
+|------|------|------|
+| 分组标题-共享输入 | 背景 `#f5f0fa`，边框 `#e0d4f0` | 用户确认 |
+| 分组标题-费用 | 背景 `#fdf0f0`，边框 `#f0d4d4` | 用户确认 |
+| 分组标题-部门独有 | 背景 `#f0f8ff` | 用户确认 |
+| 分组标题-计算字段 | 背景 `#f0faf5` | 用户确认 |
+| 字段药片-输入 | 背景 `#e8f5e9`，边框 `#c8e6c9` | 用户确认 |
+| 字段药片-费用 | 背景 `#fff3e0`，边框 `#ffe0b2` | 用户确认 |
+| 字段药片-计算 | 背景 `#e3f2fd`，边框 `#90caf9` | 用户确认 |
+| 运算符圆形 | 背景 `#7F41C0`（深晶紫），文字白色 | 全局主色 |
+| 模式切换-激活 | 背景 `#7F41C0`（深晶紫），文字白色 | 全局主色 |
+| 新增公式按钮 | 背景 `#57B894`（青柠绿），文字白色 | 全局确认色 |
+| 保存按钮 | 背景 `#7F41C0`（深晶紫），文字白色 | 全局主色 |
+| 删除文字 | `#E88EA0`（豆沙粉） | 全局警告色 |
 
 ### 3.5 公式解析器（formula-parser.js）
 
 前后端共用的 JavaScript 模块，负责将公式文本解析为计算结果。
 
-#### 3.5.1 输入
+#### 3.5.1 共享策略
+
+项目无构建工具（CDN 前端），采用以下方式共享解析器：
+- **源文件位置：** `shared/formula-parser.js`
+- **后端引用：** 直接 `require('./shared/formula-parser')`
+- **前端引用：** `server.js` 中将 `/shared` 目录配置为静态资源，`index.html` 通过 `<script src="/shared/formula-parser.js">` 引入
+- **代码风格：** 使用 UMD 模式（同时支持 `module.exports` 和全局变量），不依赖 Node.js 专有 API
+
+> 不再在 `public/js/` 下维护单独副本，避免两份代码不同步。
+
+#### 3.5.2 表达式求值库
+
+使用 **`expr-eval`** 库（CDN + npm）作为安全表达式解析器：
+- 不使用 `eval()` / `new Function()`，避免代码注入风险
+- 支持四则运算 + 括号 + 自定义变量
+- 轻量无依赖，约 15KB
+- CDN: `https://cdn.jsdelivr.net/npm/expr-eval/dist/bundle.min.js`
+- 后端: `npm install expr-eval`
+
+#### 3.5.3 输入
 
 - `formulaText`: 公式文本字符串，如 `{daily_output} - SUM(expense)`
 - `data`: 一行记录的所有字段值对象，如 `{ daily_output: 10000, worker_wage: 3000, ... }`
 - `tags`: 字段标签映射，如 `{ expense: ['worker_wage', 'supervisor_wage', ...] }`
 - `prevResults`: 已计算的前序公式结果，如 `{ balance: 5000 }`（链式计算用）
 
-#### 3.5.2 处理流程
+#### 3.5.4 处理流程
 
 1. **展开 SUM()** — 将 `SUM(expense)` 替换为 `(worker_wage + supervisor_wage + ...)`
 2. **替换字段引用** — 将 `{daily_output}` 替换为实际数值
 3. **合并前序结果** — 将 `{balance}` 替换为已计算的结果值
-4. **安全求值** — 计算数学表达式（不使用 `eval`，用安全的表达式解析器）
-5. **错误处理** — 除以零返回 0，字段缺失返回 null 并标记警告
+4. **安全求值** — 使用 `expr-eval` 库解析和计算表达式
+5. **精度处理** — 按 `decimal_places` 配置四舍五入
+6. **错误处理** — 除以零返回 0，字段缺失返回 null 并标记警告
 
-#### 3.5.3 公式验证（保存时）
+#### 3.5.5 百分比/比例处理约定
+
+- 公式计算结果始终为**原始小数值**（如 0.25 表示 25%）
+- `display_format: 'percent'` 仅影响**前端显示**时乘以 100 并加 `%` 号
+- 数据库存储和公式引用始终使用原始小数值
+
+#### 3.5.6 公式验证（保存时）
 
 - 字段名是否存在于 `field_registry`
 - 括号是否匹配
 - 是否有循环引用（A 依赖 B，B 又依赖 A）
 - `SUM()` 内的标签名是否存在于 `field_tags`
 
-#### 3.5.4 链式计算
+#### 3.5.7 链式计算
 
 按 `sort_order` 顺序依次计算每个公式，将结果合并到 `prevResults` 中供后续公式引用。如果检测到依赖的前序公式尚未计算，提示用户调整排序。
 
@@ -220,7 +260,7 @@
 
 - 前端预览：灰色/斜体标注"预估"，辅助参考
 - 后端计算：最终权威值，存入数据库
-- 前后端使用**同一个 formula-parser.js**，同一份公式配置
+- 前后端使用**同一个 shared/formula-parser.js**，同一份公式配置
 
 ### 3.7 安全机制
 
@@ -237,51 +277,57 @@
 - 公式列表页增加"重算历史"按钮
 - 选择：时间范围 + 部门
 - 操作前弹出确认框警告
-- 系统用当前公式配置重新计算该范围内所有记录
-- 操作记入审计日志
+- **执行策略：** 分批处理，每批 500 条记录，在同一个数据库事务中执行。如果某批失败则整体回滚
+- **超时保护：** 超过 10000 条记录时提示用户分次操作（按月份拆分）
+- 操作记入审计日志（记录时间范围、部门、受影响行数）
 
 ### 3.9 数据迁移策略
 
 1. 新建迁移脚本 `db/migrate-formulas.js`
-2. 从 `modules/balance/config.js` 读取所有字段定义 → 写入 `field_registry`
+2. 从 `modules/balance/config.js` 读取所有字段定义 → 写入 `field_registry`（包含 `aliases`、`data_type`、`importable` 等完整信息）
 3. 从 `modules/balance/calc.js` 提取所有公式 → 写入 `formula_configs`
 4. 从字段的 `expense: true` 标记 → 写入 `field_tags`（tag = 'expense'）
 5. 脚本幂等设计（`INSERT ... ON CONFLICT DO NOTHING`）
-6. 迁移后 `calc.js` 改为从数据库读公式 + 调用 `formula-parser.js`
-7. `config.js` 保留为参考备份
+6. 更新 `routes/settings.js` 中的 `/expense-items` 和 `/calc-rules` 端点改为查询新表
+7. 验证新表数据完整性后，删除旧表 `calc_rules` 和 `expense_items`
+8. `calc.js` 改为从数据库读公式 + 调用 `formula-parser.js`
+9. `config.js` 保留为参考备份
 
 ### 3.10 API 设计
+
+> **路由注册顺序：** 所有具名路径（`/sort`、`/validate`、`/test`、`/recalculate`）必须注册在通配路径（`/:id`）**之前**，遵循项目铁律 7.6。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/settings/formulas?module=&department=` | 获取公式列表 |
 | POST | `/api/settings/formulas` | 新增公式 |
-| PUT | `/api/settings/formulas/:id` | 修改公式 |
-| DELETE | `/api/settings/formulas/:id` | 删除公式 |
 | PUT | `/api/settings/formulas/sort` | 批量更新公式排序 |
 | POST | `/api/settings/formulas/validate` | 验证公式（保存前调用） |
 | POST | `/api/settings/formulas/test` | 测试公式（输入测试数据返回结果） |
 | POST | `/api/settings/formulas/recalculate` | 重算历史数据 |
-| GET | `/api/settings/field-registry?module=&department=` | 获取字段注册表 |
+| PUT | `/api/settings/formulas/:id` | 修改公式 |
+| DELETE | `/api/settings/formulas/:id` | 删除公式 |
+| GET | `/api/settings/field-registry?module=&department=` | 获取字段注册表（只读） |
 | GET | `/api/settings/field-tags?module=&department=` | 获取字段标签 |
 | PUT | `/api/settings/field-tags` | 更新字段标签 |
+
+> `field_registry` 当前为只读（由迁移脚本和未来的字段管理功能维护），本期不提供 CRUD API。
 
 ### 3.11 文件改动清单
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `shared/formula-parser.js` | 新建 | 公式解析器，前后端共用 |
-| `db/init.sql` | 修改 | 新增 3 张表，删除旧 `calc_rules` 和 `expense_items` 定义 |
+| `shared/formula-parser.js` | 新建 | 公式解析器，UMD 模式，前后端共用 |
+| `db/init.sql` | 修改 | 新增 3 张表，更新旧表定义 |
 | `db/migrate-formulas.js` | 新建 | 迁移脚本，将硬编码公式导入数据库 |
-| `routes/settings.js` | 修改 | 新增公式配置 CRUD + 验证 + 测试 + 重算 API |
+| `routes/settings.js` | 修改 | 新增公式配置 CRUD + 验证 + 测试 + 重算 API；更新旧端点 |
 | `routes/records.js` | 修改 | 保存记录时调用新解析器 |
 | `modules/balance/calc.js` | 修改 | 改为从数据库读公式 + 调用解析器 |
 | `modules/balance/config.js` | 保留 | 作为迁移来源和参考备份 |
 | `public/js/app.js` | 修改 | 新增 FormulaConfig 组件 + 录入时实时预览 |
-| `public/js/formula-parser.js` | 新建 | 解析器前端副本 |
 | `public/js/api.js` | 修改 | 新增公式配置相关 API 封装 |
-| `public/index.html` | 修改 | 引入 SortableJS CDN + formula-parser.js |
-| `server.js` | 修改 | 注册新路由、静态文件配置 |
+| `public/index.html` | 修改 | 引入 SortableJS CDN + expr-eval CDN + `/shared/formula-parser.js` |
+| `server.js` | 修改 | 注册新路由、`/shared` 静态资源配置 |
 | `routes/workshops.js` | 修改 | 新增批量排序端点 |
 
 ## 4. 需求 3：河源车间
