@@ -89,4 +89,20 @@ router.put('/:id/modules', authenticate, requireStats, asyncHandler(async (req, 
   res.json({ success: true });
 }));
 
+// DELETE /api/users/:id（仅统计组，不能删除自己）
+router.delete('/:id', authenticate, requireStats, asyncHandler(async (req, res) => {
+  const userId = parseInt(req.params.id);
+  if (userId === req.user.id) {
+    return res.status(400).json({ success: false, message: '不能删除当前登录的用户' });
+  }
+  const user = await getOne('SELECT * FROM users WHERE id = ?', [userId]);
+  if (!user) return res.status(404).json({ success: false, message: '用户不存在' });
+
+  // 先删除模块权限关联，再删除用户
+  await query('DELETE FROM user_modules WHERE user_id = ?', [userId]);
+  await query('DELETE FROM users WHERE id = ?', [userId]);
+  await logAction(req.user.id, req.user.name, 'delete_user', 'users', userId, user, null);
+  res.json({ success: true });
+}));
+
 module.exports = router;

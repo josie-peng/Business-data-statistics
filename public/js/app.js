@@ -1243,6 +1243,7 @@ const UserManagementPage = {
                 <button v-if="row.status === 'active'" class="btn-pill sm" style="background:transparent; color:#E88EA0; border:1.5px solid #E88EA0;" @click="toggleUserStatus(row)">禁用</button>
                 <button v-else class="btn-pill sm" style="background:transparent; color:#57B894; border:1.5px solid #57B894;" @click="toggleUserStatus(row)">启用</button>
                 <button v-if="row.role !== 'stats' && row.role !== 'management'" class="btn-pill sm" style="background:transparent; color:#7F41C0; border:1.5px solid #7F41C0;" @click="showModuleDialog(row)">授权</button>
+                <button v-if="currentUserRole === 'stats' && row.username !== JSON.parse(localStorage.getItem('user') || '{}').username" class="btn-pill sm" style="background:transparent; color:#c91d32; border:1.5px solid #c91d32;" @click="handleDeleteUser(row)">删除</button>
               </td>
             </tr>
           </tbody>
@@ -1357,7 +1358,8 @@ const UserManagementPage = {
       editForm: { id: null, username: '', name: '', role: '', department: '' },
       resetPwdForm: { id: null, username: '', password: '' },
       moduleForm: { id: null, name: '', modules: [] },
-      ALL_DEPARTMENTS // BUG-09: 暴露部门映射供模板动态渲染
+      ALL_DEPARTMENTS, // BUG-09: 暴露部门映射供模板动态渲染
+      currentUserRole: JSON.parse(localStorage.getItem('user') || '{}').role || ''
     };
   },
   created() {
@@ -1473,6 +1475,22 @@ const UserManagementPage = {
         ElementPlus.ElMessage.error('保存失败: ' + (err.message || '未知错误'));
       } finally {
         this.saving = false;
+      }
+    },
+    async handleDeleteUser(row) {
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          `确定要永久删除用户 "${row.name || row.username}" 吗？此操作不可恢复！`,
+          '确认删除用户',
+          { type: 'error', confirmButtonText: '确定删除', cancelButtonText: '取消' }
+        );
+        await API.del(`/users/${row.id}`);
+        ElementPlus.ElMessage.success('用户已删除');
+        await this.loadUsers();
+      } catch (err) {
+        if (err !== 'cancel' && err !== 'close') {
+          ElementPlus.ElMessage.error('删除失败: ' + (err.message || '未知错误'));
+        }
       }
     }
   }
@@ -2841,7 +2859,7 @@ const app = Vue.createApp({
             <!-- 三工结余 组 -->
             <div class="menu-group-title" v-show="!sidebarCollapsed">三工结余</div>
             <a class="menu-item" :class="{ active: currentRoute === '/beer' }" @click="navigate('/beer')">
-              <span class="icon">🏭</span>
+              <span class="icon">🗜️</span>
               <span v-show="!sidebarCollapsed">啤机部</span>
             </a>
             <a class="menu-item" :class="{ active: currentRoute === '/print' }" @click="navigate('/print')">
