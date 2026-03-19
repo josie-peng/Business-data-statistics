@@ -243,9 +243,10 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 /* 数据行高 30px */
 .el-table td.el-table__cell {
   height: 30px !important;
-  padding: 0 4px !important;
+  padding: 0 0.1px !important;
   line-height: 30px;
   white-space: nowrap;
+  font-size: 12px;
 }
 
 /* 可编辑单元格 */
@@ -330,20 +331,97 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .summary-footer .summary-header-row td.sh-calc {
   background: #6A35A3;
 }
-.summary-footer .summary-header-row td { padding: 0 4px; height: 24px; line-height: 24px; }
-.summary-footer .workshop-row td { padding: 0 4px; font-size: 11px; height: 24px; line-height: 24px; }
+.summary-footer .summary-header-row td { padding: 0 4px; height: 25px; line-height: 25px; }
+.summary-footer .workshop-row td { padding: 0 4px; font-size: 11px; height: 25px; line-height: 25px; }
 .summary-footer .region-row {
   background: var(--summary-bg);
   font-weight: 600;
 }
-.summary-footer .region-row td { font-size: 11px; height: 24px; line-height: 24px; padding: 0 4px; }
+.summary-footer .region-row td { font-size: 11px; height: 25px; line-height: 25px; padding: 0 4px; }
 .summary-footer .total-row {
   background: var(--detail-header);
   color: #fff;
   font-weight: 700;
   font-size: 12px;
 }
-.summary-footer .total-row td { padding: 0 4px; height: 26px; line-height: 26px; }
+.summary-footer .total-row td { padding: 0 4px; height: 27px; line-height: 27px; }
+
+/* ===== 大车间汇总看板 ===== */
+.dashboard-cards { display: flex; gap: 12px; margin-bottom: 16px; }
+.kpi-card {
+  flex: 1; background: #fff; border-radius: 8px; padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-top: 3px solid #7F41C0;
+}
+.kpi-card .kpi-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+.kpi-card .kpi-value { font-size: 24px; font-weight: 700; color: #333; }
+.kpi-card.card-expense { border-top-color: #E88EA0; }
+.kpi-card.card-balance { border-top-color: #57B894; }
+.kpi-card.card-ratio { border-top-color: #5B9BD5; }
+
+.chart-row { display: flex; gap: 12px; margin-bottom: 16px; }
+.chart-box {
+  background: #fff; border-radius: 8px; padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08); flex: 1;
+}
+.chart-box.w60 { flex: 6; }
+.chart-box.w40 { flex: 4; }
+.chart-title {
+  font-size: 14px; font-weight: 600; color: #333;
+  margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;
+}
+
+/* 汇总表样式 */
+.summary-tab-bar { display: flex; gap: 0; margin-bottom: 0; }
+.summary-tab-btn {
+  padding: 8px 20px; background: #e0e0e0; border: none; cursor: pointer;
+  font-size: 13px; color: #666; transition: all 0.2s;
+}
+.summary-tab-btn.active { background: #7F41C0; color: #fff; font-weight: 600; }
+.summary-tab-btn:first-child { border-radius: 6px 0 0 0; }
+.summary-tab-btn:last-child { border-radius: 0 6px 0 0; }
+.summary-tab-btn:hover:not(.active) { background: #d0d0d0; }
+
+/* 汇总表原生表格样式 */
+.summary-detail-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  background: #fff; border-radius: 0 8px 8px 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.summary-detail-table th {
+  background: #7F41C0; color: #fff; font-weight: 600;
+  padding: 8px 12px; text-align: right; font-size: 12px;
+}
+.summary-detail-table th:first-child,
+.summary-detail-table th:nth-child(2) { text-align: left; }
+.summary-detail-table td {
+  padding: 6px 12px; border-bottom: 1px solid #f0f0f0; text-align: right;
+}
+.summary-detail-table td:first-child,
+.summary-detail-table td:nth-child(2) { text-align: left; }
+.summary-detail-table tr:hover { background: #F0E6F6; }
+.summary-detail-table .cat-cell {
+  font-weight: 600; color: #7F41C0; font-size: 12px;
+}
+.summary-detail-table .total-row {
+  background: #f5f0fa; font-weight: 700;
+}
+.summary-detail-table .balance-row { font-weight: 700; }
+.summary-detail-table .balance-positive { color: #3D8361; }
+.summary-detail-table .balance-negative { color: #E88EA0; }
+
+/* 主视图Tab切换 */
+.main-tab-bar { display: flex; gap: 0; margin-bottom: 16px; }
+.main-tab-btn {
+  padding: 10px 24px; background: #fff; border: 1px solid #e0e0e0;
+  cursor: pointer; font-size: 14px; color: #666; transition: all 0.2s;
+}
+.main-tab-btn:first-child { border-radius: 8px 0 0 8px; }
+.main-tab-btn:last-child { border-radius: 0 8px 8px 0; }
+.main-tab-btn.active {
+  background: #7F41C0; color: #fff; font-weight: 600;
+  border-color: #7F41C0;
+}
+.main-tab-btn:hover:not(.active) { background: #f5f0fa; }
 
 /* ===== 登录页 ===== */
 .login-page {
