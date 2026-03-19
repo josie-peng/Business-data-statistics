@@ -1243,7 +1243,7 @@ const UserManagementPage = {
                 <button v-if="row.status === 'active'" class="btn-pill sm" style="background:transparent; color:#E88EA0; border:1.5px solid #E88EA0;" @click="toggleUserStatus(row)">禁用</button>
                 <button v-else class="btn-pill sm" style="background:transparent; color:#57B894; border:1.5px solid #57B894;" @click="toggleUserStatus(row)">启用</button>
                 <button v-if="row.role !== 'stats' && row.role !== 'management'" class="btn-pill sm" style="background:transparent; color:#7F41C0; border:1.5px solid #7F41C0;" @click="showModuleDialog(row)">授权</button>
-                <button v-if="currentUserRole === 'stats' && row.username !== JSON.parse(localStorage.getItem('user') || '{}').username" class="btn-pill sm" style="background:transparent; color:#c91d32; border:1.5px solid #c91d32;" @click="handleDeleteUser(row)">删除</button>
+                <button v-if="currentUserRole === 'stats' && row.username !== currentUsername" class="btn-pill sm" style="background:transparent; color:#c91d32; border:1.5px solid #c91d32;" @click="handleDeleteUser(row)">删除</button>
               </td>
             </tr>
           </tbody>
@@ -1359,7 +1359,8 @@ const UserManagementPage = {
       resetPwdForm: { id: null, username: '', password: '' },
       moduleForm: { id: null, name: '', modules: [] },
       ALL_DEPARTMENTS, // BUG-09: 暴露部门映射供模板动态渲染
-      currentUserRole: JSON.parse(localStorage.getItem('user') || '{}').role || ''
+      currentUserRole: JSON.parse(localStorage.getItem('user') || '{}').role || '',
+      currentUsername: JSON.parse(localStorage.getItem('user') || '{}').username || ''
     };
   },
   created() {
