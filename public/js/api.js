@@ -72,6 +72,10 @@ const API = {
   saveConstant(data) { return this.post('/settings/constants', data); },
   deleteConstant(id) { return this.del(`/settings/constants/${id}`); },
 
+  // === 大车间汇总 API ===
+  getSummaryDashboard(params) { return this.get('/summary/dashboard', params); },
+  getSummaryDetail(params) { return this.get('/summary/detail', params); },
+
   // === 字段注册表 & 标签 API ===
   getFieldRegistry(params) { return this.get('/settings/field-registry', params); },
   getFieldTags(params) { return this.get('/settings/field-tags', params); },
