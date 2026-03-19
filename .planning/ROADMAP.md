@@ -45,7 +45,11 @@ Plans:
   1. 用户只填写日期和车间即可创建新数据行，其余字段在行内直接编辑
   2. 行内编辑时按 Tab 键自动跳到下一个可编辑字段，跳过产值/结余等计算列
   3. 用户可一键复制已有行的可编辑字段数据生成新行，原行数据不受影响
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — 测试骨架 + ENTRY-01 验证修复 + ENTRY-02 Tab 键行内跳转
+- [ ] 02-02-PLAN.md — ENTRY-03 一键复制行 + 用户验证全部三项功能
 
 ### Phase 3: 数据准确性
 **Goal**: 录入员在提交数据时能即时发现格式错误和异常值，统计组可以追溯每次字段级修改并对比月度数据
@@ -86,7 +90,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. BUG修复与基础稳定 | 0/4 | Planning complete | - |
-| 2. 录入体验升级 | 0/? | Not started | - |
+| 2. 录入体验升级 | 0/2 | Planning complete | - |
 | 3. 数据准确性 | 0/? | Not started | - |
 | 4. 导入导出增强 | 0/? | Not started | - |
 | 5. 系统管理增强与公式引擎 | 0/? | Not started | - |
@@ -130,4 +134,4 @@ Plans:
 ---
 
 *Created: 2026-03-17*
-*Last updated: 2026-03-17 after Phase 1 plan revision — 4 plans (added Wave 0 test scaffold)*
+*Last updated: 2026-03-19 after Phase 2 planning — 2 plans in 2 waves*
