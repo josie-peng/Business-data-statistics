@@ -164,4 +164,203 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
   res.json({ success: true, data: { cards, departments, monthly_trend: monthlyTrend, expense_breakdown: expenseBreakdown } });
 }));
 
+// GET /api/summary/detail?dept=beer&start_date=2026-03-01&end_date=2026-03-31
+// 汇总表数据：总览模式（无dept）或部门明细模式（有dept）
+router.get('/detail', authenticate, asyncHandler(async (req, res) => {
+  const { dept, start_date, end_date } = req.query;
+  const balanceConfig = require('../modules/balance/config');
+
+  // 日期条件构建辅助函数
+  const buildDateWhere = (alias, params) => {
+    let where = '';
+    if (start_date) { where += ` AND ${alias}record_date >= ?`; params.push(start_date); }
+    if (end_date) { where += ` AND ${alias}record_date <= ?`; params.push(end_date); }
+    return where;
+  };
+
+  if (!dept) {
+    // === 总览模式：返回三部门的所有字段汇总 ===
+    const deptResults = [];
+
+    for (const [dKey, config] of Object.entries(DEPT_CONFIG)) {
+      const sharedExpFields = balanceConfig.sharedFields.filter(f => f.expense).map(f => f.field);
+      const uniqueExpFields = config.uniqueExpenseFields;
+      const allExpFields = [...sharedExpFields, ...uniqueExpFields];
+
+      // 查询所有需要的字段
+      const allFields = ['daily_output', 'supervisor_count', 'worker_count', ...allExpFields, 'balance'];
+      const selectClauses = allFields.map(f => `SUM(COALESCE(${f}, 0)) as ${f}`).join(', ');
+      const params = [];
+      let sql = `SELECT ${selectClauses} FROM ${config.tableName} WHERE 1=1`;
+      sql += buildDateWhere('', params);
+
+      const rows = await getAll(sql, params);
+      const r = rows[0] || {};
+      const output = parseFloat(r.daily_output) || 0;
+      const balance = parseFloat(r.balance) || 0;
+
+      // 构建该部门的行数据
+      const deptRows = [];
+      // 产值
+      deptRows.push({ category: '产值', field: 'daily_output', label: '总产值', value: output });
+      // 人员
+      deptRows.push({ category: '人员', field: 'supervisor_count', label: '管工人数', value: parseFloat(r.supervisor_count) || 0 });
+      deptRows.push({ category: '人员', field: 'worker_count', label: '员工人数', value: parseFloat(r.worker_count) || 0 });
+      // 共有费用
+      for (const sf of balanceConfig.sharedFields) {
+        if (sf.expense) {
+          deptRows.push({ category: '共有', field: sf.field, label: sf.label.replace('/天', ''), value: parseFloat(r[sf.field]) || 0 });
+        }
+      }
+      // 独有费用
+      const deptConf = balanceConfig.departments[dKey];
+      for (const uf of deptConf.uniqueFields) {
+        if (uf.expense) {
+          deptRows.push({ category: '独有', field: uf.field, label: uf.label, value: parseFloat(r[uf.field]) || 0 });
+        }
+      }
+
+      deptResults.push({ dept: dKey, label: config.label, rows: deptRows, balance, balance_ratio: output > 0 ? balance / output : 0 });
+    }
+
+    // 构建总览行结构：统一行 + 各部门值
+    const allRows = [];
+    const rowDefs = [];
+    // 产值和人员（共有）
+    rowDefs.push({ category: '产值', field: 'daily_output', label: '总产值' });
+    rowDefs.push({ category: '人员', field: 'supervisor_count', label: '管工人数' });
+    rowDefs.push({ category: '人员', field: 'worker_count', label: '员工人数' });
+    // 共有费用
+    for (const sf of balanceConfig.sharedFields) {
+      if (sf.expense) rowDefs.push({ category: '共有', field: sf.field, label: sf.label.replace('/天', '') });
+    }
+    // 各部门独有费用
+    for (const [dKey, deptConf] of Object.entries(balanceConfig.departments)) {
+      for (const uf of deptConf.uniqueFields) {
+        if (uf.expense) rowDefs.push({ category: DEPT_CONFIG[dKey].label.replace('部', '') + '独有', field: uf.field, label: uf.label, dept: dKey });
+      }
+    }
+
+    for (const rd of rowDefs) {
+      const row = { category: rd.category, field: rd.field, label: rd.label };
+      let rowTotal = 0;
+      for (const dr of deptResults) {
+        // 部门独有字段只在对应部门显示值，其他部门显示 null
+        if (rd.dept && rd.dept !== dr.dept) {
+          row[dr.dept] = null;
+        } else {
+          const found = dr.rows.find(r => r.field === rd.field);
+          if (found) { row[dr.dept] = found.value; rowTotal += found.value; }
+          else { row[dr.dept] = null; }
+        }
+      }
+      row.total = rowTotal;
+      allRows.push(row);
+    }
+
+    // 费用总计行
+    const expTotalRow = { category: '合计', field: '_expense_total', label: '费用总计' };
+    let grandExpTotal = 0;
+    for (const dr of deptResults) {
+      const deptExp = dr.rows.filter(r => r.category === '共有' || r.category === '独有')
+        .reduce((s, r) => s + r.value, 0);
+      expTotalRow[dr.dept] = deptExp;
+      grandExpTotal += deptExp;
+    }
+    expTotalRow.total = grandExpTotal;
+    allRows.push(expTotalRow);
+
+    // 结余行
+    const balanceRow = { category: '结余', field: 'balance', label: '结余' };
+    const ratioRow = { category: '结余', field: 'balance_ratio', label: '结余率' };
+    let grandBalance = 0, grandOutput = 0;
+    for (const dr of deptResults) {
+      balanceRow[dr.dept] = dr.balance;
+      grandBalance += dr.balance;
+      const deptOutput = dr.rows.find(r => r.field === 'daily_output')?.value || 0;
+      grandOutput += deptOutput;
+      ratioRow[dr.dept] = dr.balance_ratio;
+    }
+    balanceRow.total = grandBalance;
+    ratioRow.total = grandOutput > 0 ? grandBalance / grandOutput : 0;
+    allRows.push(balanceRow);
+    allRows.push(ratioRow);
+
+    res.json({ success: true, data: { mode: 'overview', rows: allRows, departments: ['beer', 'print', 'assembly'] } });
+
+  } else {
+    // === 部门明细模式 ===
+    const config = DEPT_CONFIG[dept];
+    if (!config) return res.status(400).json({ success: false, message: '未知部门: ' + dept });
+    const deptConf = balanceConfig.departments[dept];
+
+    // 构建需要查询的字段列表
+    const queryFields = ['daily_output', 'supervisor_count', 'worker_count'];
+    for (const sf of balanceConfig.sharedFields) { if (sf.expense) queryFields.push(sf.field); }
+    for (const uf of deptConf.uniqueFields) { if (uf.expense) queryFields.push(uf.field); }
+    queryFields.push('balance');
+
+    const selectClauses = queryFields.map(f => `SUM(COALESCE(r.${f}, 0)) as ${f}`).join(', ');
+    const params = [];
+    let sql = `SELECT w.name as workshop_name, ${selectClauses}
+               FROM ${config.tableName} r LEFT JOIN workshops w ON r.workshop_id = w.id
+               WHERE 1=1`;
+    sql += buildDateWhere('r.', params);
+    sql += ` GROUP BY w.id, w.name, w.sort_order ORDER BY w.sort_order`;
+
+    const dbRows = await getAll(sql, params);
+    const workshops = dbRows.map(r => r.workshop_name);
+
+    // 构建行数据
+    const rows = [];
+    // 产值
+    rows.push({ category: '产值', field: 'daily_output', label: '总产值',
+      values: Object.fromEntries(dbRows.map(r => [r.workshop_name, parseFloat(r.daily_output) || 0])),
+      total: dbRows.reduce((s, r) => s + (parseFloat(r.daily_output) || 0), 0) });
+    // 人员
+    for (const f of ['supervisor_count', 'worker_count']) {
+      const label = f === 'supervisor_count' ? '管工人数' : '员工人数';
+      rows.push({ category: '人员', field: f, label,
+        values: Object.fromEntries(dbRows.map(r => [r.workshop_name, parseFloat(r[f]) || 0])),
+        total: dbRows.reduce((s, r) => s + (parseFloat(r[f]) || 0), 0) });
+    }
+    // 共有费用
+    for (const sf of balanceConfig.sharedFields) {
+      if (!sf.expense) continue;
+      rows.push({ category: '共有', field: sf.field, label: sf.label.replace('/天', ''),
+        values: Object.fromEntries(dbRows.map(r => [r.workshop_name, parseFloat(r[sf.field]) || 0])),
+        total: dbRows.reduce((s, r) => s + (parseFloat(r[sf.field]) || 0), 0) });
+    }
+    // 独有费用
+    for (const uf of deptConf.uniqueFields) {
+      if (!uf.expense) continue;
+      rows.push({ category: '独有', field: uf.field, label: uf.label,
+        values: Object.fromEntries(dbRows.map(r => [r.workshop_name, parseFloat(r[uf.field]) || 0])),
+        total: dbRows.reduce((s, r) => s + (parseFloat(r[uf.field]) || 0), 0) });
+    }
+
+    // 费用总计
+    const expenseTotal = {};
+    for (const ws of workshops) {
+      expenseTotal[ws] = rows.filter(r => r.category === '共有' || r.category === '独有')
+        .reduce((s, r) => s + (r.values[ws] || 0), 0);
+    }
+    expenseTotal.total = Object.values(expenseTotal).reduce((s, v) => s + v, 0);
+
+    // 结余
+    const balance = {};
+    const balanceRatio = {};
+    for (const r of dbRows) {
+      balance[r.workshop_name] = parseFloat(r.balance) || 0;
+      const wsOutput = parseFloat(r.daily_output) || 0;
+      balanceRatio[r.workshop_name] = wsOutput > 0 ? (parseFloat(r.balance) || 0) / wsOutput : 0;
+    }
+    balance.total = dbRows.reduce((s, r) => s + (parseFloat(r.balance) || 0), 0);
+    const totalOut = dbRows.reduce((s, r) => s + (parseFloat(r.daily_output) || 0), 0);
+    balanceRatio.total = totalOut > 0 ? balance.total / totalOut : 0;
+
+    res.json({ success: true, data: { mode: 'detail', dept, workshops, rows, expense_total: expenseTotal, balance, balance_ratio: balanceRatio } });
+  }
+}));
+
 module.exports = router;
