@@ -1156,46 +1156,69 @@ const SummaryPage = {
 // ===== 用户管理页组件 =====
 const UserManagementPage = {
   template: `
-    <div class="user-management-page">
-      <div class="card">
-        <div class="card-header">
-          <h3>用户管理</h3>
-          <el-button type="primary" size="default" @click="showAddUserDialog">新增用户</el-button>
+    <div class="user-management-page settings-card">
+      <div class="card-top">
+        <h3><span class="title-dot" style="background:#5B9BD5;"></span> 用户管理</h3>
+        <button class="btn-pill info" @click="showAddUserDialog">+ 新增用户</button>
+      </div>
+
+      <!-- 统计药片 -->
+      <div class="stat-pills">
+        <div class="stat-pill" style="background:#f3edf7; color:#7F41C0;">
+          <span>统计组</span> <span class="stat-num">{{ users.filter(u => u.role === 'stats').length }}</span>
         </div>
-        <el-table :data="users" border stripe style="width:100%" v-loading="loading" class="user-table">
-          <el-table-column prop="username" label="用户名" width="120" />
-          <el-table-column prop="name" label="姓名" width="120" />
-          <el-table-column prop="role" label="角色" width="100">
-            <template #default="{ row }">
-              <span :class="'role-' + row.role">{{ getRoleName(row.role) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="department" label="部门" width="100" />
-          <el-table-column prop="status" label="状态" width="80">
-            <template #default="{ row }">
-              <span :class="row.status === 'active' ? 'status-active' : 'status-disabled'">
-                {{ row.status === 'active' ? '启用' : '禁用' }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="batch_permission" label="批量权限" width="90">
-            <template #default="{ row }">
-              {{ row.batch_permission ? '是' : '否' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="320" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" @click="showEditUserDialog(row)">编辑</el-button>
-              <el-button size="small" type="warning" @click="showResetPasswordDialog(row)">重置密码</el-button>
-              <el-button size="small" :type="row.status === 'active' ? 'danger' : 'success'"
-                         @click="toggleUserStatus(row)">
-                {{ row.status === 'active' ? '禁用' : '启用' }}
-              </el-button>
-              <el-button v-if="row.role !== 'stats'" size="small" type="primary" @click="showModuleDialog(row)">模块授权</el-button>
-              <el-tag v-else size="small" type="success" effect="plain">全部权限</el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="stat-pill" style="background:#e3f2fd; color:#5B9BD5;">
+          <span>录入员</span> <span class="stat-num">{{ users.filter(u => u.role === 'entry').length }}</span>
+        </div>
+        <div class="stat-pill" style="background:#e8f5e9; color:#3D8361;">
+          <span>已启用</span> <span class="stat-num">{{ users.filter(u => u.status === 'active').length }}</span>
+        </div>
+        <div class="stat-pill" style="background:#fce4ec; color:#c91d32;">
+          <span>已禁用</span> <span class="stat-num">{{ users.filter(u => u.status !== 'active').length }}</span>
+        </div>
+      </div>
+
+      <div v-loading="loading">
+        <table class="pretty-table">
+          <thead>
+            <tr>
+              <th style="width:40px;"></th>
+              <th>用户</th>
+              <th>角色</th>
+              <th>部门</th>
+              <th>状态</th>
+              <th>批量权限</th>
+              <th style="width:240px;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in users" :key="row.id" :class="{ 'row-disabled': row.status !== 'active' }">
+              <td>
+                <div class="user-avatar" :style="{ background: row.status !== 'active' ? '#ccc' : (row.role === 'stats' ? '#7F41C0' : '#5B9BD5') }">
+                  {{ (row.name || row.username || '?').charAt(0) }}
+                </div>
+              </td>
+              <td>
+                <div style="font-weight:600;">{{ row.username }}</div>
+                <div style="font-size:12px; color:#999;">{{ row.name }}</div>
+              </td>
+              <td><span class="pill-badge" :class="row.role === 'stats' ? 'purple' : 'blue'">{{ getRoleName(row.role) }}</span></td>
+              <td>
+                <span v-if="row.department" class="pill-badge" :class="deptBadge(row.department)">{{ ALL_DEPARTMENTS[row.department] || row.department }}</span>
+                <span v-else style="color:#ccc;">—</span>
+              </td>
+              <td><span class="pill-badge" :class="row.status === 'active' ? 'green' : 'pink'">{{ row.status === 'active' ? '启用' : '禁用' }}</span></td>
+              <td><span class="pill-badge" :class="row.batch_permission ? 'green' : 'gray'">{{ row.batch_permission ? '是' : '否' }}</span></td>
+              <td>
+                <button class="btn-pill ghost sm" @click="showEditUserDialog(row)">编辑</button>
+                <button class="btn-pill sm" style="background:transparent; color:#F0A868; border:1.5px solid #F0A868;" @click="showResetPasswordDialog(row)">重置密码</button>
+                <button v-if="row.status === 'active'" class="btn-pill sm" style="background:transparent; color:#E88EA0; border:1.5px solid #E88EA0;" @click="toggleUserStatus(row)">禁用</button>
+                <button v-else class="btn-pill sm" style="background:transparent; color:#57B894; border:1.5px solid #57B894;" @click="toggleUserStatus(row)">启用</button>
+                <button v-if="row.role !== 'stats'" class="btn-pill sm" style="background:transparent; color:#7F41C0; border:1.5px solid #7F41C0;" @click="showModuleDialog(row)">授权</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- 新增用户对话框 -->
@@ -1312,6 +1335,12 @@ const UserManagementPage = {
   },
   methods: {
     getRoleName,
+    deptBadge(dept) {
+      if (dept === 'beer') return 'purple';
+      if (dept === 'print') return 'blue';
+      if (dept === 'assembly') return 'teal';
+      return 'gray';
+    },
     async loadUsers() {
       this.loading = true;
       try {
@@ -1423,27 +1452,35 @@ const UserManagementPage = {
 const SettingsPage = {
   template: `
     <div class="settings-page">
-      <el-tabs v-model="activeTab" type="border-card">
-        <el-tab-pane label="公式配置" name="formulas">
-          <formula-config />
-        </el-tab-pane>
-        <el-tab-pane label="车间管理" name="workshops">
-          <workshop-settings />
-        </el-tab-pane>
-        <el-tab-pane label="数据锁定" name="locks">
-          <data-locks />
-        </el-tab-pane>
-        <el-tab-pane label="操作日志" name="logs">
-          <audit-logs />
-        </el-tab-pane>
-        <el-tab-pane label="数据备份" name="backup">
-          <backup-page />
-        </el-tab-pane>
-      </el-tabs>
+      <!-- 药片Tab栏 -->
+      <div class="settings-pill-tabs">
+        <button v-for="tab in tabs" :key="tab.key"
+          class="pill-tab" :class="{ ['active-' + tab.key]: activeTab === tab.key }"
+          @click="activeTab = tab.key">
+          <span>{{ tab.icon }}</span> {{ tab.label }}
+        </button>
+      </div>
+      <!-- 内容面板 -->
+      <formula-config v-if="activeTab === 'formulas'" />
+      <workshop-settings v-else-if="activeTab === 'workshops'" />
+      <user-management-page v-else-if="activeTab === 'users'" />
+      <data-locks v-else-if="activeTab === 'locks'" />
+      <audit-logs v-else-if="activeTab === 'logs'" />
+      <backup-page v-else-if="activeTab === 'backup'" />
     </div>
   `,
   data() {
-    return { activeTab: 'formulas' };
+    return {
+      activeTab: 'formulas',
+      tabs: [
+        { key: 'formulas', label: '公式配置', icon: 'fx' },
+        { key: 'workshops', label: '车间管理', icon: '🏭' },
+        { key: 'users', label: '用户管理', icon: '👥' },
+        { key: 'locks', label: '数据锁定', icon: '🔒' },
+        { key: 'logs', label: '操作日志', icon: '📝' },
+        { key: 'backup', label: '数据备份', icon: '💾' }
+      ]
+    };
   }
 };
 
@@ -2210,33 +2247,54 @@ const FormulaConfig = {
 // ===== 车间管理子组件 =====
 const WorkshopSettings = {
   template: `
-    <div>
-      <div class="card-header" style="border-bottom:1px solid var(--border-color); padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-        <h3 style="font-size:16px;">车间列表</h3>
-        <el-button type="primary" size="default" @click="showAddDialog">新增车间</el-button>
+    <div class="settings-card">
+      <div class="card-top">
+        <h3><span class="title-dot" style="background:#3D8361;"></span> 车间列表</h3>
+        <button class="btn-pill success" @click="showAddDialog">+ 新增车间</button>
       </div>
-      <el-table ref="workshopTable" :data="workshops" border stripe style="width:100%" v-loading="loading" row-key="id">
-        <el-table-column prop="id" label="ID" width="50" />
-        <el-table-column prop="region" label="厂区" width="70" />
-        <el-table-column prop="company" label="公司" width="90" />
-        <el-table-column prop="name" label="车间" width="100" />
-        <el-table-column prop="department" label="部门" width="90">
-          <template #default="{ row }">
-            {{ row.department ? (ALL_DEPARTMENTS[row.department] || row.department) : '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="排序" width="60" align="center">
-          <template #default>
-            <span class="drag-handle" style="cursor:grab; font-size:18px; color:#999; user-select:none;">≡</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="140">
-          <template #default="{ row }">
-            <el-button size="small" @click="showEditDialog(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+
+      <!-- 厂区统计药片 -->
+      <div class="stat-pills">
+        <div v-for="(count, region) in regionCounts" :key="region" class="stat-pill"
+          :style="{ background: regionColors[region]?.bg || '#f5f5f5', color: regionColors[region]?.text || '#999' }">
+          <span>{{ region }}</span> <span class="stat-num">{{ count }}</span>
+        </div>
+      </div>
+
+      <div v-loading="loading">
+        <table class="pretty-table" ref="workshopTable">
+          <thead>
+            <tr>
+              <th style="width:40px;"></th>
+              <th>车间</th>
+              <th>公司</th>
+              <th>厂区</th>
+              <th>部门</th>
+              <th style="width:140px;">操作</th>
+            </tr>
+          </thead>
+          <tbody ref="workshopTbody">
+            <tr v-for="w in workshops" :key="w.id" :data-id="w.id">
+              <td><span class="drag-handle drag-pill">⠿</span></td>
+              <td style="font-weight:600;">{{ w.name }}</td>
+              <td>{{ w.company }}</td>
+              <td>
+                <span class="pill-badge" :class="regionBadgeClass(w.region)">{{ w.region }}</span>
+              </td>
+              <td>
+                <span v-if="w.department" class="pill-badge" :class="deptBadgeClass(w.department)">
+                  {{ ALL_DEPARTMENTS[w.department] || w.department }}
+                </span>
+                <span v-else style="color:#ccc;">—</span>
+              </td>
+              <td>
+                <button class="btn-pill ghost sm" @click="showEditDialog(w)">编辑</button>
+                <button class="btn-pill sm" style="background:transparent; color:#E88EA0; border:1.5px solid #E88EA0;" @click="handleDelete(w)">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑车间' : '新增车间'" width="420px" destroy-on-close>
         <el-form :model="form" label-width="80px" size="default">
@@ -2256,7 +2314,6 @@ const WorkshopSettings = {
               <el-option v-for="(label, key) in ALL_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
-          <!-- 排序通过拖拽操作，不再手动输入 -->
         </el-form>
         <template #footer>
           <el-button @click="dialogVisible = false">取消</el-button>
@@ -2274,22 +2331,48 @@ const WorkshopSettings = {
       isEdit: false,
       form: { name: '', company: '', region: '', department: '', sort_order: 0 },
       ALL_DEPARTMENTS,
-      ALL_REGIONS
+      ALL_REGIONS,
+      regionColors: {
+        '清溪': { bg: '#e8f5e9', text: '#3D8361' },
+        '湖南': { bg: '#fff3e0', text: '#e65100' },
+        '河源': { bg: '#e3f2fd', text: '#1565c0' }
+      }
     };
+  },
+  computed: {
+    // 按厂区统计车间数
+    regionCounts() {
+      const counts = {};
+      for (const w of this.workshops) {
+        const r = w.region || '未知';
+        counts[r] = (counts[r] || 0) + 1;
+      }
+      return counts;
+    }
   },
   created() {
     this.loadWorkshops();
   },
   mounted() {
-    // 等待 DOM 渲染后初始化拖拽
     this.$nextTick(() => this.initSortable());
   },
   methods: {
+    // 厂区药片颜色
+    regionBadgeClass(region) {
+      if (region === '清溪') return 'green';
+      if (region === '湖南') return 'orange';
+      if (region === '河源') return 'blue';
+      return 'gray';
+    },
+    // 部门药片颜色
+    deptBadgeClass(dept) {
+      if (dept === 'beer') return 'purple';
+      if (dept === 'print') return 'blue';
+      if (dept === 'assembly') return 'teal';
+      return 'gray';
+    },
     initSortable() {
-      // 获取 el-table 内部的 tbody 元素
-      const table = this.$refs.workshopTable;
-      if (!table) return;
-      const tbody = table.$el.querySelector('.el-table__body-wrapper tbody');
+      const tbody = this.$refs.workshopTbody;
       if (!tbody) return;
       Sortable.create(tbody, {
         handle: '.drag-handle',           // 只能通过手柄拖拽
@@ -2380,30 +2463,32 @@ const WorkshopSettings = {
 // ===== 数据锁定子组件 =====
 const DataLocks = {
   template: `
-    <div>
-      <div class="card-header" style="border-bottom:1px solid var(--border-color); padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-        <h3 style="font-size:16px;">数据锁定管理</h3>
-        <el-button type="primary" size="default" @click="showLockDialog">锁定月份</el-button>
+    <div class="settings-card">
+      <div class="card-top">
+        <h3><span class="title-dot" style="background:#E88EA0;"></span> 数据锁定</h3>
+        <button class="btn-pill danger" @click="showLockDialog">+ 锁定月份</button>
       </div>
-      <el-table :data="locks" border stripe style="width:100%" v-loading="loading">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="lock_month" label="锁定月份" width="140" />
-        <el-table-column prop="department" label="部门" width="120">
-          <template #default="{ row }">
-            {{ row.department ? (BALANCE_DEPARTMENTS[row.department] || row.department) : '全部' }}
-          </template>
-        </el-table-column>
-        <!-- BUG-07: prop 对齐后端 u.name AS locked_by_name -->
-        <el-table-column prop="locked_by_name" label="锁定人" width="120" />
-        <el-table-column prop="locked_at" label="锁定时间" width="180">
-          <template #default="{ row }">{{ row.locked_at ? row.locked_at.substring(0, 19).replace('T', ' ') : '' }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="100">
-          <template #default="{ row }">
-            <el-button size="small" type="danger" @click="handleUnlock(row)">解锁</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+
+      <div v-loading="loading">
+        <!-- 无数据提示 -->
+        <div v-if="locks.length === 0 && !loading" style="text-align:center; padding:40px; color:#999;">
+          暂无锁定记录
+        </div>
+        <!-- 锁定卡片 -->
+        <div class="lock-cards" v-else>
+          <div class="lock-card" v-for="row in locks" :key="row.id">
+            <span class="lock-icon">🔒</span>
+            <div class="lock-month">{{ row.lock_month }}</div>
+            <div class="lock-dept">
+              <span class="pill-badge" :class="row.department ? deptBadge(row.department) : 'gray'">
+                {{ row.department ? (BALANCE_DEPARTMENTS[row.department] || row.department) : '全部部门' }}
+              </span>
+            </div>
+            <div class="lock-meta">{{ row.locked_by_name }} · {{ row.locked_at ? row.locked_at.substring(0, 16).replace('T', ' ') : '' }}</div>
+            <button class="unlock-btn" @click="handleUnlock(row)">解锁</button>
+          </div>
+        </div>
+      </div>
 
       <el-dialog v-model="lockDialogVisible" title="锁定月份" width="400px" destroy-on-close>
         <el-form :model="lockForm" label-width="80px" size="default">
@@ -2411,8 +2496,6 @@ const DataLocks = {
             <el-date-picker v-model="lockForm.lock_month" type="month" placeholder="选择月份" value-format="YYYY-MM" style="width:100%" />
           </el-form-item>
           <el-form-item label="部门">
-            <!-- BUG-04: v-model 对齐后端字段名 department -->
-            <!-- BUG-08: 硬编码部门下拉改为动态生成 -->
             <el-select v-model="lockForm.department" clearable placeholder="全部部门" style="width:100%">
               <el-option v-for="(label, key) in BALANCE_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
@@ -2449,6 +2532,12 @@ const DataLocks = {
       } finally {
         this.loading = false;
       }
+    },
+    deptBadge(dept) {
+      if (dept === 'beer') return 'purple';
+      if (dept === 'print') return 'blue';
+      if (dept === 'assembly') return 'teal';
+      return 'gray';
     },
     showLockDialog() {
       // BUG-04: 字段名对齐后端 req.body.department
@@ -2492,40 +2581,43 @@ const DataLocks = {
 // ===== 操作日志子组件 =====
 const AuditLogs = {
   template: `
-    <div>
-      <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
-        <el-date-picker v-model="dateRange" type="daterange" range-separator="至"
-          start-placeholder="开始日期" end-placeholder="结束日期" size="default"
-          value-format="YYYY-MM-DD" @change="loadLogs" style="width:280px" />
-        <el-input v-model="userFilter" placeholder="按用户筛选" clearable size="default" style="width:160px" @input="loadLogs" />
-        <el-select v-model="actionFilter" placeholder="操作类型" clearable size="default" style="width:140px" @change="loadLogs">
-          <el-option label="全部" value="" />
-          <el-option label="登录" value="login" />
-          <el-option label="新增" value="create" />
-          <el-option label="修改" value="update" />
-          <el-option label="删除" value="delete" />
-          <el-option label="导入" value="import" />
-          <el-option label="导出" value="export" />
-          <el-option label="锁定" value="lock" />
-          <el-option label="备份" value="backup" />
-          <el-option label="恢复" value="restore" />
-        </el-select>
+    <div class="settings-card">
+      <div class="card-top">
+        <h3><span class="title-dot" style="background:#F0A868;"></span> 操作日志</h3>
       </div>
-      <el-table :data="logs" border stripe style="width:100%" v-loading="loading" height="500">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="created_at" label="时间" width="180">
-          <template #default="{ row }">{{ row.created_at ? row.created_at.substring(0, 19).replace('T', ' ') : '' }}</template>
-        </el-table-column>
-        <el-table-column prop="username" label="用户" width="120" />
-        <el-table-column prop="action" label="操作" width="100" />
-        <el-table-column prop="module" label="模块" width="100" />
-        <el-table-column prop="detail" label="详情" min-width="300">
-          <template #default="{ row }">
-            <span style="font-size:12px; color:var(--text-secondary);">{{ typeof row.detail === 'object' ? JSON.stringify(row.detail) : row.detail }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="ip" label="IP" width="140" />
-      </el-table>
+
+      <!-- 筛选药片 -->
+      <div class="filter-pills">
+        <span v-for="opt in actionOptions" :key="opt.value"
+          class="filter-pill" :class="{ active: actionFilter === opt.value }"
+          @click="actionFilter = opt.value; loadLogs()">{{ opt.label }}</span>
+        <span style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <el-input v-model="userFilter" placeholder="按用户筛选..." clearable size="small"
+            style="width:140px;" @input="loadLogs">
+          </el-input>
+          <el-date-picker v-model="dateRange" type="daterange" range-separator="至"
+            start-placeholder="开始" end-placeholder="结束" size="small"
+            value-format="YYYY-MM-DD" @change="loadLogs" style="width:240px" />
+        </span>
+      </div>
+
+      <!-- 时间线列表 -->
+      <div v-loading="loading" style="max-height:500px; overflow-y:auto;">
+        <div v-if="logs.length === 0 && !loading" style="text-align:center; padding:40px; color:#999;">
+          暂无日志记录
+        </div>
+        <div class="log-timeline" v-else>
+          <div class="log-item" v-for="log in logs" :key="log.id">
+            <div class="log-time">{{ log.created_at ? log.created_at.substring(0, 16).replace('T', ' ') : '' }}</div>
+            <span class="log-action-badge" :class="log.action || ''">{{ actionLabel(log.action) }}</span>
+            <div class="log-body">
+              <div class="log-user">{{ log.username }}</div>
+              <div class="log-detail">{{ typeof log.detail === 'object' ? JSON.stringify(log.detail) : log.detail }}</div>
+            </div>
+            <div class="log-ip">{{ log.ip }}</div>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   data() {
@@ -2534,13 +2626,29 @@ const AuditLogs = {
       loading: false,
       dateRange: getDefaultDateRange(),
       userFilter: '',
-      actionFilter: ''
+      actionFilter: '',
+      actionOptions: [
+        { label: '全部', value: '' },
+        { label: '登录', value: 'login' },
+        { label: '新增', value: 'create' },
+        { label: '修改', value: 'update' },
+        { label: '删除', value: 'delete' },
+        { label: '导入', value: 'import' },
+        { label: '导出', value: 'export' },
+        { label: '锁定', value: 'lock' },
+        { label: '备份', value: 'backup' },
+        { label: '恢复', value: 'restore' }
+      ]
     };
   },
   created() {
     this.loadLogs();
   },
   methods: {
+    actionLabel(action) {
+      const map = { login: '登录', create: '新增', update: '修改', delete: '删除', import: '导入', export: '导出', lock: '锁定', backup: '备份', restore: '恢复' };
+      return map[action] || action || '未知';
+    },
     async loadLogs() {
       this.loading = true;
       try {
@@ -2565,27 +2673,33 @@ const AuditLogs = {
 // ===== 数据备份子组件 =====
 const BackupPage = {
   template: `
-    <div>
-      <div class="card-header" style="border-bottom:1px solid var(--border-color); padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-        <h3 style="font-size:16px;">数据备份</h3>
-        <el-button type="primary" size="default" @click="handleBackup" :loading="backing">创建备份</el-button>
+    <div class="settings-card">
+      <div class="card-top">
+        <h3><span class="title-dot" style="background:#9B6DC6;"></span> 数据备份</h3>
+        <button class="btn-pill primary" @click="handleBackup" :disabled="backing">
+          {{ backing ? '备份中...' : '+ 创建备份' }}
+        </button>
       </div>
-      <el-table :data="backups" border stripe style="width:100%" v-loading="loading">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="filename" label="文件名" min-width="250" />
-        <el-table-column prop="size" label="大小" width="120">
-          <template #default="{ row }">{{ formatSize(row.size) }}</template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180">
-          <template #default="{ row }">{{ row.created_at ? row.created_at.substring(0, 19).replace('T', ' ') : '' }}</template>
-        </el-table-column>
-        <el-table-column prop="created_by" label="创建人" width="120" />
-        <el-table-column label="操作" width="100">
-          <template #default="{ row }">
-            <el-button size="small" type="warning" @click="handleRestore(row)">恢复</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+
+      <div v-loading="loading">
+        <div v-if="backups.length === 0 && !loading" style="text-align:center; padding:40px; color:#999;">
+          暂无备份记录
+        </div>
+        <div class="backup-cards" v-else>
+          <div class="backup-card" v-for="row in backups" :key="row.id">
+            <div class="backup-icon">📦</div>
+            <div class="backup-info">
+              <div class="backup-name">{{ row.filename }}</div>
+              <div class="backup-meta">
+                <span><span class="pill-badge gray">{{ formatSize(row.size) }}</span></span>
+                <span>{{ row.created_at ? row.created_at.substring(0, 16).replace('T', ' ') : '' }}</span>
+                <span>{{ row.created_by }}</span>
+              </div>
+            </div>
+            <button class="restore-btn" @click="handleRestore(row)">恢复</button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   data() {
@@ -2663,7 +2777,6 @@ const BREADCRUMB_MAP = {
   '/print': '三工结余 / 印喷部',
   '/assembly': '三工结余 / 装配部',
   '/summary': '结余收支汇总 / 大车间汇总',
-  '/users': '用户管理',
   '/settings': '系统设置'
 };
 
@@ -2712,13 +2825,9 @@ const app = Vue.createApp({
               </template>
             </div>
 
-            <!-- 用户管理 (stats only) -->
+            <!-- 系统设置 (stats only) -->
             <template v-if="user && user.role === 'stats'">
               <div class="menu-group-title" v-show="!sidebarCollapsed">管理</div>
-              <a class="menu-item" :class="{ active: currentRoute === '/users' }" @click="navigate('/users')">
-                <span class="icon">👥</span>
-                <span v-show="!sidebarCollapsed">用户管理</span>
-              </a>
               <a class="menu-item" :class="{ active: currentRoute === '/settings' }" @click="navigate('/settings')">
                 <span class="icon">⚙️</span>
                 <span v-show="!sidebarCollapsed">系统设置</span>
@@ -2751,7 +2860,6 @@ const app = Vue.createApp({
           <div class="page-content">
             <dept-records-page v-if="isDeptPage" :dept="currentDept" :key="currentDept" />
             <summary-page v-else-if="currentRoute === '/summary'" />
-            <user-management-page v-else-if="currentRoute === '/users' && user?.role === 'stats'" />
             <settings-page v-else-if="currentRoute === '/settings' && user?.role === 'stats'" />
             <div v-else style="text-align:center; padding:60px; color:var(--text-secondary);">
               <h2>页面未找到</h2>
