@@ -338,6 +338,7 @@ const DeptRecordsPage = {
                 <input :value="row[col.field]" @blur="saveCell(row, col.field, $event)"
                        @keyup.enter="$event.target.blur()"
                        @keyup.escape="cancelEdit"
+                       @keydown.tab.prevent="handleTabKey(row, col.field, $event)"
                        @input="limitDecimals($event)"
                        autofocus />
               </div>
@@ -572,6 +573,32 @@ const DeptRecordsPage = {
     cancelEdit() {
       this.editingCell = { rowId: null, field: null };
     },
+    // Tab 键在同一行的可编辑字段间跳转
+    // Tab 正向跳，Shift+Tab 反向跳，到达边界则取消编辑（saveCell 已重置 editingCell）
+    handleTabKey(row, currentField, event) {
+      // 先保存当前单元格（saveCell 会重置 editingCell 为 null）
+      this.saveCell(row, currentField, event);
+
+      // 在可编辑字段列表中找当前字段的位置
+      const editableCols = this.editableColumns;
+      const currentIdx = editableCols.findIndex(c => c.field === currentField);
+
+      if (event.shiftKey) {
+        // Shift+Tab：跳到上一个可编辑字段
+        const prev = currentIdx > 0 ? editableCols[currentIdx - 1] : null;
+        if (prev) {
+          this.$nextTick(() => this.startEdit(row, prev));
+        }
+        // 如果已是第一列，saveCell 已重置 editingCell，不再处理
+      } else {
+        // Tab：跳到下一个可编辑字段
+        const next = currentIdx < editableCols.length - 1 ? editableCols[currentIdx + 1] : null;
+        if (next) {
+          this.$nextTick(() => this.startEdit(row, next));
+        }
+        // 如果已是最后一列，saveCell 已重置 editingCell，不再处理
+      }
+    },
     // 限制输入最多6位小数
     limitDecimals(event) {
       const v = event.target.value;
@@ -672,7 +699,7 @@ const DeptRecordsPage = {
           if (firstEditable) {
             this.editingCell = { rowId: newId, field: firstEditable.field };
             this.$nextTick(() => {
-              const input = this.$el?.querySelector('.data-table-wrapper input');
+              const input = this.$el?.querySelector('.editing-cell-wrapper input');
               if (input) input.focus();
             });
           }
@@ -1236,7 +1263,11 @@ const UserManagementPage = {
                 <span v-else style="color:#ccc;">—</span>
               </td>
               <td><span class="pill-badge" :class="row.status === 'active' ? 'green' : 'pink'">{{ row.status === 'active' ? '启用' : '禁用' }}</span></td>
-              <td><span class="pill-badge" :class="row.batch_permission ? 'green' : 'gray'">{{ row.batch_permission ? '是' : '否' }}</span></td>
+              <td>
+                <span v-if="row.role === 'stats'" class="pill-badge purple">全部权限</span>
+                <span v-else-if="row.role === 'management'" class="pill-badge orange">查看/编辑</span>
+                <span v-else class="pill-badge" :class="row.batch_permission ? 'green' : 'gray'">{{ row.batch_permission ? '是' : '否' }}</span>
+              </td>
               <td v-if="!readonly">
                 <button class="btn-pill ghost sm" @click="showEditUserDialog(row)">编辑</button>
                 <button class="btn-pill sm" style="background:transparent; color:#F0A868; border:1.5px solid #F0A868;" @click="showResetPasswordDialog(row)">重置密码</button>
