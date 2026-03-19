@@ -104,11 +104,46 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
     totalBalance += balance;
   }
 
+  // === 1b. 查询上一期数据，计算环比 ===
+  // 有月份：对比上个月；无月份（全年）：对比上一年
+  let prevYear = yearNum, prevMonth = null;
+  if (monthNum) {
+    prevMonth = monthNum - 1;
+    if (prevMonth === 0) { prevMonth = 12; prevYear = yearNum - 1; }
+  } else {
+    prevYear = yearNum - 1;
+  }
+  let prevOutput = 0, prevExpense = 0, prevBalance = 0;
+  for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
+    const expenseFields = getExpenseFields(dept);
+    const expenseSumExpr = expenseFields.map(f => `COALESCE(${f}, 0)`).join(' + ');
+    let sql = `SELECT SUM(daily_output) as output, SUM(${expenseSumExpr}) as expense, SUM(balance) as balance
+               FROM ${config.tableName}
+               WHERE EXTRACT(YEAR FROM record_date) = ?`;
+    const params = [prevYear];
+    if (prevMonth) { sql += ` AND EXTRACT(MONTH FROM record_date) = ?`; params.push(prevMonth); }
+    const rows = await getAll(sql, params);
+    const r = rows[0] || {};
+    prevOutput += parseFloat(r.output) || 0;
+    prevExpense += parseFloat(r.expense) || 0;
+    prevBalance += parseFloat(r.balance) || 0;
+  }
+  const prevRatio = prevOutput > 0 ? prevBalance / prevOutput : 0;
+
+  // 环比变化率：(当期 - 上期) / |上期|，上期为0则返回null
+  const calcChange = (curr, prev) => prev !== 0 ? (curr - prev) / Math.abs(prev) : null;
+
   const cards = {
     total_output: totalOutput,
     total_expense: totalExpense,
     total_balance: totalBalance,
-    avg_ratio: totalOutput > 0 ? totalBalance / totalOutput : 0
+    avg_ratio: totalOutput > 0 ? totalBalance / totalOutput : 0,
+    // 环比数据
+    output_change: calcChange(totalOutput, prevOutput),
+    expense_change: calcChange(totalExpense, prevExpense),
+    balance_change: calcChange(totalBalance, prevBalance),
+    ratio_change: calcChange(totalOutput > 0 ? totalBalance / totalOutput : 0, prevRatio),
+    prev_label: monthNum ? `${prevYear}-${String(prevMonth).padStart(2, '0')}` : `${prevYear}年`
   };
 
   // === 2. 月度趋势（该年每月每个部门的结余率）===

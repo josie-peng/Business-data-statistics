@@ -349,14 +349,18 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 /* ===== 大车间汇总看板 ===== */
 .dashboard-cards { display: flex; gap: 12px; margin-bottom: 16px; }
 .kpi-card {
-  flex: 1; background: #fff; border-radius: 8px; padding: 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-top: 3px solid #7F41C0;
+  flex: 1; border-radius: 8px; padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12); background: #7F41C0; color: #fff;
 }
-.kpi-card .kpi-label { font-size: 12px; color: #999; margin-bottom: 4px; }
-.kpi-card .kpi-value { font-size: 24px; font-weight: 700; color: #333; }
-.kpi-card.card-expense { border-top-color: #E88EA0; }
-.kpi-card.card-balance { border-top-color: #57B894; }
-.kpi-card.card-ratio { border-top-color: #5B9BD5; }
+.kpi-card .kpi-label { font-size: 12px; color: rgba(255,255,255,0.8); margin-bottom: 4px; }
+.kpi-card .kpi-value { font-size: 24px; font-weight: 700; color: #fff; }
+.kpi-card.card-expense { background: #D391DD; }
+.kpi-card.card-balance { background: #57B894; }
+.kpi-card.card-ratio { background: #5B9BD5; }
+.kpi-card .kpi-change { margin-top: 6px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.kpi-card .kpi-change .change-up { color: rgba(255,255,255,0.95); font-weight: 600; }
+.kpi-card .kpi-change .change-down { color: rgba(255,255,255,0.95); font-weight: 600; }
+.kpi-card .kpi-change .change-label { color: rgba(255,255,255,0.6); font-size: 11px; }
 
 .chart-row { display: flex; gap: 12px; margin-bottom: 16px; }
 .chart-box {

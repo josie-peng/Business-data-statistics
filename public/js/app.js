@@ -783,18 +783,42 @@ const SummaryPage = {
           <div class="kpi-card">
             <div class="kpi-label">总产值</div>
             <div class="kpi-value">{{ fmtWan(dashData.cards.total_output) }}</div>
+            <div class="kpi-change" v-if="dashData.cards.output_change !== null && dashData.cards.output_change !== undefined">
+              <span :class="dashData.cards.output_change >= 0 ? 'change-up' : 'change-down'">
+                {{ dashData.cards.output_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.output_change * 100).toFixed(1) }}%
+              </span>
+              <span class="change-label">较{{ dashData.cards.prev_label }}</span>
+            </div>
           </div>
           <div class="kpi-card card-expense">
             <div class="kpi-label">总费用</div>
             <div class="kpi-value">{{ fmtWan(dashData.cards.total_expense) }}</div>
+            <div class="kpi-change" v-if="dashData.cards.expense_change !== null && dashData.cards.expense_change !== undefined">
+              <span :class="dashData.cards.expense_change <= 0 ? 'change-up' : 'change-down'">
+                {{ dashData.cards.expense_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.expense_change * 100).toFixed(1) }}%
+              </span>
+              <span class="change-label">较{{ dashData.cards.prev_label }}</span>
+            </div>
           </div>
           <div class="kpi-card card-balance">
             <div class="kpi-label">总结余</div>
             <div class="kpi-value">{{ fmtWan(dashData.cards.total_balance) }}</div>
+            <div class="kpi-change" v-if="dashData.cards.balance_change !== null && dashData.cards.balance_change !== undefined">
+              <span :class="dashData.cards.balance_change >= 0 ? 'change-up' : 'change-down'">
+                {{ dashData.cards.balance_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.balance_change * 100).toFixed(1) }}%
+              </span>
+              <span class="change-label">较{{ dashData.cards.prev_label }}</span>
+            </div>
           </div>
           <div class="kpi-card card-ratio">
             <div class="kpi-label">平均结余率</div>
             <div class="kpi-value">{{ (dashData.cards.avg_ratio * 100).toFixed(1) }}%</div>
+            <div class="kpi-change" v-if="dashData.cards.ratio_change !== null && dashData.cards.ratio_change !== undefined">
+              <span :class="dashData.cards.ratio_change >= 0 ? 'change-up' : 'change-down'">
+                {{ dashData.cards.ratio_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.ratio_change * 100).toFixed(1) }}%
+              </span>
+              <span class="change-label">较{{ dashData.cards.prev_label }}</span>
+            </div>
           </div>
         </div>
 
