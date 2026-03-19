@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 1 planned — 4 plans in 3 waves
-last_updated: "2026-03-17T09:59:21.637Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-19T08:56:42.921Z"
 last_activity: 2026-03-17 — Roadmap created, 27/27 requirements mapped to 5 phases
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 4
-  completed_plans: 0
+  total_plans: 6
+  completed_plans: 1
   percent: 0
 ---
 
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - [Init]: 先修BUG再做体验升级 — BUG不修会影响后续功能开发的基础
 - [Init]: 公式引擎用安全表达式解析(expr-eval)而非eval — 防止代码注入风险
 - [Init]: 快捷录入改为行内编辑模式 — 减少弹窗，提高录入效率
+- [Phase 02-entry-experience]: Use @keydown.tab.prevent for Tab navigation — must intercept at keydown phase before browser moves focus
+- [Phase 02-entry-experience]: handleTabKey calls saveCell first then startEdit in  — prevents double-edit conflict
 
 ### Pending Todos
 
@@ -77,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T09:59:21.632Z
-Stopped at: Phase 1 planned — 4 plans in 3 waves
-Resume file: .planning/phases/01-bug/01-00-PLAN.md
+Last session: 2026-03-19T08:56:37.729Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None

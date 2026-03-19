@@ -30,8 +30,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### 录入效率
 
-- [ ] **ENTRY-01**: 用户只填日期+车间即可生成新数据行，其余字段在行内编辑
-- [ ] **ENTRY-02**: 行内编辑时按 Tab 键自动跳到下一个可编辑字段（跳过计算列）
+- [x] **ENTRY-01**: 用户只填日期+车间即可生成新数据行，其余字段在行内编辑
+- [x] **ENTRY-02**: 行内编辑时按 Tab 键自动跳到下一个可编辑字段（跳过计算列）
 - [ ] **ENTRY-03**: 用户可一键复制已有行的可编辑字段数据为新行
 
 ### 数据准确性
@@ -98,8 +98,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BUG-10 | Phase 1 | Pending |
 | BUG-11 | Phase 1 | Pending |
 | BUG-12 | Phase 1 | Pending |
-| ENTRY-01 | Phase 2 | Pending |
-| ENTRY-02 | Phase 2 | Pending |
+| ENTRY-01 | Phase 2 | Complete |
+| ENTRY-02 | Phase 2 | Complete |
 | ENTRY-03 | Phase 2 | Pending |
 | VALID-01 | Phase 3 | Pending |
 | VALID-02 | Phase 3 | Pending |

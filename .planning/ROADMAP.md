@@ -45,7 +45,7 @@ Plans:
   1. 用户只填写日期和车间即可创建新数据行，其余字段在行内直接编辑
   2. 行内编辑时按 Tab 键自动跳到下一个可编辑字段，跳过产值/结余等计算列
   3. 用户可一键复制已有行的可编辑字段数据生成新行，原行数据不受影响
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 02-01-PLAN.md — 测试骨架 + ENTRY-01 验证修复 + ENTRY-02 Tab 键行内跳转
@@ -90,7 +90,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. BUG修复与基础稳定 | 0/4 | Planning complete | - |
-| 2. 录入体验升级 | 0/2 | Planning complete | - |
+| 2. 录入体验升级 | 1/2 | In Progress|  |
 | 3. 数据准确性 | 0/? | Not started | - |
 | 4. 导入导出增强 | 0/? | Not started | - |
 | 5. 系统管理增强与公式引擎 | 0/? | Not started | - |
