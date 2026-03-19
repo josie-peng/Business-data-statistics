@@ -17,7 +17,7 @@ function authenticate(req, res, next) {
   }
 }
 
-// 角色检查：仅统计组
+// 角色检查：仅统计组（系统设置的写操作）
 function requireStats(req, res, next) {
   if (req.user.role !== 'stats') {
     return res.status(403).json({ success: false, message: '权限不足' });
@@ -25,10 +25,16 @@ function requireStats(req, res, next) {
   next();
 }
 
+// 角色检查：统计组或管理层（系统设置的读操作）
+function requireStatsOrManagement(req, res, next) {
+  if (req.user.role === 'stats' || req.user.role === 'management') return next();
+  return res.status(403).json({ success: false, message: '权限不足' });
+}
+
 // 模块权限检查
 function modulePermission(moduleName) {
   return async (req, res, next) => {
-    if (req.user.role === 'stats') return next();
+    if (req.user.role === 'stats' || req.user.role === 'management') return next();
     const mod = await getOne(
       'SELECT 1 FROM user_modules WHERE user_id = ? AND module_name = ?',
       [req.user.id, moduleName]
@@ -38,9 +44,9 @@ function modulePermission(moduleName) {
   };
 }
 
-// 数据锁定检查
+// 数据锁定检查（统计组和管理层不受锁定限制）
 async function checkDataLock(req, res, next) {
-  if (req.user.role === 'stats') return next();
+  if (req.user.role === 'stats' || req.user.role === 'management') return next();
   const { dept } = req.params;
   const recordDate = req.body.record_date || req.query.record_date;
   if (recordDate) {
@@ -64,4 +70,4 @@ function signToken(user) {
   );
 }
 
-module.exports = { authenticate, requireStats, modulePermission, checkDataLock, signToken, JWT_SECRET };
+module.exports = { authenticate, requireStats, requireStatsOrManagement, modulePermission, checkDataLock, signToken, JWT_SECRET };

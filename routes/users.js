@@ -2,12 +2,12 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { getAll, getOne, query } = require('../db/postgres');
-const { authenticate, requireStats } = require('../middleware/auth');
+const { authenticate, requireStats, requireStatsOrManagement } = require('../middleware/auth');
 const { logAction } = require('../middleware/audit');
 const asyncHandler = require('../utils/async-handler');
 
-// GET /api/users
-router.get('/', authenticate, requireStats, asyncHandler(async (req, res) => {
+// GET /api/users（统计组+管理层可查看）
+router.get('/', authenticate, requireStatsOrManagement, asyncHandler(async (req, res) => {
   const users = await getAll(`
     SELECT u.*, array_agg(um.module_name) FILTER (WHERE um.module_name IS NOT NULL) as modules
     FROM users u LEFT JOIN user_modules um ON u.id = um.user_id

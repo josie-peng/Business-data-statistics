@@ -3,13 +3,14 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const router = express.Router();
-const { authenticate, requireStats } = require('../middleware/auth');
+const { authenticate, requireStats, requireStatsOrManagement } = require('../middleware/auth');
 const asyncHandler = require('../utils/async-handler');
 
 const BACKUP_DIR = path.join(__dirname, '..', 'backups');
 const PG_DUMP = '"C:/Program Files/PostgreSQL/17/bin/pg_dump.exe"';
 const PSQL = '"C:/Program Files/PostgreSQL/17/bin/psql.exe"';
 
+// 创建备份：仅统计组
 router.post('/', authenticate, requireStats, asyncHandler(async (req, res) => {
   if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
   const filename = `backup_${new Date().toISOString().replace(/[:.]/g, '-')}.sql`;
@@ -20,7 +21,8 @@ router.post('/', authenticate, requireStats, asyncHandler(async (req, res) => {
   res.json({ success: true, filename, size: fs.statSync(filepath).size });
 }));
 
-router.get('/list', authenticate, requireStats, asyncHandler(async (req, res) => {
+// 查看备份列表：统计组+管理层
+router.get('/list', authenticate, requireStatsOrManagement, asyncHandler(async (req, res) => {
   if (!fs.existsSync(BACKUP_DIR)) return res.json({ success: true, data: [] });
   const files = fs.readdirSync(BACKUP_DIR)
     .filter(f => f.endsWith('.sql'))

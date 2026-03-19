@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { getAll } = require('../db/postgres');
-const { authenticate, requireStats } = require('../middleware/auth');
+const { authenticate, requireStatsOrManagement } = require('../middleware/auth');
 const asyncHandler = require('../utils/async-handler');
 
-router.get('/', authenticate, requireStats, asyncHandler(async (req, res) => {
+// 统计组+管理层可查看
+router.get('/', authenticate, requireStatsOrManagement, asyncHandler(async (req, res) => {
   const { start_date, end_date, user_id, action, limit: lim } = req.query;
   let sql = 'SELECT * FROM audit_logs WHERE 1=1';
   const params = [];

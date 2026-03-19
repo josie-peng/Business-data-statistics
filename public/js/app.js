@@ -219,7 +219,7 @@ function getDeptColumns(dept) {
 }
 
 function getRoleName(role) {
-  const map = { stats: '统计组', entry: '录入员' };
+  const map = { stats: '统计组', management: '管理层', entry: '录入员' };
   return map[role] || role;
 }
 
@@ -1179,17 +1179,21 @@ const SummaryPage = {
 
 // ===== 用户管理页组件 =====
 const UserManagementPage = {
+  props: { readonly: { type: Boolean, default: false } },
   template: `
     <div class="user-management-page settings-card">
       <div class="card-top">
         <h3><span class="title-dot" style="background:#5B9BD5;"></span> 用户管理</h3>
-        <button class="btn-pill info" @click="showAddUserDialog">+ 新增用户</button>
+        <button v-if="!readonly" class="btn-pill info" @click="showAddUserDialog">+ 新增用户</button>
       </div>
 
       <!-- 统计药片 -->
       <div class="stat-pills">
         <div class="stat-pill" style="background:#f3edf7; color:#7F41C0;">
           <span>统计组</span> <span class="stat-num">{{ users.filter(u => u.role === 'stats').length }}</span>
+        </div>
+        <div class="stat-pill" style="background:#fff3e0; color:#e65100;">
+          <span>管理层</span> <span class="stat-num">{{ users.filter(u => u.role === 'management').length }}</span>
         </div>
         <div class="stat-pill" style="background:#e3f2fd; color:#5B9BD5;">
           <span>录入员</span> <span class="stat-num">{{ users.filter(u => u.role === 'entry').length }}</span>
@@ -1212,13 +1216,13 @@ const UserManagementPage = {
               <th>部门</th>
               <th>状态</th>
               <th>批量权限</th>
-              <th style="width:240px;">操作</th>
+              <th v-if="!readonly" style="width:240px;">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in users" :key="row.id" :class="{ 'row-disabled': row.status !== 'active' }">
               <td>
-                <div class="user-avatar" :style="{ background: row.status !== 'active' ? '#ccc' : (row.role === 'stats' ? '#7F41C0' : '#5B9BD5') }">
+                <div class="user-avatar" :style="{ background: row.status !== 'active' ? '#ccc' : (row.role === 'stats' ? '#7F41C0' : row.role === 'management' ? '#F0A868' : '#5B9BD5') }">
                   {{ (row.name || row.username || '?').charAt(0) }}
                 </div>
               </td>
@@ -1226,19 +1230,19 @@ const UserManagementPage = {
                 <div style="font-weight:600;">{{ row.username }}</div>
                 <div style="font-size:12px; color:#999;">{{ row.name }}</div>
               </td>
-              <td><span class="pill-badge" :class="row.role === 'stats' ? 'purple' : 'blue'">{{ getRoleName(row.role) }}</span></td>
+              <td><span class="pill-badge" :class="row.role === 'stats' ? 'purple' : row.role === 'management' ? 'orange' : 'blue'">{{ getRoleName(row.role) }}</span></td>
               <td>
                 <span v-if="row.department" class="pill-badge" :class="deptBadge(row.department)">{{ ALL_DEPARTMENTS[row.department] || row.department }}</span>
                 <span v-else style="color:#ccc;">—</span>
               </td>
               <td><span class="pill-badge" :class="row.status === 'active' ? 'green' : 'pink'">{{ row.status === 'active' ? '启用' : '禁用' }}</span></td>
               <td><span class="pill-badge" :class="row.batch_permission ? 'green' : 'gray'">{{ row.batch_permission ? '是' : '否' }}</span></td>
-              <td>
+              <td v-if="!readonly">
                 <button class="btn-pill ghost sm" @click="showEditUserDialog(row)">编辑</button>
                 <button class="btn-pill sm" style="background:transparent; color:#F0A868; border:1.5px solid #F0A868;" @click="showResetPasswordDialog(row)">重置密码</button>
                 <button v-if="row.status === 'active'" class="btn-pill sm" style="background:transparent; color:#E88EA0; border:1.5px solid #E88EA0;" @click="toggleUserStatus(row)">禁用</button>
                 <button v-else class="btn-pill sm" style="background:transparent; color:#57B894; border:1.5px solid #57B894;" @click="toggleUserStatus(row)">启用</button>
-                <button v-if="row.role !== 'stats'" class="btn-pill sm" style="background:transparent; color:#7F41C0; border:1.5px solid #7F41C0;" @click="showModuleDialog(row)">授权</button>
+                <button v-if="row.role !== 'stats' && row.role !== 'management'" class="btn-pill sm" style="background:transparent; color:#7F41C0; border:1.5px solid #7F41C0;" @click="showModuleDialog(row)">授权</button>
               </td>
             </tr>
           </tbody>
@@ -1260,6 +1264,7 @@ const UserManagementPage = {
           <el-form-item label="角色" required>
             <el-select v-model="userForm.role" style="width:100%">
               <el-option label="统计组" value="stats" />
+              <el-option label="管理层" value="management" />
               <el-option label="录入员" value="entry" />
             </el-select>
           </el-form-item>
@@ -1288,6 +1293,7 @@ const UserManagementPage = {
           <el-form-item label="角色" required>
             <el-select v-model="editForm.role" style="width:100%">
               <el-option label="统计组" value="stats" />
+              <el-option label="管理层" value="management" />
               <el-option label="录入员" value="entry" />
             </el-select>
           </el-form-item>
@@ -1474,8 +1480,13 @@ const UserManagementPage = {
 
 // ===== 设置页组件 =====
 const SettingsPage = {
+  props: { readonly: { type: Boolean, default: false } },
   template: `
     <div class="settings-page">
+      <!-- 只读提示 -->
+      <div v-if="readonly" style="background:#fff3e0; color:#e65100; padding:8px 16px; border-radius:8px; margin-bottom:12px; font-size:13px;">
+        当前为只读模式，管理层仅可查看系统设置，无法修改。
+      </div>
       <!-- 药片Tab栏 -->
       <div class="settings-pill-tabs">
         <button v-for="tab in tabs" :key="tab.key"
@@ -1485,12 +1496,12 @@ const SettingsPage = {
         </button>
       </div>
       <!-- 内容面板 -->
-      <formula-config v-if="activeTab === 'formulas'" />
-      <workshop-settings v-else-if="activeTab === 'workshops'" />
-      <user-management-page v-else-if="activeTab === 'users'" />
-      <data-locks v-else-if="activeTab === 'locks'" />
+      <formula-config v-if="activeTab === 'formulas'" :readonly="readonly" />
+      <workshop-settings v-else-if="activeTab === 'workshops'" :readonly="readonly" />
+      <user-management-page v-else-if="activeTab === 'users'" :readonly="readonly" />
+      <data-locks v-else-if="activeTab === 'locks'" :readonly="readonly" />
       <audit-logs v-else-if="activeTab === 'logs'" />
-      <backup-page v-else-if="activeTab === 'backup'" />
+      <backup-page v-else-if="activeTab === 'backup'" :readonly="readonly" />
     </div>
   `,
   data() {
@@ -1510,6 +1521,7 @@ const SettingsPage = {
 
 // ===== 公式配置子组件 =====
 const FormulaConfig = {
+  props: { readonly: { type: Boolean, default: false } },
   template: `
     <div>
       <!-- 顶部选择栏 -->
@@ -1519,9 +1531,11 @@ const FormulaConfig = {
           <el-radio-button v-for="(label, key) in BALANCE_DEPARTMENTS" :key="key" :value="key">{{ label }}</el-radio-button>
         </el-radio-group>
         <div style="flex:1"></div>
-        <el-button size="default" @click="showConstantsDialog" style="background:#5B9BD5; border-color:#5B9BD5; color:#fff;">常量配置</el-button>
-        <el-button type="success" size="default" @click="showRecalcDialog" style="background:#57B894; border-color:#57B894;">重算历史</el-button>
-        <el-button type="primary" size="default" @click="showAddDialog">新增公式</el-button>
+        <template v-if="!readonly">
+          <el-button size="default" @click="showConstantsDialog" style="background:#5B9BD5; border-color:#5B9BD5; color:#fff;">常量配置</el-button>
+          <el-button type="success" size="default" @click="showRecalcDialog" style="background:#57B894; border-color:#57B894;">重算历史</el-button>
+          <el-button type="primary" size="default" @click="showAddDialog">新增公式</el-button>
+        </template>
       </div>
 
       <!-- 公式卡片列表 -->
@@ -1564,7 +1578,7 @@ const FormulaConfig = {
                 </div>
                 <div style="margin-top:4px; font-size:12px; color:#999;">{{ f.formula_text }}</div>
               </div>
-              <div style="display:flex; gap:8px;">
+              <div v-if="!readonly" style="display:flex; gap:8px;">
                 <el-button size="small" @click="showEditDialog(f)">编辑</el-button>
                 <el-button size="small" :type="f.enabled ? 'warning' : 'success'" plain @click="toggleEnabled(f)">
                   {{ f.enabled ? '禁用' : '启用' }}
@@ -2270,11 +2284,12 @@ const FormulaConfig = {
 
 // ===== 车间管理子组件 =====
 const WorkshopSettings = {
+  props: { readonly: { type: Boolean, default: false } },
   template: `
     <div class="settings-card">
       <div class="card-top">
         <h3><span class="title-dot" style="background:#3D8361;"></span> 车间列表</h3>
-        <button class="btn-pill success" @click="showAddDialog">+ 新增车间</button>
+        <button v-if="!readonly" class="btn-pill success" @click="showAddDialog">+ 新增车间</button>
       </div>
 
       <!-- 厂区统计药片 -->
@@ -2294,12 +2309,12 @@ const WorkshopSettings = {
               <th>公司</th>
               <th>厂区</th>
               <th>部门</th>
-              <th style="width:140px;">操作</th>
+              <th v-if="!readonly" style="width:140px;">操作</th>
             </tr>
           </thead>
           <tbody ref="workshopTbody">
             <tr v-for="w in workshops" :key="w.id" :data-id="w.id">
-              <td><span class="drag-handle drag-pill">⠿</span></td>
+              <td><span v-if="!readonly" class="drag-handle drag-pill">⠿</span></td>
               <td style="font-weight:600;">{{ w.name }}</td>
               <td>{{ w.company }}</td>
               <td>
@@ -2311,7 +2326,7 @@ const WorkshopSettings = {
                 </span>
                 <span v-else style="color:#ccc;">—</span>
               </td>
-              <td>
+              <td v-if="!readonly">
                 <button class="btn-pill ghost sm" @click="showEditDialog(w)">编辑</button>
                 <button class="btn-pill sm" style="background:transparent; color:#E88EA0; border:1.5px solid #E88EA0;" @click="handleDelete(w)">删除</button>
               </td>
@@ -2486,11 +2501,12 @@ const WorkshopSettings = {
 
 // ===== 数据锁定子组件 =====
 const DataLocks = {
+  props: { readonly: { type: Boolean, default: false } },
   template: `
     <div class="settings-card">
       <div class="card-top">
         <h3><span class="title-dot" style="background:#E88EA0;"></span> 数据锁定</h3>
-        <button class="btn-pill danger" @click="showLockDialog">+ 锁定月份</button>
+        <button v-if="!readonly" class="btn-pill danger" @click="showLockDialog">+ 锁定月份</button>
       </div>
 
       <div v-loading="loading">
@@ -2509,7 +2525,7 @@ const DataLocks = {
               </span>
             </div>
             <div class="lock-meta">{{ row.locked_by_name }} · {{ row.locked_at ? row.locked_at.substring(0, 16).replace('T', ' ') : '' }}</div>
-            <button class="unlock-btn" @click="handleUnlock(row)">解锁</button>
+            <button v-if="!readonly" class="unlock-btn" @click="handleUnlock(row)">解锁</button>
           </div>
         </div>
       </div>
@@ -2696,11 +2712,12 @@ const AuditLogs = {
 
 // ===== 数据备份子组件 =====
 const BackupPage = {
+  props: { readonly: { type: Boolean, default: false } },
   template: `
     <div class="settings-card">
       <div class="card-top">
         <h3><span class="title-dot" style="background:#9B6DC6;"></span> 数据备份</h3>
-        <button class="btn-pill primary" @click="handleBackup" :disabled="backing">
+        <button v-if="!readonly" class="btn-pill primary" @click="handleBackup" :disabled="backing">
           {{ backing ? '备份中...' : '+ 创建备份' }}
         </button>
       </div>
@@ -2720,7 +2737,7 @@ const BackupPage = {
                 <span>{{ row.created_by }}</span>
               </div>
             </div>
-            <button class="restore-btn" @click="handleRestore(row)">恢复</button>
+            <button v-if="!readonly" class="restore-btn" @click="handleRestore(row)">恢复</button>
           </div>
         </div>
       </div>
@@ -2849,8 +2866,8 @@ const app = Vue.createApp({
               </template>
             </div>
 
-            <!-- 系统设置 (stats only) -->
-            <template v-if="user && user.role === 'stats'">
+            <!-- 系统设置 (stats + management) -->
+            <template v-if="user && (user.role === 'stats' || user.role === 'management')">
               <div class="menu-group-title" v-show="!sidebarCollapsed">管理</div>
               <a class="menu-item" :class="{ active: currentRoute === '/settings' }" @click="navigate('/settings')">
                 <span class="icon">⚙️</span>
@@ -2884,7 +2901,7 @@ const app = Vue.createApp({
           <div class="page-content">
             <dept-records-page v-if="isDeptPage" :dept="currentDept" :key="currentDept" />
             <summary-page v-else-if="currentRoute === '/summary'" />
-            <settings-page v-else-if="currentRoute === '/settings' && user?.role === 'stats'" />
+            <settings-page v-else-if="currentRoute === '/settings' && (user?.role === 'stats' || user?.role === 'management')" :readonly="user?.role === 'management'" />
             <div v-else style="text-align:center; padding:60px; color:var(--text-secondary);">
               <h2>页面未找到</h2>
               <p>请从左侧菜单选择一个页面</p>
