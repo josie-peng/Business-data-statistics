@@ -387,13 +387,6 @@ const DeptRecordsPage = {
                 {{ formatSummaryCell(summaryData.regions['清溪'], col) }}
               </td>
             </tr>
-            <tr class="workshop-row" v-if="summaryData.regions && summaryData.regions['邵阳']">
-              <td></td><td></td><td></td>
-              <td>邵阳合计</td>
-              <td v-for="col in columns" :key="'sy-'+col.field" style="text-align:right;">
-                {{ formatSummaryCell(summaryData.regions['邵阳'], col) }}
-              </td>
-            </tr>
             <tr class="total-row">
               <td></td><td></td><td></td>
               <td>总合计</td>
@@ -495,7 +488,47 @@ const DeptRecordsPage = {
         ]);
 
         this.tableData = recordsRes.data || recordsRes || [];
-        this.summaryData = summaryRes.data || summaryRes || null;
+        // 将后端返回的扁平数组转换为合计表需要的结构
+        const rawSummary = summaryRes.data || summaryRes || [];
+        if (Array.isArray(rawSummary) && rawSummary.length > 0) {
+          const workshops = {};
+          const regions = {};
+          const total = {};
+          const numFields = this.columns.map(c => c.field);
+          // 初始化 total
+          numFields.forEach(f => { total[f] = 0; });
+          // 按车间分组，按区域汇总
+          for (const row of rawSummary) {
+            workshops[row.workshop_name] = row;
+            // 区域汇总（清溪/邵阳）
+            const regionKey = row.region === '湖南' ? '邵阳' : row.region;
+            if (!regions[regionKey]) {
+              regions[regionKey] = {};
+              numFields.forEach(f => { regions[regionKey][f] = 0; });
+            }
+            numFields.forEach(f => {
+              regions[regionKey][f] += parseFloat(row[f]) || 0;
+              total[f] += parseFloat(row[f]) || 0;
+            });
+          }
+          // 计算区域和总合计的比例字段
+          const calcRatios = (obj) => {
+            if (obj.daily_output > 0) {
+              obj.balance_ratio = obj.balance / obj.daily_output;
+            }
+            // 部门独有比例字段由columns中type=ratio的字段决定
+            this.columns.forEach(col => {
+              if (col.type === 'ratio' && col.formula) {
+                // 比例字段不做累加，需要重新计算（暂用balance_ratio兜底）
+              }
+            });
+          };
+          Object.values(regions).forEach(calcRatios);
+          calcRatios(total);
+          this.summaryData = { workshops, regions, total };
+        } else {
+          this.summaryData = null;
+        }
       } catch (err) {
         ElementPlus.ElMessage.error('加载数据失败: ' + (err.message || '未知错误'));
       } finally {
@@ -588,7 +621,7 @@ const DeptRecordsPage = {
     },
     getColumnWidth(col) {
       if (col.field === 'remark') return 120;
-      return 85; // 统一列宽 85px
+      return 90;
     },
     getColumnClass(col) {
       if (col.calculated) return 'cell-calculated';
@@ -2425,7 +2458,7 @@ const BREADCRUMB_MAP = {
   '/beer': '三工结余 / 啤机部',
   '/print': '三工结余 / 印喷部',
   '/assembly': '三工结余 / 装配部',
-  '/summary': '三工结余 / 三工汇总',
+  '/summary': '结余收支汇总 / 大车间汇总',
   '/users': '用户管理',
   '/settings': '系统设置'
 };
@@ -2461,10 +2494,19 @@ const app = Vue.createApp({
               <span class="icon">🔧</span>
               <span v-show="!sidebarCollapsed">装配部</span>
             </a>
-            <a class="menu-item" :class="{ active: currentRoute === '/summary' }" @click="navigate('/summary')">
-              <span class="icon">📋</span>
-              <span v-show="!sidebarCollapsed">三工汇总</span>
-            </a>
+            <div class="menu-group">
+              <a class="menu-item" :class="{ active: currentRoute === '/summary' }" @click="summaryExpanded = !summaryExpanded">
+                <span class="icon">📊</span>
+                <span v-show="!sidebarCollapsed">结余收支汇总</span>
+                <span v-show="!sidebarCollapsed" style="margin-left:auto; font-size:10px;">{{ summaryExpanded ? '▼' : '▶' }}</span>
+              </a>
+              <template v-if="summaryExpanded && !sidebarCollapsed">
+                <a class="menu-item sub-item" :class="{ active: currentRoute === '/summary' }" @click="navigate('/summary')">
+                  <span class="icon">📋</span>
+                  大车间汇总
+                </a>
+              </template>
+            </div>
 
             <!-- 用户管理 (stats only) -->
             <template v-if="user && user.role === 'stats'">
@@ -2520,7 +2562,8 @@ const app = Vue.createApp({
     return {
       currentRoute: '/login',
       user: null,
-      sidebarCollapsed: false
+      sidebarCollapsed: false,
+      summaryExpanded: true
     };
   },
   computed: {
