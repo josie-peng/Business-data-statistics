@@ -704,6 +704,14 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .drag-handle:hover { cursor: grabbing; color: var(--primary) !important; }
 .sortable-ghost { background: #F0E6F6 !important; opacity: 0.7; }
 
+/* ===== 明细表操作列 - 复制按钮（ENTRY-03） ===== */
+.el-table .el-button--link.el-button--primary {
+  color: var(--primary, #7F41C0);
+}
+.el-table .el-button--link.el-button--primary:hover {
+  color: var(--primary-dark, #6A35A3);
+}
+
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {
   .sidebar { width: 64px; }

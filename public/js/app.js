@@ -356,6 +356,16 @@ const DeptRecordsPage = {
               </div>
             </template>
           </el-table-column>
+          <!-- ENTRY-03: 操作列 - 复制行按钮 -->
+          <el-table-column label="操作" width="60" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-tooltip content="复制此行数据为新行" placement="top" :show-after="500">
+                <el-button type="primary" link size="small" @click="handleCopyRow(row)" title="复制此行">
+                  复制
+                </el-button>
+              </el-tooltip>
+            </template>
+          </el-table-column>
         </el-table>
 
         <!-- 底部合计区（紧凑版） -->
@@ -726,6 +736,37 @@ const DeptRecordsPage = {
         if (err !== 'cancel' && err !== 'close') {
           ElementPlus.ElMessage.error('删除失败: ' + (err.message || '未知错误'));
         }
+      }
+    },
+    // ENTRY-03: 一键复制行 - 创建与源行日期、车间、所有可编辑字段值相同的新记录
+    async handleCopyRow(row) {
+      // 收集源行的日期和车间（必填字段）
+      const body = {
+        record_date: row.record_date,
+        workshop_id: row.workshop_id,
+      };
+      // 遍历可编辑列，复制数值（跳过 record_date 避免重复，跳过已设置的字段）
+      for (const col of this.editableColumns) {
+        if (col.field !== 'record_date' && body[col.field] === undefined) {
+          body[col.field] = row[col.field] ?? 0;
+        }
+      }
+
+      this.saving = true;
+      try {
+        const res = await API.post(`/${this.dept}/records`, body);
+        ElementPlus.ElMessage.success('复制成功，已生成新行');
+        await this.loadData();
+        // 高亮新行，复用 newRowId 机制（3秒渐隐动画，4秒后清除class）
+        const newId = res.data?.id;
+        if (newId) {
+          this.newRowId = newId;
+          setTimeout(() => { this.newRowId = null; }, 4000);
+        }
+      } catch (err) {
+        ElementPlus.ElMessage.error('复制失败: ' + (err.message || '未知错误'));
+      } finally {
+        this.saving = false;
       }
     },
     async handleExport() {
