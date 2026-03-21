@@ -103,8 +103,8 @@ ORDER BY
 #### 日期列（EDIT-01）
 
 - 点击日期单元格 → 显示 `<el-date-picker>` 日期选择器
-- 选择新日期后，调用 `PUT /api/:dept/records/:id`，`body` 包含 `{ date: '2026-03-10' }`
-- 保存成功后，本地更新该行 `date` 字段，调用 `sortRecords` 重排，行移动到新日期对应位置
+- 选择新日期后，调用 `PUT /api/:dept/records/:id`，`body` 包含 `{ record_date: '2026-03-10' }`
+- 保存成功后，本地更新该行 `record_date` 字段，调用 `sortRecords` 重排，行移动到新日期对应位置
 - 若清空日期直接关闭，不保存，恢复原值（前端校验）
 
 #### 车间列（EDIT-02）
