@@ -1397,7 +1397,7 @@ const SummaryPage = {
       this.dailyLoading = true;
       try {
         const res = await API.getSummaryDaily({ dept: this.dailyDept, month: this.dailyMonth });
-        this.dailyData = res.data;
+        this.dailyData = res;
       } catch (err) {
         ElementPlus.ElMessage.error('加载按日汇总失败: ' + (err.message || '未知错误'));
       } finally {
@@ -1422,7 +1422,7 @@ const SummaryPage = {
       this.monthlyLoading = true;
       try {
         const res = await API.getSummaryMonthly({ month: this.monthlyMonth });
-        this.monthlyData = res.data;
+        this.monthlyData = res;
       } catch (err) {
         ElementPlus.ElMessage.error('加载按月汇总失败: ' + (err.message || '未知错误'));
       } finally {
