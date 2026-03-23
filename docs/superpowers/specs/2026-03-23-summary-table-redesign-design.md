@@ -53,13 +53,13 @@
 
 从 `modules/balance/config.js` 动态读取，按部门不同：
 
-**啤机部（beer）共有+独有费用，19列：**
+**啤机部（beer）共有+独有费用，18列：**
 员工工资、管工工资、房租、水电费、工具投资、设备、装修、杂费、运费、社保、税收、杂工工资、机器维修、模具维修、物料、原料补料、批水口加工费、装配批水口配件费
 
 **印喷部（print）共有+独有费用，22列：**
 员工工资、管工工资、房租、水电费、工具投资、设备、装修、杂费、运费、社保、税收、维修费、物料、油水金额、补贴、无产值工资、付装配工资、做办工资、不可回收工具费、自动机模费、发湖南模费、发印尼模费
 
-**装配部（assembly）共有+独有费用，22列：**
+**装配部（assembly）共有+独有费用，23列：**
 员工工资、管工工资、房租、水电费、工具投资、设备、装修、杂费、运费、社保、税收、实际总工资、湖南社保、湖南税收、车间维修费、机电部维修费、车间物料费、拉伸膜、胶纸、车间工具投资、夹具部工具投资、补料、外借人员工资
 
 ### 2.5 交互细节
@@ -94,7 +94,7 @@
 | 水电费 | SUM(utility_fee) |
 | 社保 | SUM(social_insurance) |
 | 税收 | SUM(tax) |
-| 其他费用 | 部门独有费用 + 剩余共有费用（工具投资/设备/装修/杂费/运费）之和 |
+| 其他费用 | 部门独有费用之和 + 剩余共有费用之和。剩余共有费用 = tool_investment(工具投资) + equipment(设备) + renovation(装修) + misc_fee(杂费) + shipping_fee(运费) |
 | 费用合计 | 所有 expense:true 字段之和 |
 | 结余 | 总产值 - 费用合计 |
 | 结余率 | 结余 / 总产值 |
@@ -139,6 +139,8 @@
 ### 5.1 新增/修改接口
 
 **GET `/api/summary/daily?dept=beer&month=2026-03`**
+
+后端解析 `month` 参数为日期范围：`WHERE record_date >= '2026-03-01' AND record_date < '2026-04-01'`
 
 返回按日汇总数据：
 ```json
@@ -187,7 +189,7 @@
 ### 5.2 保留接口
 
 - `GET /api/summary/dashboard` — 可视化看板数据，不变
-- `GET /api/summary/overview` — 保留兼容
+- `GET /api/summary/overview` — 当前无前端消费者，暂保留，后续可清理
 
 ### 5.3 可删除接口
 
@@ -198,7 +200,7 @@
 ### 6.1 SummaryPage 组件 data 变更
 
 ```
-移除：tableTab ('overview'|'beer'|'print'|'assembly'), tableData
+移除：tableTab ('overview'|'beer'|'print'|'assembly'), tableData, tableMonth
 新增：
   dailyDept: 'beer'        // 按日汇总当前部门
   dailyMonth: 'YYYY-MM'    // 按日汇总当前月份
@@ -234,7 +236,12 @@ getSummaryMonthly(params) { return this.get('/summary/monthly', params); }
 - **生意额数据源：** 各部门日产值（daily_output）汇总，已有数据
 - **车间粒度：** 按日汇总保留车间级别数据，供固定支出按车间拆分使用
 
-## 8. 不做的事
+## 8. 已知问题（实现前需确认）
+
+- **华嘉车间缺失：** CLAUDE.md 定义装配部有 5 个车间（兴信A/兴信B/华登A/华嘉/邵阳华登），但 `config.js` 只配了 4 个（无华嘉）。实现时需补上。
+- **华登 vs 华登A 命名：** `config.js` 中写的是"华登"和"邵阳"，但 CLAUDE.md 和数据库实际用"华登A"和"邵阳华登"。以数据库 `workshops.name` 为准。
+
+## 9. 不做的事
 
 - 不修改可视化看板
 - 不新增部门或车间
