@@ -602,7 +602,11 @@ const DeptRecordsPage = {
     async loadWorkshops() {
       try {
         const res = await API.get('/workshops', { department: this.dept });
-        this.workshopList = (res.data || res || []).map(w => ({ id: w.id, name: w.name, region: w.region, company: w.company, sort_order: w.sort_order }));
+        // 三工结余模块只使用这5个车间
+        const allowedWorkshops = ['兴信A', '兴信B', '华登A', '邵阳华登', '华嘉'];
+        this.workshopList = (res.data || res || [])
+          .map(w => ({ id: w.id, name: w.name, region: w.region, company: w.company, sort_order: w.sort_order }))
+          .filter(w => allowedWorkshops.includes(w.name));
       } catch (err) { console.error('Failed to load workshops', err); }
     },
     async loadData() {
@@ -1022,8 +1026,8 @@ const SummaryPage = {
             </div>
             <el-date-picker v-model="dailyMonth" type="month" placeholder="选择月份" size="small"
               value-format="YYYY-MM" @change="loadDailyData" style="width:130px" />
-            <el-date-picker v-model="dailyJumpDate" type="date" placeholder="跳转日期" size="small"
-              value-format="YYYY-MM-DD" @change="jumpToDate" style="width:140px" clearable />
+            <el-date-picker v-model="dailyDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="small"
+              value-format="YYYY-MM-DD" @change="filterDailyByRange" style="width:240px" clearable />
             <el-button type="success" size="small" @click="handleTableExport">导出Excel</el-button>
           </div>
 
@@ -1074,10 +1078,10 @@ const SummaryPage = {
           </div>
 
           <!-- 分隔线 -->
-          <div v-if="dailyData.daily && dailyData.daily.length" class="daily-divider"><span>▼ 每日明细</span></div>
+          <div v-if="filteredDaily.length" class="daily-divider"><span>▼ 每日明细</span></div>
 
-          <!-- 日期卡片列表 -->
-          <div v-for="card in dailyData.daily" :key="card.date" :id="'daily-' + card.date" class="daily-card">
+          <!-- 日期卡片列表（按日期范围过滤） -->
+          <div v-for="card in filteredDaily" :key="card.date" :id="'daily-' + card.date" class="daily-card">
             <div class="card-header">
               <div>
                 <span class="card-date">{{ card.date }}</span>
@@ -1224,7 +1228,7 @@ const SummaryPage = {
       // 按日汇总
       dailyDept: 'beer',
       dailyMonth: now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'),
-      dailyJumpDate: null,
+      dailyDateRange: null,
       dailyLoading: false,
       dailyData: { columns: [], monthly: null, daily: [] },
       // 按月汇总
@@ -1247,6 +1251,13 @@ const SummaryPage = {
     currentDeptLabel() {
       const d = this.deptList.find(d => d.key === this.dailyDept);
       return d ? d.label : '';
+    },
+    // 按日期范围过滤后的日卡列表
+    filteredDaily() {
+      const all = this.dailyData.daily || [];
+      if (!this.dailyDateRange || !this.dailyDateRange[0]) return all;
+      const [start, end] = this.dailyDateRange;
+      return all.filter(card => card.date >= start && card.date <= end);
     }
   },
   mounted() {
@@ -1405,15 +1416,8 @@ const SummaryPage = {
       }
     },
 
-    jumpToDate(date) {
-      if (!date) return;
-      const dateStr = typeof date === 'string' ? date : date.toISOString().slice(0, 10);
-      const el = document.getElementById('daily-' + dateStr);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        ElementPlus.ElMessage.warning('该日期无数据');
-      }
+    filterDailyByRange() {
+      // 日期范围过滤由 computed filteredDaily 自动处理，无需额外操作
     },
 
     // ===== 按月汇总 =====
