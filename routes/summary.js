@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getAll } = require('../db/postgres');
 const { authenticate } = require('../middleware/auth');
-const { DEPT_CONFIG, getExpenseFields } = require('../modules');
+const { DEPT_CONFIG, getExpenseFields, getExportLabelMap } = require('../modules');
 const asyncHandler = require('../utils/async-handler');
 
 // 费用分类映射（用于堆叠图）
@@ -396,6 +396,116 @@ router.get('/detail', authenticate, asyncHandler(async (req, res) => {
 
     res.json({ success: true, data: { mode: 'detail', dept, workshops, rows, expense_total: expenseTotal, balance, balance_ratio: balanceRatio } });
   }
+}));
+
+// GET /api/summary/daily?dept=beer&month=2026-03
+// 返回按日汇总数据：月度合计 + 每日卡片
+router.get('/daily', authenticate, asyncHandler(async (req, res) => {
+  const { dept, month } = req.query;
+  if (!dept || !DEPT_CONFIG[dept]) return res.status(400).json({ error: '无效部门' });
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: '无效月份格式，应为 YYYY-MM' });
+
+  const config = DEPT_CONFIG[dept];
+  const tableName = config.tableName;
+  const expenseFields = getExpenseFields(dept);
+
+  // 构建 SELECT 字段列表：daily_output + 所有 expense 字段
+  const allFields = ['daily_output', ...expenseFields];
+  const selectFields = allFields.map(f => `COALESCE(r.${f}, 0) AS ${f}`).join(', ');
+  const sumFields = allFields.map(f => `SUM(COALESCE(r.${f}, 0)) AS ${f}`).join(', ');
+
+  // 解析月份为日期范围
+  const [year, mon] = month.split('-').map(Number);
+  const startDate = `${year}-${String(mon).padStart(2, '0')}-01`;
+  const endDate = mon === 12
+    ? `${year + 1}-01-01`
+    : `${year}-${String(mon + 1).padStart(2, '0')}-01`;
+
+  // 费用合计表达式
+  const expenseSumExpr = expenseFields.length > 0
+    ? expenseFields.map(f => `COALESCE(r.${f}, 0)`).join(' + ')
+    : '0';
+  const expenseSumAgg = expenseFields.length > 0
+    ? expenseFields.map(f => `SUM(COALESCE(r.${f}, 0))`).join(' + ')
+    : '0';
+
+  // 1. 月度合计（按车间分组）
+  const monthlySQL = `
+    SELECT w.name AS workshop_name,
+      ${sumFields},
+      ${expenseSumAgg} AS total_expense
+    FROM ${tableName} r
+    JOIN workshops w ON r.workshop_id = w.id
+    WHERE r.record_date >= ? AND r.record_date < ?
+    GROUP BY w.name, w.sort_order
+    ORDER BY w.sort_order
+  `;
+  const monthlyRows = await getAll(monthlySQL, [startDate, endDate]);
+
+  // 计算每行的 balance 和 balance_ratio
+  for (const row of monthlyRows) {
+    row.balance = (row.daily_output || 0) - (row.total_expense || 0);
+    row.balance_ratio = row.daily_output > 0 ? row.balance / row.daily_output : 0;
+  }
+
+  // 月度合计行
+  const monthlyTotal = {};
+  allFields.forEach(f => { monthlyTotal[f] = monthlyRows.reduce((sum, r) => sum + (Number(r[f]) || 0), 0); });
+  monthlyTotal.total_expense = monthlyRows.reduce((sum, r) => sum + (Number(r.total_expense) || 0), 0);
+  monthlyTotal.balance = (monthlyTotal.daily_output || 0) - (monthlyTotal.total_expense || 0);
+  monthlyTotal.balance_ratio = monthlyTotal.daily_output > 0 ? monthlyTotal.balance / monthlyTotal.daily_output : 0;
+
+  // 2. 每日明细（按日期+车间）
+  const dailySQL = `
+    SELECT r.record_date, w.name AS workshop_name,
+      ${selectFields},
+      ${expenseSumExpr} AS total_expense
+    FROM ${tableName} r
+    JOIN workshops w ON r.workshop_id = w.id
+    WHERE r.record_date >= ? AND r.record_date < ?
+    ORDER BY r.record_date DESC, w.sort_order
+  `;
+  const dailyRows = await getAll(dailySQL, [startDate, endDate]);
+
+  // 按日期分组
+  const dailyMap = {};
+  for (const row of dailyRows) {
+    row.balance = (row.daily_output || 0) - (row.total_expense || 0);
+    row.balance_ratio = row.daily_output > 0 ? row.balance / row.daily_output : 0;
+
+    const dateStr = typeof row.record_date === 'string'
+      ? row.record_date.slice(0, 10)
+      : row.record_date.toISOString().slice(0, 10);
+
+    if (!dailyMap[dateStr]) dailyMap[dateStr] = [];
+    dailyMap[dateStr].push(row);
+  }
+
+  // 构建每日卡片数据（含合计行）
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const daily = Object.entries(dailyMap).map(([date, workshops]) => {
+    const total = {};
+    allFields.forEach(f => { total[f] = workshops.reduce((sum, r) => sum + (Number(r[f]) || 0), 0); });
+    total.total_expense = workshops.reduce((sum, r) => sum + (Number(r.total_expense) || 0), 0);
+    total.balance = (total.daily_output || 0) - (total.total_expense || 0);
+    total.balance_ratio = total.daily_output > 0 ? total.balance / total.daily_output : 0;
+
+    const d = new Date(date + 'T00:00:00');
+    return { date, weekday: weekdays[d.getDay()], workshops, total };
+  });
+
+  // 字段列定义（供前端动态建列）
+  const labelMap = getExportLabelMap('balance');
+  const columns = allFields.map(f => ({
+    field: f,
+    label: labelMap[f] || f
+  }));
+
+  res.json({
+    columns,
+    monthly: { workshops: monthlyRows, total: monthlyTotal },
+    daily
+  });
 }));
 
 module.exports = router;
