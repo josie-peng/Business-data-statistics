@@ -17,7 +17,7 @@ let token = '';
 beforeAll(async () => {
   const res = await request(app)
     .post('/api/auth/login')
-    .send({ username: 'RRxing', password: 'admin123' });
+    .send({ username: 'RRxing', password: 'RRxing963' });
   token = res.body.token;
 });
 

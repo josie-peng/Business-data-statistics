@@ -18,7 +18,7 @@ let createdRecordId = null;
 beforeAll(async () => {
   const res = await request(app)
     .post('/api/auth/login')
-    .send({ username: 'RRxing', password: 'admin123' });
+    .send({ username: 'RRxing', password: 'RRxing963' });
   token = res.body.token;
 });
 
@@ -77,7 +77,7 @@ describe('ENTRY-01: 最小字段创建记录', () => {
 });
 
 // ===== ENTRY-02: 可编辑字段过滤 =====
-// Tab 键跳转的核心前提：能正确区分可编辑字段和计算字段
+// 复制行和行内编辑的前提：能正确区分可编辑字段和计算字段
 describe('ENTRY-02: 可编辑字段过滤', () => {
   // 从后端 config 构建字段列表（模拟前端 getDeptColumns 的逻辑）
   // 注意：这里用后端 config 模拟，因为 app.js 是纯前端文件，无法 require
@@ -121,54 +121,6 @@ describe('ENTRY-02: 可编辑字段过滤', () => {
     expect(editableFieldNames).not.toContain('machine_rate');
   });
 
-  test('找下一个可编辑字段：最后一个字段时返回 null', () => {
-    // 模拟 handleTabKey 中"找下一个字段"的逻辑
-    function findNextEditableField(editableCols, currentField) {
-      const currentIdx = editableCols.findIndex(c => c.field === currentField);
-      if (currentIdx < 0) return null;
-      return currentIdx < editableCols.length - 1 ? editableCols[currentIdx + 1] : null;
-    }
-
-    const editableCols = [
-      { field: 'supervisor_count', label: '管工人数' },
-      { field: 'worker_count', label: '员工人数' },
-      { field: 'daily_output', label: '总产值/天' }
-    ];
-
-    // 最后一个字段 daily_output → 返回 null
-    expect(findNextEditableField(editableCols, 'daily_output')).toBeNull();
-
-    // 中间字段 worker_count → 返回 daily_output
-    const next = findNextEditableField(editableCols, 'worker_count');
-    expect(next).not.toBeNull();
-    expect(next.field).toBe('daily_output');
-
-    // 第一个字段 → 返回第二个
-    const next2 = findNextEditableField(editableCols, 'supervisor_count');
-    expect(next2.field).toBe('worker_count');
-  });
-
-  test('找上一个可编辑字段（Shift+Tab）：第一个字段时返回 null', () => {
-    function findPrevEditableField(editableCols, currentField) {
-      const currentIdx = editableCols.findIndex(c => c.field === currentField);
-      if (currentIdx < 0) return null;
-      return currentIdx > 0 ? editableCols[currentIdx - 1] : null;
-    }
-
-    const editableCols = [
-      { field: 'supervisor_count', label: '管工人数' },
-      { field: 'worker_count', label: '员工人数' },
-      { field: 'daily_output', label: '总产值/天' }
-    ];
-
-    // 第一个字段 supervisor_count → 返回 null
-    expect(findPrevEditableField(editableCols, 'supervisor_count')).toBeNull();
-
-    // 最后一个字段 daily_output → 返回 worker_count
-    const prev = findPrevEditableField(editableCols, 'daily_output');
-    expect(prev).not.toBeNull();
-    expect(prev.field).toBe('worker_count');
-  });
 });
 
 // ===== ENTRY-03: 复制行字段提取 =====

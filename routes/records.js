@@ -22,7 +22,7 @@ router.get('/:dept/records', authenticate, validateDept, asyncHandler(async (req
   const config = DEPT_CONFIG[dept];
   const { start_date, end_date, workshop_id } = req.query;
 
-  let sql = `SELECT r.*, w.name as workshop_name, w.region
+  let sql = `SELECT r.*, w.name as workshop_name, w.region, w.sort_order as workshop_sort_order
              FROM ${config.tableName} r
              LEFT JOIN workshops w ON r.workshop_id = w.id
              WHERE 1=1`;
@@ -32,7 +32,7 @@ router.get('/:dept/records', authenticate, validateDept, asyncHandler(async (req
   if (end_date) { sql += ` AND r.record_date <= ?`; params.push(end_date); }
   if (workshop_id) { sql += ` AND r.workshop_id = ?`; params.push(workshop_id); }
 
-  sql += ' ORDER BY r.record_date DESC, w.sort_order ASC';
+  sql += ' ORDER BY r.record_date ASC, w.sort_order ASC, r.id ASC';
   const records = await getAll(sql, params);
   res.json({ success: true, data: records });
 }));

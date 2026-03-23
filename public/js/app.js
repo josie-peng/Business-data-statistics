@@ -88,7 +88,9 @@ const DEPT_CONFIG = {
 const ALL_DEPARTMENTS = {
   beer: '啤机部', print: '印喷部', assembly: '装配部',
   electronic: '电子部', clothing: '车衣部',
-  blister: '吸塑', bags: '胶袋', color_mixing: '配色'
+  blister: '吸塑', bags_color: '胶袋/配色',
+  fixture: '夹具部', roto_casting: '搪胶部',
+  blowing: '吹气部'
 };
 // 三工结余模块的3个部门（数据锁定等仅限此范围）
 const BALANCE_DEPARTMENTS = { beer: '啤机部', print: '印喷部', assembly: '装配部' };
@@ -318,12 +320,45 @@ const DeptRecordsPage = {
                   :row-class-name="getRowClass"
                   v-loading="loading" ref="dataTable">
           <el-table-column type="selection" width="40" fixed="left" />
-          <el-table-column type="index" label="序号" width="50" fixed="left" />
-          <el-table-column prop="record_date" label="日期" width="110" fixed="left" sortable>
-            <template #default="{ row }">{{ row.record_date ? row.record_date.substring(0, 10) : '' }}</template>
+          <el-table-column prop="record_date" label="日期" width="120" fixed="left">
+            <template #default="{ row }">
+              <el-date-picker
+                v-if="editingDateRowId === row.id"
+                v-model="row._editDate"
+                type="date"
+                size="small"
+                value-format="YYYY-MM-DD"
+                style="width:108px"
+                @change="saveDate(row)"
+                @blur="cancelEditDate(row)"
+              />
+              <span
+                v-else
+                @click="startEditDate(row)"
+                style="cursor:pointer;display:block;padding:2px 4px"
+              >{{ row.record_date ? row.record_date.substring(0, 10) : '' }}</span>
+            </template>
           </el-table-column>
           <!-- BUG-02: prop 对齐后端 w.name AS workshop_name -->
-          <el-table-column prop="workshop_name" label="车间" width="80" fixed="left" />
+          <el-table-column prop="workshop_name" label="车间" width="95" fixed="left">
+            <template #default="{ row }">
+              <el-select
+                v-if="editingWorkshopRowId === row.id"
+                v-model="row._editWorkshopId"
+                size="small"
+                style="width:83px"
+                @change="saveWorkshop(row)"
+                @blur="cancelEditWorkshop(row)"
+              >
+                <el-option v-for="w in workshopList" :key="w.id" :label="w.name" :value="w.id" />
+              </el-select>
+              <span
+                v-else
+                @click="startEditWorkshop(row)"
+                style="cursor:pointer;display:block;padding:2px 4px"
+              >{{ row.workshop_name }}</span>
+            </template>
+          </el-table-column>
           <el-table-column v-for="col in columns" :key="col.field" :prop="col.field"
                            :label="col.shortLabel || col.label"
                            :width="getColumnWidth(col)" :min-width="getColumnWidth(col)"
@@ -338,7 +373,6 @@ const DeptRecordsPage = {
                 <input :value="row[col.field]" @blur="saveCell(row, col.field, $event)"
                        @keyup.enter="$event.target.blur()"
                        @keyup.escape="cancelEdit"
-                       @keydown.tab.prevent="handleTabKey(row, col.field, $event)"
                        @input="limitDecimals($event)"
                        autofocus />
               </div>
@@ -444,7 +478,9 @@ const DeptRecordsPage = {
       addForm: {},
       newRowId: null,  // 最近新增的行ID，用于高亮显示
       summaryData: null,
-      workshopList: []
+      workshopList: [],
+      editingDateRowId: null,     // 当前正在编辑日期的行 id
+      editingWorkshopRowId: null  // 当前正在编辑车间的行 id
     };
   },
   computed: {
@@ -477,10 +513,96 @@ const DeptRecordsPage = {
       this.summaryData = null;
       this.workshopList = [];
     },
+    // 三级排序：日期升序 → 车间 sort_order 升序 → id 升序（创建先后）
+    sortRecords(records) {
+      return [...records].sort((a, b) => {
+        if (a.record_date < b.record_date) return -1;
+        if (a.record_date > b.record_date) return 1;
+        const wa = a.workshop_sort_order ?? 99;
+        const wb = b.workshop_sort_order ?? 99;
+        if (wa !== wb) return wa - wb;
+        return a.id - b.id;
+      });
+    },
+    startEditDate(row) {
+      row._editDate = row.record_date;
+      this.editingDateRowId = row.id;
+    },
+    async saveDate(row) {
+      // 必填校验
+      if (!row._editDate) {
+        ElementPlus.ElMessage.warning('日期为必填项，不能清空');
+        row._editDate = row.record_date;
+        this.editingDateRowId = null;
+        return;
+      }
+      // 值未变化，直接退出
+      if (row._editDate === row.record_date) {
+        this.editingDateRowId = null;
+        return;
+      }
+      const oldDate = row.record_date;
+      this.editingDateRowId = null;
+      try {
+        await API.put(`/${this.dept}/records/${row.id}`, { record_date: row._editDate });
+        row.record_date = row._editDate;
+        // 本地重排，行立即移到新日期对应位置
+        this.tableData = this.sortRecords(this.tableData);
+      } catch (err) {
+        row.record_date = oldDate; // 失败恢复原值
+        ElementPlus.ElMessage.error('保存日期失败: ' + (err.message || '未知错误'));
+      }
+    },
+    cancelEditDate(row) {
+      // 仅在未保存的情况下关闭编辑态（@change 已保存时，此处为 no-op）
+      this.editingDateRowId = null;
+    },
+    startEditWorkshop(row) {
+      row._editWorkshopId = row.workshop_id;
+      this.editingWorkshopRowId = row.id;
+    },
+    async saveWorkshop(row) {
+      // 必填校验
+      if (!row._editWorkshopId) {
+        ElementPlus.ElMessage.warning('车间为必填项，不能清空');
+        row._editWorkshopId = row.workshop_id;
+        this.editingWorkshopRowId = null;
+        return;
+      }
+      // 值未变化，直接退出
+      if (row._editWorkshopId === row.workshop_id) {
+        this.editingWorkshopRowId = null;
+        return;
+      }
+      const oldId = row.workshop_id;
+      const oldName = row.workshop_name;
+      const oldSortOrder = row.workshop_sort_order;
+      this.editingWorkshopRowId = null;
+      try {
+        await API.put(`/${this.dept}/records/${row.id}`, { workshop_id: row._editWorkshopId });
+        // PUT 接口不返回 workshop_name/sort_order，从本地 workshopList 查找
+        const found = this.workshopList.find(w => w.id === row._editWorkshopId);
+        if (found) {
+          row.workshop_id = found.id;
+          row.workshop_name = found.name;
+          row.workshop_sort_order = found.sort_order ?? 99;
+        }
+        // 本地重排
+        this.tableData = this.sortRecords(this.tableData);
+      } catch (err) {
+        row.workshop_id = oldId;
+        row.workshop_name = oldName;
+        row.workshop_sort_order = oldSortOrder;
+        ElementPlus.ElMessage.error('保存车间失败: ' + (err.message || '未知错误'));
+      }
+    },
+    cancelEditWorkshop(row) {
+      this.editingWorkshopRowId = null;
+    },
     async loadWorkshops() {
       try {
         const res = await API.get('/workshops', { department: this.dept });
-        this.workshopList = (res.data || res || []).map(w => ({ id: w.id, name: w.name, region: w.region, company: w.company }));
+        this.workshopList = (res.data || res || []).map(w => ({ id: w.id, name: w.name, region: w.region, company: w.company, sort_order: w.sort_order }));
       } catch (err) { console.error('Failed to load workshops', err); }
     },
     async loadData() {
@@ -498,7 +620,7 @@ const DeptRecordsPage = {
           API.get(`/${this.dept}/summary`, params)
         ]);
 
-        this.tableData = recordsRes.data || recordsRes || [];
+        this.tableData = this.sortRecords(recordsRes.data || recordsRes || []);
         // 将后端返回的扁平数组转换为合计表需要的结构
         const rawSummary = summaryRes.data || summaryRes || [];
         if (Array.isArray(rawSummary) && rawSummary.length > 0) {
@@ -582,32 +704,6 @@ const DeptRecordsPage = {
     },
     cancelEdit() {
       this.editingCell = { rowId: null, field: null };
-    },
-    // Tab 键在同一行的可编辑字段间跳转
-    // Tab 正向跳，Shift+Tab 反向跳，到达边界则取消编辑（saveCell 已重置 editingCell）
-    handleTabKey(row, currentField, event) {
-      // 先保存当前单元格（saveCell 会重置 editingCell 为 null）
-      this.saveCell(row, currentField, event);
-
-      // 在可编辑字段列表中找当前字段的位置
-      const editableCols = this.editableColumns;
-      const currentIdx = editableCols.findIndex(c => c.field === currentField);
-
-      if (event.shiftKey) {
-        // Shift+Tab：跳到上一个可编辑字段
-        const prev = currentIdx > 0 ? editableCols[currentIdx - 1] : null;
-        if (prev) {
-          this.$nextTick(() => this.startEdit(row, prev));
-        }
-        // 如果已是第一列，saveCell 已重置 editingCell，不再处理
-      } else {
-        // Tab：跳到下一个可编辑字段
-        const next = currentIdx < editableCols.length - 1 ? editableCols[currentIdx + 1] : null;
-        if (next) {
-          this.$nextTick(() => this.startEdit(row, next));
-        }
-        // 如果已是最后一列，saveCell 已重置 editingCell，不再处理
-      }
     },
     // 限制输入最多6位小数
     limitDecimals(event) {
@@ -2379,53 +2475,73 @@ const WorkshopSettings = {
   template: `
     <div class="settings-card">
       <div class="card-top">
-        <h3><span class="title-dot" style="background:#3D8361;"></span> 车间列表</h3>
+        <h3><span class="title-dot" style="background:#3D8361;"></span> 组织架构</h3>
         <button v-if="!readonly" class="btn-pill success" @click="showAddDialog">+ 新增车间</button>
       </div>
 
-      <!-- 厂区统计药片 -->
-      <div class="stat-pills">
-        <div v-for="(count, region) in regionCounts" :key="region" class="stat-pill"
-          :style="{ background: regionColors[region]?.bg || '#f5f5f5', color: regionColors[region]?.text || '#999' }">
-          <span>{{ region }}</span> <span class="stat-num">{{ count }}</span>
+      <!-- 厂区切换按钮（右键可编辑） -->
+      <div class="region-tabs">
+        <div v-for="r in regionList" :key="r.key"
+          class="region-tab" :class="[r.key, { active: activeRegion === r.key }]"
+          @click="activeRegion = r.key"
+          @contextmenu.prevent="!readonly && showCtxMenu($event, 'region', r)">
+          {{ r.label }} <span class="tab-count">({{ r.count }})</span>
         </div>
       </div>
 
-      <div v-loading="loading">
-        <table class="pretty-table" ref="workshopTable">
-          <thead>
-            <tr>
-              <th style="width:40px;"></th>
-              <th>车间</th>
-              <th>公司</th>
-              <th>厂区</th>
-              <th>部门</th>
-              <th v-if="!readonly" style="width:140px;">操作</th>
-            </tr>
-          </thead>
-          <tbody ref="workshopTbody">
-            <tr v-for="w in workshops" :key="w.id" :data-id="w.id">
-              <td><span v-if="!readonly" class="drag-handle drag-pill">⠿</span></td>
-              <td style="font-weight:600;">{{ w.name }}</td>
-              <td>{{ w.company }}</td>
-              <td>
-                <span class="pill-badge" :class="regionBadgeClass(w.region)">{{ w.region }}</span>
-              </td>
-              <td>
-                <span v-if="w.department" class="pill-badge" :class="deptBadgeClass(w.department)">
-                  {{ ALL_DEPARTMENTS[w.department] || w.department }}
-                </span>
-                <span v-else style="color:#ccc;">—</span>
-              </td>
-              <td v-if="!readonly">
-                <button class="btn-pill ghost sm" @click="showEditDialog(w)">编辑</button>
-                <button class="btn-pill sm" style="background:transparent; color:#E88EA0; border:1.5px solid #E88EA0;" @click="handleDelete(w)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- 组织架构图：公司 → 车间 → 部门 -->
+      <div v-loading="loading" class="org-chart">
+        <div class="org-tree" v-if="currentTree.length">
+          <div class="org-children" style="gap:28px; align-items:flex-start;">
+            <!-- 每个公司一个分支 -->
+            <div class="org-branch" v-for="comp in currentTree" :key="comp.name">
+              <div class="org-node company"
+                @contextmenu.prevent="!readonly && showCtxMenu($event, 'company', comp)">
+                {{ comp.name }}</div>
+              <div class="org-vline"></div>
+              <div class="org-children" style="gap:10px;">
+                <!-- 第2级：每个车间名一个子分支 -->
+                <div class="org-sub" v-for="wsGroup in comp.workshopGroups" :key="wsGroup.name">
+                  <div class="org-node workshop"
+                    @contextmenu.prevent="!readonly && showCtxMenu($event, 'wsGroup', wsGroup)">
+                    {{ wsGroup.name }}
+                  </div>
+                  <!-- 第3级：该车间下挂的部门标签 -->
+                  <template v-if="wsGroup.departments.length">
+                    <div class="org-vline short"></div>
+                    <div class="org-children" style="gap:4px;" v-if="wsGroup.departments.length > 1">
+                      <div class="org-node dept" v-for="d in wsGroup.departments" :key="d.key"
+                        @contextmenu.prevent="!readonly && showCtxMenu($event, 'dept', d)">
+                        {{ d.label }}
+                      </div>
+                    </div>
+                    <div class="org-node dept" v-else
+                      @contextmenu.prevent="!readonly && showCtxMenu($event, 'dept', wsGroup.departments[0])">
+                      {{ wsGroup.departments[0].label }}
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="!loading" style="text-align:center; padding:40px; color:#999;">
+          该厂区暂无车间数据
+        </div>
+        <div v-if="!readonly" class="org-hint">右键点击厂区 / 公司 / 车间 / 部门节点 → 编辑 / 删除</div>
       </div>
 
+      <!-- 右键菜单 -->
+      <teleport to="body">
+        <div v-if="ctxMenu.visible" class="org-ctx-menu"
+          :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }">
+          <div class="menu-item" @click="handleCtxEdit">✏️ 编辑</div>
+          <div class="menu-divider"></div>
+          <div class="menu-item danger" @click="handleCtxDelete">🗑 删除</div>
+        </div>
+      </teleport>
+
+      <!-- 新增/编辑弹窗（保留原有） -->
       <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑车间' : '新增车间'" width="420px" destroy-on-close>
         <el-form :model="form" label-width="80px" size="default">
           <el-form-item label="厂区" required>
@@ -2460,77 +2576,96 @@ const WorkshopSettings = {
       dialogVisible: false,
       isEdit: false,
       form: { name: '', company: '', region: '', department: '', sort_order: 0 },
+      activeRegion: 'qx',            // 当前选中的厂区Tab
+      ctxMenu: { visible: false, x: 0, y: 0, type: '', target: null },  // 右键菜单状态
       ALL_DEPARTMENTS,
       ALL_REGIONS,
-      regionColors: {
-        '清溪': { bg: '#e8f5e9', text: '#3D8361' },
-        '湖南': { bg: '#fff3e0', text: '#e65100' },
-        '河源': { bg: '#e3f2fd', text: '#1565c0' }
-      }
+      // 厂区中文名 → Tab key 映射
+      regionKeyMap: { '清溪': 'qx', '湖南': 'hn', '河源': 'hy' },
+      regionLabelMap: { qx: '清溪', hn: '湖南', hy: '河源' }
     };
   },
   computed: {
-    // 按厂区统计车间数
-    regionCounts() {
+    // 厂区Tab列表（含车间数量统计）
+    regionList() {
       const counts = {};
       for (const w of this.workshops) {
-        const r = w.region || '未知';
-        counts[r] = (counts[r] || 0) + 1;
+        const key = this.regionKeyMap[w.region] || 'other';
+        counts[key] = (counts[key] || 0) + 1;
       }
-      return counts;
+      return [
+        { key: 'qx', label: '清溪', count: counts.qx || 0 },
+        { key: 'hn', label: '湖南', count: counts.hn || 0 },
+        { key: 'hy', label: '河源', count: counts.hy || 0 }
+      ];
+    },
+    // 当前厂区的树形数据：按公司 → 车间名 → 部门分组（带自定义排序）
+    currentTree() {
+      const regionName = this.regionLabelMap[this.activeRegion];
+      const filtered = this.workshops.filter(w => w.region === regionName);
+
+      // 车间名排序表（按厂区）
+      const wsOrder = {
+        '清溪': ['兴信A', '兴信B', '华登A', '华登B', '登信', '小部门', '华嘉'],
+        '河源': ['华登', '华康A', '华康B', '华康C', '小部门', '华兴']
+      };
+      // 部门排序：啤机→印喷→装配→搪胶→吸塑→胶袋配色→其他
+      const deptOrder = ['beer', 'print', 'assembly', 'roto_casting', 'blister', 'bags_color', 'blowing'];
+
+      // 排序辅助：返回在数组中的索引，找不到排到末尾
+      const indexOf = (arr, val) => { const i = arr.indexOf(val); return i >= 0 ? i : 999; };
+
+      // 按公司分组（用车间名排序表推导公司顺序）
+      const companyMap = {};
+      for (const w of filtered) {
+        const compName = w.company || '未知公司';
+        if (!companyMap[compName]) companyMap[compName] = [];
+        companyMap[compName].push(w);
+      }
+
+      const tree = [];
+      for (const [compName, items] of Object.entries(companyMap)) {
+        // 按车间名分组
+        const wsMap = {};
+        for (const w of items) {
+          if (!wsMap[w.name]) wsMap[w.name] = [];
+          wsMap[w.name].push(w);
+        }
+        const order = wsOrder[regionName] || [];
+        const workshopGroups = Object.entries(wsMap).map(([name, records]) => {
+          // 部门排序：啤机→印喷→装配→其他
+          const departments = records.filter(r => r.department).map(r => ({
+            key: r.department,
+            label: ALL_DEPARTMENTS[r.department] || r.department,
+            record: r
+          })).sort((a, b) => indexOf(deptOrder, a.key) - indexOf(deptOrder, b.key));
+          return { name, records, departments, noDeptRecords: records.filter(r => !r.department) };
+        });
+        // 车间名按指定顺序排序
+        workshopGroups.sort((a, b) => indexOf(order, a.name) - indexOf(order, b.name));
+        tree.push({ name: compName, workshopGroups });
+      }
+      // 公司排序：按其第一个车间名在排序表中的位置
+      const order = wsOrder[regionName] || [];
+      tree.sort((a, b) => {
+        const aFirst = a.workshopGroups[0] ? indexOf(order, a.workshopGroups[0].name) : 999;
+        const bFirst = b.workshopGroups[0] ? indexOf(order, b.workshopGroups[0].name) : 999;
+        return aFirst - bFirst;
+      });
+      return tree;
     }
   },
   created() {
     this.loadWorkshops();
+    // 点击空白处关闭右键菜单
+    this._closeCtx = () => { this.ctxMenu.visible = false; };
+    document.addEventListener('click', this._closeCtx);
   },
-  mounted() {
-    this.$nextTick(() => this.initSortable());
+  beforeUnmount() {
+    document.removeEventListener('click', this._closeCtx);
   },
   methods: {
-    // 厂区药片颜色
-    regionBadgeClass(region) {
-      if (region === '清溪') return 'green';
-      if (region === '湖南') return 'orange';
-      if (region === '河源') return 'blue';
-      return 'gray';
-    },
-    // 部门药片颜色
-    deptBadgeClass(dept) {
-      if (dept === 'beer') return 'purple';
-      if (dept === 'print') return 'blue';
-      if (dept === 'assembly') return 'teal';
-      return 'gray';
-    },
-    initSortable() {
-      const tbody = this.$refs.workshopTbody;
-      if (!tbody) return;
-      Sortable.create(tbody, {
-        handle: '.drag-handle',           // 只能通过手柄拖拽
-        animation: 150,
-        ghostClass: 'sortable-ghost',
-        onEnd: ({ oldIndex, newIndex }) => {
-          if (oldIndex === newIndex) return;
-          // 移动数据数组中的元素
-          const moved = this.workshops.splice(oldIndex, 1)[0];
-          this.workshops.splice(newIndex, 0, moved);
-          this.saveSortOrder();
-        }
-      });
-    },
-    async saveSortOrder() {
-      // 重新编号并调用批量更新 API（用对象包装数组，Express 默认不解析顶层数组）
-      const items = this.workshops.map((w, i) => ({ id: w.id, sort_order: i + 1 }));
-      try {
-        await API.put('/workshops/sort', { items });
-        // 同步前端数据的 sort_order
-        this.workshops.forEach((w, i) => { w.sort_order = i + 1; });
-        ElementPlus.ElMessage.success('排序已保存');
-      } catch (err) {
-        ElementPlus.ElMessage.error('排序保存失败');
-        // 失败时重新加载恢复原始顺序
-        await this.loadWorkshops();
-      }
-    },
+    // —— 数据加载 ——
     async loadWorkshops() {
       this.loading = true;
       try {
@@ -2542,9 +2677,76 @@ const WorkshopSettings = {
         this.loading = false;
       }
     },
+    // —— 右键菜单 ——
+    showCtxMenu(e, type, target) {
+      this.ctxMenu = { visible: true, x: e.clientX, y: e.clientY, type, target };
+    },
+    handleCtxEdit() {
+      const t = this.ctxMenu.target;
+      const type = this.ctxMenu.type;
+      this.ctxMenu.visible = false;
+      if (!t) return;
+      if (type === 'dept') {
+        // 部门节点：每个部门标签对应一条DB记录，直接编辑
+        this.showEditDialog(t.record);
+      } else if (type === 'wsGroup') {
+        // 车间节点：如果只有1条记录直接编辑，多条时提示点具体部门
+        if (t.records.length === 1) {
+          this.showEditDialog(t.records[0]);
+        } else {
+          ElementPlus.ElMessage.info('该车间有多个部门记录，请右键点击下方具体部门节点编辑');
+        }
+      } else if (type === 'company') {
+        // 公司节点：编辑该公司下第一条记录
+        const first = t.workshopGroups[0] && t.workshopGroups[0].records[0];
+        if (first) {
+          this.showEditDialog(first);
+        } else {
+          ElementPlus.ElMessage.info('该公司暂无车间数据');
+        }
+      } else if (type === 'region') {
+        // 厂区节点：编辑该厂区下第一条记录
+        const regionName = t.label;
+        const first = this.workshops.find(w => w.region === regionName);
+        if (first) {
+          this.showEditDialog(first);
+        } else {
+          ElementPlus.ElMessage.info('该厂区暂无车间数据');
+        }
+      }
+    },
+    handleCtxDelete() {
+      const t = this.ctxMenu.target;
+      const type = this.ctxMenu.type;
+      this.ctxMenu.visible = false;
+      if (!t) return;
+      if (type === 'dept') {
+        // 部门节点：删除对应的那条DB记录
+        this.handleDelete(t.record);
+      } else if (type === 'wsGroup') {
+        // 车间节点：如果只有1条记录直接删除，多条时提示
+        if (t.records.length === 1) {
+          this.handleDelete(t.records[0]);
+        } else {
+          ElementPlus.ElMessage.info('该车间有多个部门记录，请右键点击下方具体部门节点删除');
+        }
+      } else if (type === 'company') {
+        // 公司节点：批量删除该公司下所有车间
+        const allRecords = t.workshopGroups.flatMap(g => g.records);
+        this.handleDeleteBatch(t.name, allRecords);
+      } else if (type === 'region') {
+        // 厂区节点：批量删除该厂区所有车间
+        const regionName = t.label;
+        const count = t.count;
+        this.handleDeleteRegion(regionName, count);
+      }
+    },
+    // —— 弹窗操作 ——
     showAddDialog() {
       this.isEdit = false;
-      this.form = { name: '', company: '', region: '清溪', department: '', sort_order: 0 };
+      // 默认厂区为当前选中的Tab对应厂区
+      const defaultRegion = this.regionLabelMap[this.activeRegion] || '清溪';
+      this.form = { name: '', company: '', region: defaultRegion, department: '', sort_order: 0 };
       this.dialogVisible = true;
     },
     showEditDialog(row) {
@@ -2575,11 +2777,52 @@ const WorkshopSettings = {
     },
     async handleDelete(row) {
       try {
-        await ElementPlus.ElMessageBox.confirm(`确定要删除车间 "${row.name}" 吗？`, '确认删除', {
-          type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消'
-        });
-        await API.del(`/workshops/${row.id}`);
+        await ElementPlus.ElMessageBox.confirm(
+          '确定要删除车间 "' + row.name + '" 吗？', '确认删除',
+          { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
+        );
+        await API.del('/workshops/' + row.id);
         ElementPlus.ElMessage.success('删除成功');
+        await this.loadWorkshops();
+      } catch (err) {
+        if (err !== 'cancel' && err !== 'close') {
+          ElementPlus.ElMessage.error('删除失败: ' + (err.message || '未知错误'));
+        }
+      }
+    },
+    // 批量删除某公司下所有车间（危险操作，二次确认）
+    async handleDeleteBatch(name, records) {
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '确定要删除 "' + name + '" 下的全部 ' + records.length + ' 条车间记录吗？此操作不可撤销！',
+          '删除公司车间',
+          { type: 'error', confirmButtonText: '确定删除', cancelButtonText: '取消' }
+        );
+        for (const w of records) {
+          await API.del('/workshops/' + w.id);
+        }
+        ElementPlus.ElMessage.success(name + ' 的车间已清空');
+        await this.loadWorkshops();
+      } catch (err) {
+        if (err !== 'cancel' && err !== 'close') {
+          ElementPlus.ElMessage.error('删除失败: ' + (err.message || '未知错误'));
+        }
+      }
+    },
+    // 批量删除整个厂区的所有车间（危险操作，二次确认）
+    async handleDeleteRegion(regionName, count) {
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '确定要删除 "' + regionName + '" 厂区下的全部 ' + count + ' 条车间记录吗？此操作不可撤销！',
+          '删除整个厂区',
+          { type: 'error', confirmButtonText: '确定删除', cancelButtonText: '取消' }
+        );
+        // 逐条删除该厂区所有车间
+        const toDelete = this.workshops.filter(w => w.region === regionName);
+        for (const w of toDelete) {
+          await API.del('/workshops/' + w.id);
+        }
+        ElementPlus.ElMessage.success(regionName + ' 厂区已清空');
         await this.loadWorkshops();
       } catch (err) {
         if (err !== 'cancel' && err !== 'close') {
