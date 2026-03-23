@@ -279,7 +279,7 @@ function showDept(dept) {
       if (i === 0) {
         html += `<td class="left" style="position:sticky;left:0;background:${r%2?'#f9f9f9':'#fff'};z-index:1;">2026-03-${String(15-r).padStart(2,'0')}</td>`;
       } else if (i === 1) {
-        html += `<td class="left" style="position:sticky;left:80px;background:${r%2?'#f9f9f9':'#fff'};z-index:1;">${['兴信A','兴信B','华登','邵阳','兴信A'][r]}</td>`;
+        html += `<td class="left" style="position:sticky;left:80px;background:${r%2?'#f9f9f9':'#fff'};z-index:1;">${['兴信A','兴信B','华登A','邵阳华登','兴信A'][r]}</td>`;
       } else if (isCalc) {
         const isRatio = c.full.includes('%') || c.short.includes('%');
         const raw = isRatio ? (Math.random()*30+5) : (Math.random()*50000+1000);
@@ -296,8 +296,8 @@ function showDept(dept) {
 
   // ===== 合计栏 =====
   const workshops = dept === 'print'
-    ? [{name:'兴信A',region:'清溪'},{name:'华登',region:'清溪'},{name:'邵阳',region:'邵阳'}]
-    : [{name:'兴信A',region:'清溪'},{name:'兴信B',region:'清溪'},{name:'华登',region:'清溪'},{name:'邵阳',region:'邵阳'}];
+    ? [{name:'兴信A',region:'清溪'},{name:'华登A',region:'清溪'},{name:'邵阳华登',region:'湖南'}]
+    : [{name:'兴信A',region:'清溪'},{name:'兴信B',region:'清溪'},{name:'华登A',region:'清溪'},{name:'邵阳华登',region:'湖南'}];
 
   // 生成模拟汇总数据
   function mockSummary() {
@@ -328,7 +328,7 @@ function showDept(dept) {
     return s;
   }
   const qxWs = workshops.filter(w => w.region === '清溪').map(w => wsData[w.name]);
-  const syWs = workshops.filter(w => w.region === '邵阳').map(w => wsData[w.name]);
+  const syWs = workshops.filter(w => w.region === '湖南').map(w => wsData[w.name]);
   const qxTotal = sumRows(qxWs);
   const syTotal = syWs.length > 0 ? sumRows(syWs) : null;
   const grandTotal = sumRows(Object.values(wsData));

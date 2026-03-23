@@ -634,7 +634,7 @@ const DeptRecordsPage = {
           for (const row of rawSummary) {
             workshops[row.workshop_name] = row;
             // 区域汇总（清溪/邵阳）
-            const regionKey = row.region === '湖南' ? '邵阳' : row.region;
+            const regionKey = row.region;
             if (!regions[regionKey]) {
               regions[regionKey] = {};
               numFields.forEach(f => { regions[regionKey][f] = 0; });
@@ -2607,7 +2607,7 @@ const WorkshopSettings = {
       // 车间名排序表（按厂区）
       const wsOrder = {
         '清溪': ['兴信A', '兴信B', '华登A', '华登B', '登信', '小部门', '华嘉'],
-        '河源': ['华登', '华康A', '华康B', '华康C', '小部门', '华兴']
+        '河源': ['河源华登', '华康A', '华康B', '华康C', '小部门', '华兴']
       };
       // 部门排序：啤机→印喷→装配→搪胶→吸塑→胶袋配色→其他
       const deptOrder = ['beer', 'print', 'assembly', 'roto_casting', 'blister', 'bags_color', 'blowing'];
