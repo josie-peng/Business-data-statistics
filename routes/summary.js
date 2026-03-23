@@ -15,6 +15,7 @@ const EXPENSE_CATEGORIES = {
   other: ['misc_fee', 'shipping_fee', 'subsidy']
 };
 
+// DEPRECATED: 被 /daily + /monthly 替代，保留兼容
 // GET /api/summary/overview
 // 返回各部门汇总数据，字段名与前端 SummaryPage 对齐
 router.get('/overview', authenticate, asyncHandler(async (req, res) => {
@@ -199,6 +200,7 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
   res.json({ success: true, data: { cards, departments, monthly_trend: monthlyTrend, expense_breakdown: expenseBreakdown } });
 }));
 
+// DEPRECATED: 被 /daily + /monthly 替代，保留兼容
 // GET /api/summary/detail?dept=beer&start_date=2026-03-01&end_date=2026-03-31
 // 汇总表数据：总览模式（无dept）或部门明细模式（有dept）
 router.get('/detail', authenticate, asyncHandler(async (req, res) => {

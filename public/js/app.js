@@ -1271,26 +1271,11 @@ const SummaryPage = {
       if (Math.abs(val) >= 10000) return (val / 10000).toFixed(1) + '万';
       return val.toFixed(0);
     },
-    // 汇总表单元格格式化
-    fmtCell(row, key) {
-      const val = row[key];
-      if (val === null || val === undefined) return '—';
-      if (row.field === 'balance_ratio') return (val * 100).toFixed(1) + '%';
-      return this.fmtVal(val);
-    },
     fmtVal(val) {
       if (val === null || val === undefined) return '—';
       if (typeof val !== 'number') return val;
       return val.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     },
-    // 结余行颜色class
-    balanceCls(row, key) {
-      if (row.field !== 'balance') return '';
-      const val = row[key];
-      if (val === null || val === undefined) return '';
-      return val >= 0 ? 'balance-positive' : 'balance-negative';
-    },
-
     // ===== 主Tab切换 =====
     switchMainTab(tab) {
       this.mainTab = tab;
