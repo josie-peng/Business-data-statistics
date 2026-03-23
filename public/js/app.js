@@ -1309,6 +1309,7 @@ const SummaryPage = {
     initCharts() {
       if (typeof echarts === 'undefined') return;
       const d = this.dashData;
+      if (!d || !d.departments) return;
 
       // === 柱状图：部门对比 ===
       if (this.$refs.barChart) {
