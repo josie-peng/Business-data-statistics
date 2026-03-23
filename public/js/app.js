@@ -1006,99 +1006,201 @@ const SummaryPage = {
       </div>
 
       <!-- ========== 汇总表 ========== -->
-      <div v-if="mainTab === 'table'" v-loading="loading">
-        <!-- 筛选栏 -->
-        <div class="toolbar">
-          <el-date-picker v-model="tableMonth" type="month" placeholder="选择月份" size="small"
-            value-format="YYYY-MM" @change="loadTableData" style="width:130px" />
-          <el-button type="success" size="small" @click="handleTableExport">导出Excel</el-button>
+      <div v-if="mainTab === 'table'">
+        <!-- 子标签栏 -->
+        <div class="summary-sub-tabs">
+          <button class="summary-sub-tab" :class="{ active: tableView === 'daily' }" @click="switchTableView('daily')">按日汇总</button>
+          <button class="summary-sub-tab" :class="{ active: tableView === 'monthly' }" @click="switchTableView('monthly')">按月汇总</button>
         </div>
 
-        <!-- 子Tab -->
-        <div class="summary-tab-bar">
-          <button class="summary-tab-btn" :class="{ active: tableTab === 'overview' }" @click="switchTableTab('overview')">总览</button>
-          <button class="summary-tab-btn" :class="{ active: tableTab === 'beer' }" @click="switchTableTab('beer')">啤机部</button>
-          <button class="summary-tab-btn" :class="{ active: tableTab === 'print' }" @click="switchTableTab('print')">印喷部</button>
-          <button class="summary-tab-btn" :class="{ active: tableTab === 'assembly' }" @click="switchTableTab('assembly')">装配部</button>
+        <!-- ===== 按日汇总视图 ===== -->
+        <div v-if="tableView === 'daily'" v-loading="dailyLoading">
+          <!-- 筛选栏 -->
+          <div class="toolbar" style="flex-wrap:wrap;">
+            <div class="dept-btn-group">
+              <button v-for="d in deptList" :key="d.key" class="dept-btn" :class="{ active: dailyDept === d.key }" @click="switchDailyDept(d.key)">{{ d.label }}</button>
+            </div>
+            <el-date-picker v-model="dailyMonth" type="month" placeholder="选择月份" size="small"
+              value-format="YYYY-MM" @change="loadDailyData" style="width:130px" />
+            <el-date-picker v-model="dailyJumpDate" type="date" placeholder="跳转日期" size="small"
+              value-format="YYYY-MM-DD" @change="jumpToDate" style="width:140px" clearable />
+            <el-button type="success" size="small" @click="handleTableExport">导出Excel</el-button>
+          </div>
+
+          <!-- 月度合计卡 -->
+          <div v-if="dailyData.monthly" class="monthly-total-card">
+            <div class="card-header">
+              <div>
+                <span class="card-title">{{ dailyMonth ? dailyMonth.split('-')[1] : '' }}月合计</span>
+                <span class="card-subtitle">{{ currentDeptLabel }}月度汇总</span>
+              </div>
+              <div class="card-stats">
+                总产值：<span class="val">{{ fmtVal(dailyData.monthly.total.daily_output) }}</span>
+                <span style="margin:0 10px;">|</span>
+                总结余：<span class="val">{{ fmtVal(dailyData.monthly.total.balance) }}</span>
+                <span style="margin:0 10px;">|</span>
+                结余率：<span class="val">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(1) }}%</span>
+              </div>
+            </div>
+            <div class="card-table-wrap">
+              <table class="card-table">
+                <thead>
+                  <tr>
+                    <th class="sticky-col">车间</th>
+                    <th v-for="col in dailyColumns" :key="col.field">{{ col.label }}</th>
+                    <th class="expense-val">费用计</th>
+                    <th style="color:#3D8361;font-weight:700;">结余</th>
+                    <th style="color:#3D8361;">结余率</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(ws, idx) in dailyData.monthly.workshops" :key="ws.workshop_name">
+                    <td class="sticky-col">{{ ws.workshop_name }}</td>
+                    <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
+                    <td class="expense-val">{{ fmtVal(ws.total_expense) }}</td>
+                    <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
+                    <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
+                  </tr>
+                  <tr class="total-row">
+                    <td class="sticky-col">合计</td>
+                    <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(dailyData.monthly.total[col.field]) }}</td>
+                    <td class="expense-val">{{ fmtVal(dailyData.monthly.total.total_expense) }}</td>
+                    <td :class="dailyData.monthly.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(dailyData.monthly.total.balance) }}</td>
+                    <td :class="dailyData.monthly.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(1) }}%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 分隔线 -->
+          <div v-if="dailyData.daily && dailyData.daily.length" class="daily-divider"><span>▼ 每日明细</span></div>
+
+          <!-- 日期卡片列表 -->
+          <div v-for="card in dailyData.daily" :key="card.date" :id="'daily-' + card.date" class="daily-card">
+            <div class="card-header">
+              <div>
+                <span class="card-date">{{ card.date }}</span>
+                <span class="card-weekday">{{ card.weekday }}</span>
+              </div>
+              <div class="card-stats">
+                产值：<span style="font-weight:700;">{{ fmtVal(card.total.daily_output) }}</span>
+                <span style="margin:0 6px;">|</span>
+                结余：<span style="font-weight:700;">{{ fmtVal(card.total.balance) }}</span>
+              </div>
+            </div>
+            <div class="card-table-wrap">
+              <table class="card-table">
+                <thead>
+                  <tr>
+                    <th class="sticky-col">车间</th>
+                    <th v-for="col in dailyColumns" :key="col.field">{{ col.label }}</th>
+                    <th class="expense-val">费用计</th>
+                    <th style="color:#3D8361;font-weight:700;">结余</th>
+                    <th style="color:#3D8361;">结余率</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="ws in card.workshops" :key="ws.workshop_name">
+                    <td class="sticky-col">{{ ws.workshop_name }}</td>
+                    <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
+                    <td class="expense-val">{{ fmtVal(ws.total_expense) }}</td>
+                    <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
+                    <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
+                  </tr>
+                  <tr class="total-row">
+                    <td class="sticky-col">合计</td>
+                    <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(card.total[col.field]) }}</td>
+                    <td class="expense-val">{{ fmtVal(card.total.total_expense) }}</td>
+                    <td :class="card.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(card.total.balance) }}</td>
+                    <td :class="card.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (card.total.balance_ratio * 100).toFixed(1) }}%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div v-if="!dailyData.monthly && !dailyLoading" style="text-align:center; padding:40px; color:#999;">暂无数据，请选择月份</div>
         </div>
 
-        <!-- 总览表格 -->
-        <template v-if="tableTab === 'overview' && tableData.rows">
-          <table class="summary-detail-table">
-            <thead>
-              <tr>
-                <th style="text-align:left; width:100px;">分类</th>
-                <th style="text-align:left; width:140px;">项目</th>
-                <th>啤机部</th>
-                <th>印喷部</th>
-                <th>装配部</th>
-                <th>合计</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in tableData.rows" :key="idx"
-                :class="{ 'total-row': row.field === '_expense_total', 'balance-row': row.category === '结余' }">
-                <td class="cat-cell">{{ row.category }}</td>
-                <td>{{ row.label }}</td>
-                <td :class="balanceCls(row, 'beer')">{{ fmtCell(row, 'beer') }}</td>
-                <td :class="balanceCls(row, 'print')">{{ fmtCell(row, 'print') }}</td>
-                <td :class="balanceCls(row, 'assembly')">{{ fmtCell(row, 'assembly') }}</td>
-                <td :class="balanceCls(row, 'total')" style="font-weight:600;">{{ fmtCell(row, 'total') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </template>
+        <!-- ===== 按月汇总视图 ===== -->
+        <div v-if="tableView === 'monthly'" v-loading="monthlyLoading">
+          <div class="toolbar">
+            <el-date-picker v-model="monthlyMonth" type="month" placeholder="选择月份" size="small"
+              value-format="YYYY-MM" @change="loadMonthlyData" style="width:130px" />
+            <el-button type="success" size="small" @click="handleTableExport">导出Excel</el-button>
+          </div>
 
-        <!-- 部门明细表格 -->
-        <template v-if="tableTab !== 'overview' && tableData.workshops">
-          <table class="summary-detail-table">
-            <thead>
-              <tr>
-                <th style="text-align:left; width:100px;">分类</th>
-                <th style="text-align:left; width:140px;">项目</th>
-                <th v-for="ws in tableData.workshops" :key="ws">{{ ws }}</th>
-                <th>合计</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in tableData.rows" :key="idx">
-                <td class="cat-cell">{{ row.category }}</td>
-                <td>{{ row.label }}</td>
-                <td v-for="ws in tableData.workshops" :key="ws">{{ fmtVal(row.values[ws]) }}</td>
-                <td style="font-weight:600;">{{ fmtVal(row.total) }}</td>
-              </tr>
-              <!-- 费用总计行 -->
-              <tr class="total-row">
-                <td class="cat-cell">合计</td>
-                <td>费用总计</td>
-                <td v-for="ws in tableData.workshops" :key="ws">{{ fmtVal(tableData.expense_total[ws]) }}</td>
-                <td style="font-weight:600;">{{ fmtVal(tableData.expense_total.total) }}</td>
-              </tr>
-              <!-- 结余行 -->
-              <tr class="balance-row">
-                <td class="cat-cell">结余</td>
-                <td>结余</td>
-                <td v-for="ws in tableData.workshops" :key="ws" :class="tableData.balance[ws] >= 0 ? 'balance-positive' : 'balance-negative'">
-                  {{ fmtVal(tableData.balance[ws]) }}
-                </td>
-                <td :class="tableData.balance.total >= 0 ? 'balance-positive' : 'balance-negative'" style="font-weight:600;">
-                  {{ fmtVal(tableData.balance.total) }}
-                </td>
-              </tr>
-              <!-- 结余率行 -->
-              <tr class="balance-row">
-                <td class="cat-cell">结余</td>
-                <td>结余率</td>
-                <td v-for="ws in tableData.workshops" :key="ws">{{ (tableData.balance_ratio[ws] * 100).toFixed(1) }}%</td>
-                <td style="font-weight:600;">{{ (tableData.balance_ratio.total * 100).toFixed(1) }}%</td>
-              </tr>
-            </tbody>
-          </table>
-        </template>
+          <template v-if="monthlyData.current">
+            <!-- 本月三工汇总 -->
+            <div class="monthly-section-title primary">本月三工汇总（{{ monthlyMonth }}）</div>
+            <table class="monthly-summary-table">
+              <thead class="primary">
+                <tr>
+                  <th>部门</th><th>总产值</th><th>员工工资</th><th>管工工资</th>
+                  <th>房租</th><th>水电费</th><th>社保</th><th>税收</th>
+                  <th>其他费用</th><th>费用合计</th><th>结余</th><th>结余率</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="d in monthlyData.current.departments" :key="d.dept">
+                  <td style="color:#7F41C0;">{{ d.label }}</td>
+                  <td>{{ fmtVal(d.daily_output) }}</td>
+                  <td>{{ fmtVal(d.worker_wage) }}</td>
+                  <td>{{ fmtVal(d.supervisor_wage) }}</td>
+                  <td>{{ fmtVal(d.rent) }}</td>
+                  <td>{{ fmtVal(d.utility_fee) }}</td>
+                  <td>{{ fmtVal(d.social_insurance) }}</td>
+                  <td>{{ fmtVal(d.tax) }}</td>
+                  <td style="color:#999;">{{ fmtVal(d.other_expense) }}</td>
+                  <td class="expense-val">{{ fmtVal(d.total_expense) }}</td>
+                  <td :class="d.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(d.balance) }}</td>
+                  <td :class="d.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (d.balance_ratio * 100).toFixed(1) }}%</td>
+                </tr>
+                <tr class="grand-total-primary">
+                  <td>{{ monthlyData.current.total.label }}</td>
+                  <td>{{ fmtVal(monthlyData.current.total.daily_output) }}</td>
+                  <td>{{ fmtVal(monthlyData.current.total.worker_wage) }}</td>
+                  <td>{{ fmtVal(monthlyData.current.total.supervisor_wage) }}</td>
+                  <td>{{ fmtVal(monthlyData.current.total.rent) }}</td>
+                  <td>{{ fmtVal(monthlyData.current.total.utility_fee) }}</td>
+                  <td>{{ fmtVal(monthlyData.current.total.social_insurance) }}</td>
+                  <td>{{ fmtVal(monthlyData.current.total.tax) }}</td>
+                  <td style="color:#999;">{{ fmtVal(monthlyData.current.total.other_expense) }}</td>
+                  <td class="expense-val">{{ fmtVal(monthlyData.current.total.total_expense) }}</td>
+                  <td :class="monthlyData.current.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(monthlyData.current.total.balance) }}</td>
+                  <td :class="monthlyData.current.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (monthlyData.current.total.balance_ratio * 100).toFixed(1) }}%</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="text-align:right; font-size:11px; color:#999; margin-top:-16px; margin-bottom:16px;">单位：万元</div>
 
-        <!-- 无数据提示 -->
-        <div v-if="!tableData.rows && !tableData.workshops" style="text-align:center; padding:40px; color:#999;">
-          暂无数据，请选择月份
+            <!-- 环比变化 -->
+            <div class="monthly-section-title info">环比变化（vs {{ monthlyData.comparison.prev_month }}）</div>
+            <table class="monthly-summary-table">
+              <thead class="info">
+                <tr>
+                  <th>部门</th><th>总产值变化</th><th>费用合计变化</th>
+                  <th>结余变化</th><th>结余率变化</th><th>上月结余</th><th>本月结余</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(c, idx) in monthlyData.comparison.departments" :key="c.dept"
+                  :class="{ 'grand-total-info': c.dept === 'total' }">
+                  <td>{{ c.label }}</td>
+                  <td :class="changeClass(c.output_change, false)">{{ fmtChange(c.output_change, c.output_change_pct) }}</td>
+                  <td :class="changeClass(c.expense_change, true)">{{ fmtChange(c.expense_change, c.expense_change_pct) }}</td>
+                  <td :class="changeClass(c.balance_change, false)">{{ fmtChange(c.balance_change, c.balance_change_pct) }}</td>
+                  <td :class="changeClass(c.ratio_change, false)">{{ c.ratio_change != null ? (c.ratio_change >= 0 ? '↑' : '↓') + ' ' + Math.abs(c.ratio_change * 100).toFixed(1) + '%' : '—' }}</td>
+                  <td style="color:#999;">{{ fmtVal(c.prev_balance) }}</td>
+                  <td style="font-weight:600;">{{ fmtVal(c.curr_balance) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="text-align:right; font-size:11px; color:#999; margin-top:-16px;">变化量单位：万元 · 绿色=有利变化 · 粉色=不利变化</div>
+          </template>
+
+          <div v-if="!monthlyData.current && !monthlyLoading" style="text-align:center; padding:40px; color:#999;">暂无数据，请选择月份</div>
         </div>
       </div>
     </div>
@@ -1117,11 +1219,35 @@ const SummaryPage = {
       barChartInstance: null,
       lineChartInstance: null,
       stackChartInstance: null,
-      // 汇总表数据
-      tableMonth: now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'),
-      tableTab: 'overview',
-      tableData: {}
+      // 汇总表 - 子视图切换
+      tableView: 'daily',
+      // 按日汇总
+      dailyDept: 'beer',
+      dailyMonth: now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'),
+      dailyJumpDate: null,
+      dailyLoading: false,
+      dailyData: { columns: [], monthly: null, daily: [] },
+      // 按月汇总
+      monthlyMonth: now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'),
+      monthlyLoading: false,
+      monthlyData: { current: null, comparison: null }
     };
+  },
+  computed: {
+    dailyColumns() {
+      return this.dailyData.columns || [];
+    },
+    deptList() {
+      return [
+        { key: 'beer', label: '啤机部' },
+        { key: 'print', label: '印喷部' },
+        { key: 'assembly', label: '装配部' }
+      ];
+    },
+    currentDeptLabel() {
+      const d = this.deptList.find(d => d.key === this.dailyDept);
+      return d ? d.label : '';
+    }
   },
   mounted() {
     this.loadDashboard();
@@ -1171,7 +1297,11 @@ const SummaryPage = {
       if (tab === 'dashboard') {
         this.$nextTick(() => this.initCharts());
       } else if (tab === 'table') {
-        this.loadTableData();
+        if (this.tableView === 'daily') {
+          this.loadDailyData();
+        } else {
+          this.loadMonthlyData();
+        }
       }
     },
 
@@ -1260,83 +1390,142 @@ const SummaryPage = {
       if (this.stackChartInstance) this.stackChartInstance.resize();
     },
 
-    // ===== 汇总表 =====
-    switchTableTab(tab) {
-      this.tableTab = tab;
-      this.loadTableData();
-    },
-
-    async loadTableData() {
-      if (!this.tableMonth) return;
-      this.loading = true;
-      try {
-        const [y, m] = this.tableMonth.split('-').map(Number);
-        const start = new Date(y, m - 1, 1);
-        const end = new Date(y, m, 0);
-        const params = {
-          start_date: formatDate(start),
-          end_date: formatDate(end)
-        };
-        if (this.tableTab !== 'overview') params.dept = this.tableTab;
-        const res = await API.getSummaryDetail(params);
-        this.tableData = res.data;
-      } catch (err) {
-        ElementPlus.ElMessage.error('加载汇总表失败: ' + (err.message || '未知错误'));
-      } finally {
-        this.loading = false;
+    // ===== 汇总表子视图切换 =====
+    switchTableView(view) {
+      this.tableView = view;
+      if (view === 'daily') {
+        this.loadDailyData();
+      } else {
+        this.loadMonthlyData();
       }
     },
 
-    // ===== 导出Excel =====
+    // ===== 按日汇总 =====
+    switchDailyDept(dept) {
+      this.dailyDept = dept;
+      this.loadDailyData();
+    },
+
+    async loadDailyData() {
+      if (!this.dailyMonth) return;
+      this.dailyLoading = true;
+      try {
+        const res = await API.getSummaryDaily({ dept: this.dailyDept, month: this.dailyMonth });
+        this.dailyData = res.data;
+      } catch (err) {
+        ElementPlus.ElMessage.error('加载按日汇总失败: ' + (err.message || '未知错误'));
+      } finally {
+        this.dailyLoading = false;
+      }
+    },
+
+    jumpToDate(date) {
+      if (!date) return;
+      const dateStr = typeof date === 'string' ? date : date.toISOString().slice(0, 10);
+      const el = document.getElementById('daily-' + dateStr);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        ElementPlus.ElMessage.warning('该日期无数据');
+      }
+    },
+
+    // ===== 按月汇总 =====
+    async loadMonthlyData() {
+      if (!this.monthlyMonth) return;
+      this.monthlyLoading = true;
+      try {
+        const res = await API.getSummaryMonthly({ month: this.monthlyMonth });
+        this.monthlyData = res.data;
+      } catch (err) {
+        ElementPlus.ElMessage.error('加载按月汇总失败: ' + (err.message || '未知错误'));
+      } finally {
+        this.monthlyLoading = false;
+      }
+    },
+
+    // ===== 环比格式化 =====
+    fmtChange(val, pct) {
+      if (val === null || val === undefined) return '—';
+      const arrow = val >= 0 ? '↑' : '↓';
+      const absVal = Math.abs(val).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+      const pctStr = pct !== null && pct !== undefined ? ` (${pct >= 0 ? '+' : ''}${(pct * 100).toFixed(1)}%)` : '';
+      return `${arrow} ${absVal}${pctStr}`;
+    },
+
+    changeClass(val, inverse) {
+      if (val === null || val === undefined || val === 0) return '';
+      if (inverse) return val > 0 ? 'val-negative' : 'val-positive';
+      return val >= 0 ? 'val-positive' : 'val-negative';
+    },
+
+    // ===== 导出 =====
     handleTableExport() {
       try {
-        const rows = [];
-        if (this.tableTab === 'overview' && this.tableData.rows) {
-          // 总览模式
-          for (const r of this.tableData.rows) {
-            rows.push({
-              '分类': r.category, '项目': r.label,
-              '啤机部': r.field === 'balance_ratio' ? (r.beer != null ? (r.beer * 100).toFixed(1) + '%' : '') : (r.beer ?? ''),
-              '印喷部': r.field === 'balance_ratio' ? (r.print != null ? (r.print * 100).toFixed(1) + '%' : '') : (r.print ?? ''),
-              '装配部': r.field === 'balance_ratio' ? (r.assembly != null ? (r.assembly * 100).toFixed(1) + '%' : '') : (r.assembly ?? ''),
-              '合计': r.field === 'balance_ratio' ? (r.total * 100).toFixed(1) + '%' : (r.total ?? '')
-            });
-          }
-        } else if (this.tableData.workshops) {
-          // 部门明细模式
-          const ws = this.tableData.workshops;
-          for (const r of this.tableData.rows) {
-            const row = { '分类': r.category, '项目': r.label };
-            ws.forEach(w => { row[w] = r.values[w] ?? ''; });
-            row['合计'] = r.total ?? '';
-            rows.push(row);
-          }
-          // 费用总计
-          const expRow = { '分类': '合计', '项目': '费用总计' };
-          ws.forEach(w => { expRow[w] = this.tableData.expense_total[w] ?? ''; });
-          expRow['合计'] = this.tableData.expense_total.total ?? '';
-          rows.push(expRow);
-          // 结余
-          const balRow = { '分类': '结余', '项目': '结余' };
-          ws.forEach(w => { balRow[w] = this.tableData.balance[w] ?? ''; });
-          balRow['合计'] = this.tableData.balance.total ?? '';
-          rows.push(balRow);
-          // 结余率
-          const ratioRow = { '分类': '结余', '项目': '结余率' };
-          ws.forEach(w => { ratioRow[w] = (this.tableData.balance_ratio[w] * 100).toFixed(1) + '%'; });
-          ratioRow['合计'] = (this.tableData.balance_ratio.total * 100).toFixed(1) + '%';
-          rows.push(ratioRow);
+        if (this.tableView === 'daily') {
+          this.exportDaily();
+        } else {
+          this.exportMonthly();
         }
-        if (rows.length === 0) { ElementPlus.ElMessage.warning('无数据可导出'); return; }
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        const tabLabel = this.tableTab === 'overview' ? '总览' : { beer: '啤机部', print: '印喷部', assembly: '装配部' }[this.tableTab];
-        XLSX.utils.book_append_sheet(wb, ws, tabLabel);
-        XLSX.writeFile(wb, `大车间汇总_${tabLabel}_${this.tableMonth}.xlsx`);
-        ElementPlus.ElMessage.success('导出成功');
       } catch (err) {
         ElementPlus.ElMessage.error('导出失败: ' + (err.message || '未知错误'));
       }
+    },
+
+    exportDaily() {
+      const data = this.dailyData;
+      if (!data.monthly) { ElementPlus.ElMessage.warning('无数据可导出'); return; }
+      const cols = data.columns || [];
+      const rows = [];
+      // 月度合计
+      for (const ws of data.monthly.workshops) {
+        const row = { '类型': '月度合计', '日期': this.dailyMonth, '车间': ws.workshop_name };
+        cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
+        row['费用合计'] = ws.total_expense ?? '';
+        row['结余'] = ws.balance ?? '';
+        row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
+        rows.push(row);
+      }
+      // 每日明细
+      for (const card of data.daily) {
+        for (const ws of card.workshops) {
+          const row = { '类型': '每日', '日期': card.date, '车间': ws.workshop_name };
+          cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
+          row['费用合计'] = ws.total_expense ?? '';
+          row['结余'] = ws.balance ?? '';
+          row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
+          rows.push(row);
+        }
+      }
+      const wsSheet = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      const deptLabel = this.currentDeptLabel;
+      XLSX.utils.book_append_sheet(wb, wsSheet, deptLabel);
+      XLSX.writeFile(wb, `按日汇总_${deptLabel}_${this.dailyMonth}.xlsx`);
+      ElementPlus.ElMessage.success('导出成功');
+    },
+
+    exportMonthly() {
+      const data = this.monthlyData;
+      if (!data.current) { ElementPlus.ElMessage.warning('无数据可导出'); return; }
+      const rows = [];
+      const allDepts = [...data.current.departments, data.current.total];
+      for (const d of allDepts) {
+        rows.push({
+          '部门': d.label, '总产值': d.daily_output,
+          '员工工资': d.worker_wage, '管工工资': d.supervisor_wage,
+          '房租': d.rent, '水电费': d.utility_fee,
+          '社保': d.social_insurance, '税收': d.tax,
+          '其他费用': d.other_expense, '费用合计': d.total_expense,
+          '结余': d.balance,
+          '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(1) + '%' : ''
+        });
+      }
+      const wsSheet = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, wsSheet, '按月汇总');
+      XLSX.writeFile(wb, `按月汇总_${this.monthlyMonth}.xlsx`);
+      ElementPlus.ElMessage.success('导出成功');
     }
   }
 };
