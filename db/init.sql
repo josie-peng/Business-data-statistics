@@ -306,15 +306,19 @@ ON CONFLICT (username) DO NOTHING;
 INSERT INTO workshops (name, region, department, sort_order) VALUES
   ('兴信A', '清溪', 'beer', 1),
   ('兴信B', '清溪', 'beer', 2),
-  ('华登', '清溪', 'beer', 3),
-  ('邵阳', '邵阳', 'beer', 4),
+  ('华登A', '清溪', 'beer', 3),
+  ('邵阳华登', '湖南', 'beer', 4),
   ('兴信A', '清溪', 'print', 1),
-  ('华登', '清溪', 'print', 2),
-  ('邵阳', '邵阳', 'print', 3),
+  ('华登A', '清溪', 'print', 2),
+  ('邵阳华登', '湖南', 'print', 3),
   ('兴信A', '清溪', 'assembly', 1),
   ('兴信B', '清溪', 'assembly', 2),
-  ('华登', '清溪', 'assembly', 3),
-  ('邵阳', '邵阳', 'assembly', 4)
+  ('华登A', '清溪', 'assembly', 3),
+  ('华嘉', '清溪', 'assembly', 4),
+  ('邵阳华登', '湖南', 'assembly', 5),
+  -- 扩展部门（暂不参与三工结余汇总）
+  ('兴信A', '清溪', 'fixture', 1),
+  ('华登A', '清溪', 'roto_casting', 1)
 ON CONFLICT DO NOTHING;
 
 -- 索引
