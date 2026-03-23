@@ -32,7 +32,7 @@ describe('modules/ 兼容层', () => {
     test('beer: 基本信息正确', () => {
       expect(config.DEPT_CONFIG.beer.tableName).toBe('beer_records');
       expect(config.DEPT_CONFIG.beer.label).toBe('啤机部');
-      expect(config.DEPT_CONFIG.beer.workshops).toEqual(['兴信A', '兴信B', '华登', '邵阳']);
+      expect(config.DEPT_CONFIG.beer.workshops).toEqual(['兴信A', '兴信B', '华登A', '邵阳华登']);
     });
 
     test('beer: uniqueInputFields 有 13 个字段', () => {

@@ -48,7 +48,7 @@ module.exports = {
     beer: {
       tableName: 'beer_records',
       label: '啤机部',
-      workshops: ['兴信A', '兴信B', '华登', '邵阳'],
+      workshops: ['兴信A', '兴信B', '华登A', '邵阳华登'],
       sharedFieldAliases: {},
       uniqueFields: [
         // 台数组
@@ -95,7 +95,7 @@ module.exports = {
     print: {
       tableName: 'print_records',
       label: '印喷部',
-      workshops: ['兴信A', '华登', '邵阳'],
+      workshops: ['兴信A', '华登A', '邵阳华登'],
       sharedFieldAliases: {
         tool_investment: ['工具'],
         shipping_fee: ['运费_1'],
@@ -176,7 +176,7 @@ module.exports = {
     assembly: {
       tableName: 'assembly_records',
       label: '装配部',
-      workshops: ['兴信A', '兴信B', '华登', '邵阳'],
+      workshops: ['兴信A', '兴信B', '华登A', '华嘉', '邵阳华登'],
       sharedFieldAliases: {},
       uniqueFields: [
         // 产值组
