@@ -508,4 +508,116 @@ router.get('/daily', authenticate, asyncHandler(async (req, res) => {
   });
 }));
 
+// GET /api/summary/monthly?month=2026-03
+// 返回三部门月度汇总 + 环比对比
+router.get('/monthly', authenticate, asyncHandler(async (req, res) => {
+  const { month } = req.query;
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: '无效月份格式' });
+
+  const [year, mon] = month.split('-').map(Number);
+  const startDate = `${year}-${String(mon).padStart(2, '0')}-01`;
+  const endDate = mon === 12 ? `${year + 1}-01-01` : `${year}-${String(mon + 1).padStart(2, '0')}-01`;
+
+  // 上月范围
+  const prevMon = mon === 1 ? 12 : mon - 1;
+  const prevYear = mon === 1 ? year - 1 : year;
+  const prevStart = `${prevYear}-${String(prevMon).padStart(2, '0')}-01`;
+  const prevEnd = startDate;
+
+  // 共有费用中要单独展示的字段
+  const shownSharedFields = ['worker_wage', 'supervisor_wage', 'rent', 'utility_fee', 'social_insurance', 'tax'];
+  // 归入"其他费用"的共有字段
+  const otherSharedFields = ['tool_investment', 'equipment', 'renovation', 'misc_fee', 'shipping_fee'];
+
+  const departments = [];
+  const prevDepartments = [];
+
+  for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
+    const tableName = config.tableName;
+    const expenseFields = getExpenseFields(dept);
+    const uniqueExpenseFields = expenseFields.filter(f => !shownSharedFields.includes(f) && !otherSharedFields.includes(f));
+
+    // "其他费用" = 独有费用 + otherSharedFields中存在的
+    const otherFields = [...otherSharedFields.filter(f => expenseFields.includes(f)), ...uniqueExpenseFields];
+    const otherExpr = otherFields.length > 0
+      ? otherFields.map(f => `SUM(COALESCE(${f}, 0))`).join(' + ')
+      : '0';
+
+    const totalExpenseExpr = expenseFields.length > 0
+      ? expenseFields.map(f => `SUM(COALESCE(${f}, 0))`).join(' + ')
+      : '0';
+
+    const sql = `
+      SELECT
+        SUM(COALESCE(daily_output, 0)) AS daily_output,
+        ${shownSharedFields.map(f => `SUM(COALESCE(${f}, 0)) AS ${f}`).join(', ')},
+        ${otherExpr} AS other_expense,
+        ${totalExpenseExpr} AS total_expense
+      FROM ${tableName} r
+      JOIN workshops w ON r.workshop_id = w.id
+      WHERE r.record_date >= ? AND r.record_date < ?
+    `;
+
+    // 本月数据
+    const [curr = {}] = await getAll(sql, [startDate, endDate]);
+    curr.balance = (curr.daily_output || 0) - (curr.total_expense || 0);
+    curr.balance_ratio = curr.daily_output > 0 ? curr.balance / curr.daily_output : 0;
+    curr.dept = dept;
+    curr.label = config.label;
+    departments.push(curr);
+
+    // 上月数据
+    const [prev = {}] = await getAll(sql, [prevStart, prevEnd]);
+    prev.balance = (prev.daily_output || 0) - (prev.total_expense || 0);
+    prev.balance_ratio = prev.daily_output > 0 ? prev.balance / prev.daily_output : 0;
+    prev.dept = dept;
+    prev.label = config.label;
+    prevDepartments.push(prev);
+  }
+
+  // 计算合计行（三部门汇总）
+  const calcTotal = (depts) => {
+    const t = { dept: 'total', label: '三工合计' };
+    const numKeys = ['daily_output', ...shownSharedFields, 'other_expense', 'total_expense', 'balance'];
+    numKeys.forEach(k => { t[k] = depts.reduce((sum, d) => sum + (Number(d[k]) || 0), 0); });
+    t.balance_ratio = t.daily_output > 0 ? t.balance / t.daily_output : 0;
+    return t;
+  };
+
+  const currentTotal = calcTotal(departments);
+  const prevTotal = calcTotal(prevDepartments);
+
+  // 计算环比变化
+  const calcComparison = (curr, prev) => {
+    const pctChange = (c, p) => p > 0 ? (c - p) / p : null;
+    return {
+      dept: curr.dept,
+      label: curr.label,
+      output_change: (curr.daily_output || 0) - (prev.daily_output || 0),
+      output_change_pct: pctChange(curr.daily_output, prev.daily_output),
+      expense_change: (curr.total_expense || 0) - (prev.total_expense || 0),
+      expense_change_pct: pctChange(curr.total_expense, prev.total_expense),
+      balance_change: (curr.balance || 0) - (prev.balance || 0),
+      balance_change_pct: pctChange(curr.balance, prev.balance),
+      ratio_change: (curr.balance_ratio || 0) - (prev.balance_ratio || 0),
+      prev_balance: prev.balance || 0,
+      curr_balance: curr.balance || 0
+    };
+  };
+
+  const comparison = departments.map((d, i) => calcComparison(d, prevDepartments[i]));
+  comparison.push(calcComparison(currentTotal, prevTotal));
+
+  res.json({
+    current: {
+      departments,
+      total: currentTotal
+    },
+    comparison: {
+      departments: comparison,
+      prev_month: `${prevYear}-${String(prevMon).padStart(2, '0')}`
+    }
+  });
+}));
+
 module.exports = router;
