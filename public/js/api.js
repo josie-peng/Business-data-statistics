@@ -75,6 +75,8 @@ const API = {
   // === 大车间汇总 API ===
   getSummaryDashboard(params) { return this.get('/summary/dashboard', params); },
   getSummaryDetail(params) { return this.get('/summary/detail', params); },
+  getSummaryDaily(params) { return this.get('/summary/daily', params); },
+  getSummaryMonthly(params) { return this.get('/summary/monthly', params); },
 
   // === 字段注册表 & 标签 API ===
   getFieldRegistry(params) { return this.get('/settings/field-registry', params); },
