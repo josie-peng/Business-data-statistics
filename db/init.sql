@@ -108,6 +108,16 @@ CREATE TABLE IF NOT EXISTS formula_constants (
   UNIQUE(module, name, effective_month)
 );
 
+-- 汇率变更历史（每次修改 exchange_rate 时自动记录）
+CREATE TABLE IF NOT EXISTS exchange_rate_history (
+  id SERIAL PRIMARY KEY,
+  effective_month VARCHAR(7) NOT NULL,
+  old_value NUMERIC(10,4),
+  new_value NUMERIC(10,4) NOT NULL,
+  changed_by VARCHAR(100) NOT NULL,
+  changed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 数据锁定
 CREATE TABLE IF NOT EXISTS data_locks (
   id SERIAL PRIMARY KEY,
@@ -162,6 +172,7 @@ CREATE TABLE IF NOT EXISTS beer_records (
   gate_workers INT DEFAULT 0,
   run_hours NUMERIC(10,2) DEFAULT 0,
   output_tax_incl NUMERIC(14,2) DEFAULT 0,
+  per_capita_output NUMERIC(12,2) DEFAULT 0,
   avg_output_per_machine NUMERIC(14,2) DEFAULT 0,
   misc_worker_wage NUMERIC(12,2) DEFAULT 0,
   wage_ratio NUMERIC(8,4) DEFAULT 0,
@@ -171,6 +182,7 @@ CREATE TABLE IF NOT EXISTS beer_records (
   gate_processing_fee NUMERIC(12,2) DEFAULT 0,
   gate_cost_ratio NUMERIC(8,4) DEFAULT 0,
   assembly_gate_parts_fee NUMERIC(12,2) DEFAULT 0,
+  outsource_nozzle NUMERIC(12,2) DEFAULT 0,
   recoverable_gate_fee NUMERIC(12,2) DEFAULT 0,
   material_supplement NUMERIC(12,2) DEFAULT 0,
   materials NUMERIC(12,2) DEFAULT 0,
@@ -218,6 +230,7 @@ CREATE TABLE IF NOT EXISTS print_records (
   output_tax_incl NUMERIC(14,2) DEFAULT 0,
   avg_output_per_worker NUMERIC(14,2) DEFAULT 0,
   subsidy NUMERIC(12,2) DEFAULT 0,
+  actual_material NUMERIC(12,2) DEFAULT 0,
   wage_ratio NUMERIC(8,4) DEFAULT 0,
   materials NUMERIC(12,2) DEFAULT 0,
   repair_fee NUMERIC(12,2) DEFAULT 0,
