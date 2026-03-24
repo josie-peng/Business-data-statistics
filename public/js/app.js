@@ -3418,17 +3418,42 @@ const BackupPage = {
           </div>
         </div>
       </div>
+
+      <!-- 汇率变更记录 -->
+      <div class="card-top" style="margin-top:24px;">
+        <h3><span class="title-dot" style="background:#5B9BD5;"></span> 汇率变更记录</h3>
+      </div>
+      <el-table :data="rateHistory" border stripe size="small" v-loading="rateHistoryLoading" style="margin-top:8px;">
+        <el-table-column prop="month" label="月份" width="100" align="center" />
+        <el-table-column prop="currentValue" label="当前汇率" width="100" align="center">
+          <template #default="{ row }">
+            <span style="font-weight:600;color:#7F41C0;">{{ row.currentValue }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="历史修改记录" min-width="280">
+          <template #default="{ row }">
+            <div v-for="(c, i) in row.changes" :key="i" style="font-size:12px;color:#666;line-height:1.8;">
+              {{ c.date }} &nbsp; {{ c.from }} → {{ c.to }}
+              <span style="color:#999;margin-left:4px;">（{{ c.operator }}）</span>
+            </div>
+            <span v-if="!row.changes || !row.changes.length" style="color:#ccc;">无修改</span>
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
   `,
   data() {
     return {
       backups: [],
       loading: false,
-      backing: false
+      backing: false,
+      rateHistory: [],
+      rateHistoryLoading: false
     };
   },
   created() {
     this.loadBackups();
+    this.loadRateHistory();
   },
   methods: {
     formatSize(bytes) {
@@ -3484,6 +3509,17 @@ const BackupPage = {
         }
       } finally {
         this.loading = false;
+      }
+    },
+    async loadRateHistory() {
+      this.rateHistoryLoading = true;
+      try {
+        const res = await API.getExchangeRateHistory();
+        this.rateHistory = res.data || [];
+      } catch (err) {
+        console.error('加载汇率历史失败:', err);
+      } finally {
+        this.rateHistoryLoading = false;
       }
     }
   }
