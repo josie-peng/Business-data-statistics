@@ -5,7 +5,8 @@ const { authenticate, requireStats } = require('../middleware/auth');
 const { logAction } = require('../middleware/audit');
 const asyncHandler = require('../utils/async-handler');
 const FormulaParser = require('../shared/formula-parser');
-const { DEPT_CONFIG } = require('../modules');
+const { DEPT_CONFIG, getFixedExpenseFields } = require('../modules');
+const { loadFixedExpenses, applyFixedExpenses, applyExchangeRate } = require('../modules/balance/calc');
 
 // === 费用项管理（已迁移到 field_tags + field_registry，此端点改为查询新表）===
 router.get('/expense-items', authenticate, asyncHandler(async (req, res) => {
@@ -308,12 +309,48 @@ router.post('/formulas/recalculate', authenticate, requireStats, asyncHandler(as
       );
       const constants = {};
       for (const c of constRows) { constants[c.name] = parseFloat(c.value); }
-      // 用公式解析器重新计算
-      const calcResult = FormulaParser.calculateAll(formulas, record, tags, department, constants);
 
-      // 只更新有变化的计算字段
+      // 固定费用代入重算：加载固定费用配置并重新代入
+      const exchangeRate = constants.exchange_rate || 1;
+      const fixedConfig = await loadFixedExpenses(department, record.record_date);
+      let processed = { ...record };
+
+      // 计算依赖字段
+      if (department === 'beer') {
+        const runHours = parseFloat(processed.run_hours) || 0;
+        processed.running_machines = runHours > 0 ? runHours / 24 : 0;
+      }
+      if (department === 'print') {
+        processed.total_hours = (parseFloat(processed.worker_count) || 0) * (parseFloat(processed.work_hours) || 0);
+      }
+
+      // 代入固定费用（用新配置覆盖旧值）
+      processed = applyFixedExpenses(department, processed, fixedConfig, exchangeRate);
+
+      // 用公式解析器重新计算
+      const calcResult = FormulaParser.calculateAll(formulas, processed, tags, department, constants);
+
+      // 更新计算字段 + 固定费用字段
       const updates = [];
       const values = [];
+      // 固定费用字段（代入的新值）
+      const fixedFields = getFixedExpenseFields(department);
+      for (const field of fixedFields) {
+        if (processed[field] !== undefined && processed[field] !== record[field]) {
+          updates.push(`${field} = ?`);
+          values.push(processed[field]);
+        }
+      }
+      // 计算依赖字段（running_machines, total_hours）
+      if (department === 'beer' && processed.running_machines !== undefined) {
+        updates.push('running_machines = ?');
+        values.push(processed.running_machines);
+      }
+      if (department === 'print' && processed.total_hours !== undefined) {
+        updates.push('total_hours = ?');
+        values.push(processed.total_hours);
+      }
+      // 公式计算结果
       for (const [fieldKey, value] of Object.entries(calcResult.results)) {
         if (value !== null && record[fieldKey] !== undefined) {
           updates.push(`${fieldKey} = ?`);
