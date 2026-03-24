@@ -183,6 +183,20 @@ function validateConfig() {
   console.log('[配置校验] 所有部门费用字段配置校验通过');
 }
 
+// 获取需要汇率转换的字段列表
+function getCurrencyFields(dept) {
+  const shared = balanceConfig.sharedFields.filter(f => f.currency).map(f => f.field);
+  const unique = balanceConfig.departments[dept]?.uniqueFields.filter(f => f.currency).map(f => f.field) || [];
+  return [...shared, ...unique];
+}
+
+// 获取固定费用字段列表
+function getFixedExpenseFields(dept) {
+  const shared = balanceConfig.sharedFields.filter(f => f.fixedExpense).map(f => f.field);
+  const unique = balanceConfig.departments[dept]?.uniqueFields.filter(f => f.fixedExpense).map(f => f.field) || [];
+  return [...shared, ...unique];
+}
+
 module.exports = {
   // 兼容旧接口
   DEPT_CONFIG,
@@ -197,4 +211,6 @@ module.exports = {
   MODULES,
   getColumnMap,
   getExportLabelMap,
+  getCurrencyFields,
+  getFixedExpenseFields,
 };
