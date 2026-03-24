@@ -977,3 +977,27 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .summary-sub-tab.active { background: #7F41C0; color: #fff; font-weight: 600; }
 .summary-sub-tab:not(.active) { background: #e0e0e0; color: #666; }
 .summary-sub-tab:not(.active):hover { background: #d0d0d0; }
+
+/* 固定费用配置按钮 */
+.fixed-expense-btn {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  color: #f57f17;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.fixed-expense-btn:hover {
+  background: #fff3c4;
+  border-color: #ffd54f;
+}
+
+/* 固定费用单元格（自动代入，录入员只读） */
+.cell-fixed-expense {
+  background: var(--summary-bg) !important;
+  color: var(--primary);
+  font-weight: 500;
+}

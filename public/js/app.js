@@ -313,6 +313,7 @@ const DeptRecordsPage = {
         <el-button type="primary" size="small" @click="showAddDialog">+ 新增</el-button>
         <el-button type="success" size="small" @click="handleExport">导出Excel</el-button>
         <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</el-button>
+        <button class="fixed-expense-btn" @click="showFixedExpenseDialog" v-if="currentDept">&#9881; 固定费用配置</button>
       </div>
 
       <!-- 数据表格 -->
@@ -464,6 +465,51 @@ const DeptRecordsPage = {
           <el-button type="primary" @click="handleAdd" :loading="saving">确认创建</el-button>
         </template>
       </el-dialog>
+
+      <!-- 固定费用配置弹窗 -->
+      <el-dialog v-model="fixedExpenseVisible" title="固定费用配置" width="680px" destroy-on-close>
+        <div style="margin-bottom:12px;">
+          <span style="font-size:13px;color:#666;margin-right:8px;">快捷标签：</span>
+          <el-tag v-for="tag in fixedExpenseTags" :key="tag.name"
+                  :type="activeFixedTag === tag.name ? '' : 'info'" size="small"
+                  style="cursor:pointer;margin-right:6px;margin-bottom:4px;"
+                  @click="fillFixedTag(tag.name, tag.label)">{{ tag.label }}</el-tag>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+          <el-input v-model="fixedExpenseForm.label" placeholder="项目名" size="small" style="width:120px" />
+          <el-input v-model="fixedExpenseForm.name" placeholder="英文标识" size="small" style="width:130px" />
+          <el-input v-model="fixedExpenseForm.effective_month" placeholder="月份(0000-00=永久)" size="small" style="width:160px" />
+          <el-input v-model="fixedExpenseForm.value" placeholder="值" size="small" style="width:100px" type="number" />
+          <el-button type="primary" size="small" @click="handleSaveFixedExpense" :loading="fixedExpenseSaving">保存</el-button>
+        </div>
+        <div style="background:#f5f0ff;border-radius:6px;padding:10px 14px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:#7F41C0;margin-bottom:6px;">管工工资专用</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <el-input v-model="gwForm.baseSalary" placeholder="底薪(永久)" size="small" style="width:110px" type="number" />
+            <el-input v-model="gwForm.bonus" placeholder="奖金(月)" size="small" style="width:100px" type="number" />
+            <el-input v-model="gwForm.month" placeholder="月份 2026-03" size="small" style="width:130px" />
+            <el-input v-model="gwForm.workDays" placeholder="上班天数" size="small" style="width:100px" type="number" />
+            <el-button type="success" size="small" @click="handleSaveGwForm" :loading="fixedExpenseSaving">保存</el-button>
+          </div>
+        </div>
+        <el-table :data="fixedExpenseList" border stripe size="small" v-loading="fixedExpenseLoading" max-height="280">
+          <el-table-column prop="label" label="名称" width="120" />
+          <el-table-column prop="name" label="标识" width="140" />
+          <el-table-column prop="effective_month" label="生效月份" width="100" align="center" />
+          <el-table-column prop="value" label="值" width="120" align="right">
+            <template #default="{ row }">{{ Number(row.value).toLocaleString('zh-CN', {minimumFractionDigits:2}) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="60" align="center">
+            <template #default="{ row }">
+              <el-button type="danger" size="small" link @click="handleDeleteFixedExpense(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div style="margin-top:10px;font-size:12px;color:#999;">
+          <p>月份填 <b>0000-00</b> 表示半永久（如总台数、底薪），填具体月份（如 2026-03）表示按月生效。</p>
+          <p>公式：房租 = 总房租/上班天数/汇率 | 管工工资 = (底薪+奖金)/上班天数/汇率 | 水电费 = 单价×开机台数/汇率(啤机) 或 总水电费/上班天数/汇率(印喷装配)</p>
+        </div>
+      </el-dialog>
     </div>
   `,
   data() {
@@ -479,11 +525,19 @@ const DeptRecordsPage = {
       isDragging: false,
       addDialogVisible: false,
       addForm: {},
-      newRowId: null,  // 最近新增的行ID，用于高亮显示
+      newRowId: null,
       summaryData: null,
       workshopList: [],
-      editingDateRowId: null,     // 当前正在编辑日期的行 id
-      editingWorkshopRowId: null  // 当前正在编辑车间的行 id
+      editingDateRowId: null,
+      editingWorkshopRowId: null,
+      // 固定费用配置
+      fixedExpenseVisible: false,
+      fixedExpenseList: [],
+      fixedExpenseForm: { name: '', label: '', effective_month: '', value: '' },
+      gwForm: { baseSalary: '', bonus: '', month: '', workDays: '' },
+      fixedExpenseLoading: false,
+      fixedExpenseSaving: false,
+      activeFixedTag: ''
     };
   },
   computed: {
@@ -492,6 +546,22 @@ const DeptRecordsPage = {
     },
     editableColumns() {
       return this.columns.filter(c => c.editable);
+    },
+    currentDept() {
+      return this.dept;
+    },
+    // 根据当前部门动态生成快捷标签
+    fixedExpenseTags() {
+      const common = [
+        { name: 'rent', label: '房租' },
+        { name: 'gw_base_salary', label: '管工底薪' },
+        { name: 'gw_bonus', label: '管工奖金' },
+        { name: 'work_days', label: '上班天数' },
+      ];
+      if (this.dept === 'beer') {
+        return [{ name: 'total_machines', label: '总台数' }, { name: 'utility_unit', label: '水电单价' }, ...common];
+      }
+      return [{ name: 'utility_total', label: '总水电费' }, ...common];
     }
   },
   watch: {
@@ -915,7 +985,6 @@ const DeptRecordsPage = {
         const res = await API.upload(`/${this.dept}/import`, file);
         const msg = res.message || `导入成功，共 ${res.count || 0} 条`;
         ElementPlus.ElMessage.success(msg);
-        // 导入成功后清除日期筛选，显示全部数据，避免导入的数据因日期范围被过滤掉
         this.dateRange = null;
         this.quickRange = '';
         await this.loadData();
@@ -924,6 +993,98 @@ const DeptRecordsPage = {
       } finally {
         this.loading = false;
       }
+    },
+    // === 固定费用配置 ===
+    async showFixedExpenseDialog() {
+      this.fixedExpenseVisible = true;
+      this.fixedExpenseForm = { name: '', label: '', effective_month: '', value: '' };
+      this.gwForm = { baseSalary: '', bonus: '', month: '', workDays: '' };
+      this.activeFixedTag = '';
+      await this.loadFixedExpenses();
+    },
+    async loadFixedExpenses() {
+      this.fixedExpenseLoading = true;
+      try {
+        const res = await API.getFixedExpenses(this.dept);
+        this.fixedExpenseList = res.data || [];
+      } catch (err) {
+        ElementPlus.ElMessage.error('加载固定费用配置失败');
+      } finally {
+        this.fixedExpenseLoading = false;
+      }
+    },
+    async handleSaveFixedExpense() {
+      const f = this.fixedExpenseForm;
+      if (!f.name || !f.label || f.value === '') {
+        ElementPlus.ElMessage.warning('请填写完整信息');
+        return;
+      }
+      this.fixedExpenseSaving = true;
+      try {
+        await API.saveFixedExpense(this.dept, {
+          name: f.name,
+          label: f.label,
+          value: f.value,
+          effective_month: f.effective_month || '0000-00'
+        });
+        ElementPlus.ElMessage.success('保存成功');
+        f.value = '';
+        f.effective_month = '';
+        await this.loadFixedExpenses();
+      } catch (err) {
+        ElementPlus.ElMessage.error('保存失败: ' + (err.message || ''));
+      } finally {
+        this.fixedExpenseSaving = false;
+      }
+    },
+    async handleSaveGwForm() {
+      const g = this.gwForm;
+      if (!g.month || !g.workDays) {
+        ElementPlus.ElMessage.warning('请填写月份和上班天数');
+        return;
+      }
+      this.fixedExpenseSaving = true;
+      try {
+        // 保存底薪（半永久，仅当有值时更新）
+        if (g.baseSalary) {
+          await API.saveFixedExpense(this.dept, {
+            name: 'gw_base_salary', label: '管工底薪', value: g.baseSalary, effective_month: '0000-00'
+          });
+        }
+        // 保存奖金（每月）
+        if (g.bonus) {
+          await API.saveFixedExpense(this.dept, {
+            name: 'gw_bonus', label: '管工奖金', value: g.bonus, effective_month: g.month
+          });
+        }
+        // 保存上班天数（每月）
+        await API.saveFixedExpense(this.dept, {
+          name: 'work_days', label: '上班天数', value: g.workDays, effective_month: g.month
+        });
+        ElementPlus.ElMessage.success('管工工资配置保存成功');
+        await this.loadFixedExpenses();
+      } catch (err) {
+        ElementPlus.ElMessage.error('保存失败: ' + (err.message || ''));
+      } finally {
+        this.fixedExpenseSaving = false;
+      }
+    },
+    async handleDeleteFixedExpense(id) {
+      try {
+        await ElementPlus.ElMessageBox.confirm('确定删除此配置项？', '确认', { type: 'warning' });
+        await API.deleteConstant(id);
+        ElementPlus.ElMessage.success('删除成功');
+        await this.loadFixedExpenses();
+      } catch (err) {
+        if (err !== 'cancel' && err !== 'close') {
+          ElementPlus.ElMessage.error('删除失败');
+        }
+      }
+    },
+    fillFixedTag(name, label) {
+      this.activeFixedTag = name;
+      this.fixedExpenseForm.name = name;
+      this.fixedExpenseForm.label = label;
     }
   }
 };
