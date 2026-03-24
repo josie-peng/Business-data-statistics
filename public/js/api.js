@@ -72,6 +72,17 @@ const API = {
   saveConstant(data) { return this.post('/settings/constants', data); },
   deleteConstant(id) { return this.del(`/settings/constants/${id}`); },
 
+  // === 固定费用配置 API（复用常量接口，module 区分）===
+  getFixedExpenses(dept, params) {
+    return this.get('/settings/constants', { module: `balance_fixed_${dept}`, ...params });
+  },
+  saveFixedExpense(dept, data) {
+    return this.post('/settings/constants', { module: `balance_fixed_${dept}`, ...data });
+  },
+
+  // === 汇率历史 API ===
+  getExchangeRateHistory() { return this.get('/backup/exchange-rate-history'); },
+
   // === 大车间汇总 API ===
   getSummaryDashboard(params) { return this.get('/summary/dashboard', params); },
   getSummaryDetail(params) { return this.get('/summary/detail', params); },

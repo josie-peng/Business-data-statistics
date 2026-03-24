@@ -5,13 +5,14 @@
 // ===== 部门配置 =====
 const DEPT_CONFIG = {
   beer: { key: 'beer', name: '啤机部', uniqueFields: [
-    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer' },
-    { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', editable: true, type: 'integer' },
+    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer', fixedExpense: true },
+    { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', calculated: true, type: 'number' },
     { field: 'run_hours', label: '开机时间', shortLabel: '开机时间', editable: true, type: 'number' },
     { field: 'machine_rate', label: '开机率', shortLabel: '开机率', editable: false, type: 'ratio', calculated: true, formula: '开机台数 / 总台数' },
     { field: 'misc_workers', label: '杂工人数', shortLabel: '杂工人数', editable: true, type: 'integer' },
     { field: 'gate_workers', label: '批水口人数', shortLabel: '水口人数', editable: true, type: 'integer' },
     { field: 'output_tax_incl', label: '不含税产值', shortLabel: '不含税值', editable: false, type: 'number', calculated: true, formula: '产值/天 / 1.13' },
+    { field: 'per_capita_output', label: '人均产值', shortLabel: '人均产值', calculated: true, type: 'number' },
     { field: 'avg_output_per_machine', label: '每台机平均产值', shortLabel: '台均产值', editable: false, type: 'number', calculated: true, formula: '产值/天 / 开机台数' },
     { field: 'misc_worker_wage', label: '杂工工资/天', shortLabel: '杂工工资', editable: true, type: 'number' },
     { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(员工工资+管工工资+杂工工资) / 产值/天' },
@@ -23,7 +24,8 @@ const DEPT_CONFIG = {
     { field: 'material_supplement', label: '原料补料', shortLabel: '原料补料', editable: true, type: 'number' },
     { field: 'gate_processing_fee', label: '批水口加工费', shortLabel: '水口加工', editable: true, type: 'number' },
     { field: 'gate_cost_ratio', label: '批水口费用占产值比%', shortLabel: '水口占比', editable: false, type: 'ratio', calculated: true, formula: '批水口加工费 / 产值/天' },
-    { field: 'assembly_gate_parts_fee', label: '装配批水口配件费', shortLabel: '水口配件', editable: true, type: 'number' },
+    { field: 'assembly_gate_parts_fee', label: '装配批水口配件费', shortLabel: '装配水口', editable: true, type: 'number' },
+    { field: 'outsource_nozzle', label: '外发水口', shortLabel: '外发水口', editable: true, type: 'number' },
     { field: 'recoverable_gate_fee', label: '可回收批水口费', shortLabel: '回收水口', editable: true, type: 'number' },
   ]},
   print: { key: 'print', name: '印喷部', uniqueFields: [
@@ -35,13 +37,14 @@ const DEPT_CONFIG = {
     { field: 'spray_machine_rate', label: '喷油开机率', shortLabel: '喷油机率', editable: false, type: 'ratio', calculated: true, formula: '喷油开机台数 / 喷油总台数' },
     { field: 'misc_workers', label: '杂工人数', shortLabel: '杂工人数', editable: true, type: 'integer' },
     { field: 'work_hours', label: '员工工时', shortLabel: '员工工时', editable: true, type: 'number' },
-    { field: 'total_hours', label: '总工时', shortLabel: '总工时', editable: true, type: 'number' },
+    { field: 'total_hours', label: '总工时', shortLabel: '总工时', calculated: true, type: 'number' },
     { field: 'avg_output_per_worker', label: '员工人均产值', shortLabel: '人均产值', editable: false, type: 'number', calculated: true, formula: '产值/天 / 员工人数' },
     { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(员工工资+管工工资) / 产值/天' },
     { field: 'repair_fee', label: '维修费', shortLabel: '维修费', editable: true, type: 'number' },
     { field: 'materials', label: '物料（原子灰、胶头、油墨、喷码溶剂）', shortLabel: '物料', editable: true, type: 'number' },
     { field: 'oil_water_amount', label: '油水金额', shortLabel: '油水金额', editable: true, type: 'number' },
     { field: 'subsidy', label: '补贴', shortLabel: '补贴', editable: true, type: 'number' },
+    { field: 'actual_material', label: '实际用料', shortLabel: '实际用料', editable: true, type: 'number' },
     { field: 'no_output_wage', label: '无产值工资', shortLabel: '无产值资', editable: true, type: 'number' },
     { field: 'assembly_wage_paid', label: '付装配工资', shortLabel: '付装配资', editable: true, type: 'number' },
     { field: 'office_wage', label: '做办工资', shortLabel: '做办工资', editable: true, type: 'number' },
@@ -105,11 +108,11 @@ const SHARED_OUTPUT = [
 ];
 const SHARED_WAGE = [
   { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
-  { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number' },
+  { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true },
 ];
 const SHARED_EXPENSE = [
-  { field: 'rent', label: '房租', editable: true, type: 'number' },
-  { field: 'utility_fee', label: '水电费', editable: true, type: 'number' },
+  { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true },
+  { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
   { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
   { field: 'equipment', label: '设备', editable: true, type: 'number' },
   { field: 'renovation', label: '装修', editable: true, type: 'number' },
@@ -187,7 +190,7 @@ const FIELD_GROUP_MACHINE = ['total_machines', 'running_machines', 'run_hours', 
   'spray_total_machines', 'spray_running_machines', 'spray_machine_rate'];
 const FIELD_GROUP_PEOPLE = ['misc_workers', 'gate_workers'];
 const FIELD_GROUP_TIME = ['work_hours', 'total_hours'];
-const FIELD_GROUP_OUTPUT = ['output_tax_incl', 'avg_output_per_machine', 'avg_output_per_worker'];
+const FIELD_GROUP_OUTPUT = ['output_tax_incl', 'per_capita_output', 'avg_output_per_machine', 'avg_output_per_worker'];
 const FIELD_GROUP_WAGE = ['misc_worker_wage', 'wage_ratio', 'planned_wage_tax', 'actual_wage'];
 
 function getDeptColumns(dept) {
