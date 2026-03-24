@@ -4,8 +4,8 @@ const XLSX = require('xlsx');
 const router = express.Router();
 const { getAll, query } = require('../db/postgres');
 const { authenticate, checkDataLock, modulePermission } = require('../middleware/auth');
-const { DEPT_CONFIG, getAllInputFields, getColumnMap, getExportLabelMap } = require('../modules');
-const { calculateRecord } = require('../modules/balance/calc');
+const { DEPT_CONFIG, getAllInputFields, getColumnMap, getExportLabelMap, getFixedExpenseFields } = require('../modules');
+const { calculateRecord, loadConstants, loadFixedExpenses, applyExchangeRate, applyFixedExpenses } = require('../modules/balance/calc');
 const { logAction } = require('../middleware/audit');
 const asyncHandler = require('../utils/async-handler');
 
@@ -80,6 +80,11 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
     const inserted = [];
     const errors = [];
 
+    // 导入时也需要汇率转换和固定费用代入（与 records.js POST 逻辑一致）
+    // 取第一条有效记录的日期来加载配置
+    let importExchangeRate = null;
+    let importFixedConfig = {};
+
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i];
       const record = {};
@@ -129,7 +134,45 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
         continue;
       }
 
-      const calculated = await calculateRecord(dept, record);
+      // 首次遇到有效记录时加载汇率和固定费用配置
+      if (importExchangeRate === null && record.record_date) {
+        const constants = await loadConstants(record.record_date);
+        importExchangeRate = constants.exchange_rate || 0;
+        if (!importExchangeRate) {
+          return res.status(400).json({ success: false, message: '请先在系统设置中配置当月汇率（exchange_rate）' });
+        }
+        importFixedConfig = await loadFixedExpenses(dept, record.record_date);
+      }
+
+      // 汇率转换和固定费用代入（与 records.js POST 一致的5步流程）
+      let processed = { ...record };
+
+      // 第一步：计算依赖字段
+      if (dept === 'beer') {
+        const runHours = parseFloat(processed.run_hours) || 0;
+        processed.running_machines = runHours > 0 ? runHours / 24 : 0;
+      }
+      if (dept === 'print') {
+        processed.total_hours = (parseFloat(processed.worker_count) || 0) * (parseFloat(processed.work_hours) || 0);
+      }
+
+      // 第二步：代入固定费用
+      processed = applyFixedExpenses(dept, processed, importFixedConfig, importExchangeRate);
+
+      // 第三步：装配部 planned_wage_tax 特殊处理
+      if (dept === 'assembly' && processed.planned_wage_tax) {
+        processed.planned_wage_tax = parseFloat(processed.planned_wage_tax) * 1.13 / importExchangeRate;
+      }
+
+      // 第四步：汇率转换
+      const skipFields = [
+        ...getFixedExpenseFields(dept),
+        ...(dept === 'assembly' ? ['planned_wage_tax'] : []),
+      ];
+      processed = applyExchangeRate(dept, processed, importExchangeRate, skipFields);
+
+      // 第五步：计算结余等衍生字段
+      const calculated = await calculateRecord(dept, processed);
       calculated.created_by = req.user.id;
       calculated.updated_by = req.user.id;
 

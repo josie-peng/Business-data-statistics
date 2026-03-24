@@ -87,7 +87,7 @@ module.exports = {
         { field: 'gate_cost_ratio', label: '批水口费用占产值比%', type: 'ratio', calc: true,
           skipAliases: ['批水口费用占产值比%'] },
         { field: 'assembly_gate_parts_fee', label: '装配批水口配件费', shortLabel: '装配水口', type: 'number', input: true, expense: true, currency: true,
-          aliases: ['装配帮啤机批水口加工配件费用', '装配帮啤机批水口配件费用'] },
+          aliases: ['装配帮啤机批水口加工配件费用', '装配帮啤机批水口配件费用', '装配水口'] },
         { field: 'outsource_nozzle', label: '外发水口', shortLabel: '外发水口', type: 'number', input: true, expense: true, currency: true,
           aliases: ['外发批水口费用'] },
         { field: 'recoverable_gate_fee', label: '可回收批水口费', type: 'number', input: true, expense: false, currency: true,
