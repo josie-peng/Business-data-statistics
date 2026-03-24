@@ -76,11 +76,32 @@ router.get('/constants/resolve', authenticate, asyncHandler(async (req, res) => 
 }));
 
 // 新增/更新常量值（某月）
-router.post('/constants', authenticate, requireStats, asyncHandler(async (req, res) => {
+// 固定费用配置（balance_fixed_*）允许录入员操作，其他常量仍需统计组权限
+router.post('/constants', authenticate, asyncHandler(async (req, res) => {
   const { module: mod, name, label, value, effective_month } = req.body;
   if (!name || !label || value === undefined || !effective_month) {
     return res.status(400).json({ success: false, message: '必填项缺失' });
   }
+
+  // 非固定费用模块需要统计组权限
+  const isFixedExpense = mod && mod.startsWith('balance_fixed_');
+  if (!isFixedExpense && req.user.role !== 'stats') {
+    return res.status(403).json({ success: false, message: '仅统计组可操作' });
+  }
+
+  // 汇率历史记录触发
+  if (name === 'exchange_rate') {
+    const existing = await getOne(
+      'SELECT value FROM formula_constants WHERE module = ? AND name = ? AND effective_month = ?',
+      [mod || 'balance', name, effective_month]
+    );
+    await query(
+      `INSERT INTO exchange_rate_history (effective_month, old_value, new_value, changed_by)
+       VALUES (?, ?, ?, ?)`,
+      [effective_month, existing ? existing.value : null, value, req.user.name || req.user.username]
+    );
+  }
+
   const result = await query(
     `INSERT INTO formula_constants (module, name, label, value, effective_month)
      VALUES (?, ?, ?, ?, ?)
@@ -92,7 +113,16 @@ router.post('/constants', authenticate, requireStats, asyncHandler(async (req, r
 }));
 
 // 删除某个常量的某月记录
-router.delete('/constants/:id', authenticate, requireStats, asyncHandler(async (req, res) => {
+// 固定费用模块允许录入员删除，其他常量需统计组权限
+router.delete('/constants/:id', authenticate, asyncHandler(async (req, res) => {
+  const row = await getOne('SELECT module FROM formula_constants WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ success: false, message: '记录不存在' });
+
+  const isFixedExpense = row.module && row.module.startsWith('balance_fixed_');
+  if (!isFixedExpense && req.user.role !== 'stats') {
+    return res.status(403).json({ success: false, message: '仅统计组可操作' });
+  }
+
   await query('DELETE FROM formula_constants WHERE id = ?', [req.params.id]);
   res.json({ success: true });
 }));

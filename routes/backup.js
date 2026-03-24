@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const router = express.Router();
 const { authenticate, requireStats, requireStatsOrManagement } = require('../middleware/auth');
+const { getAll } = require('../db/postgres');
 const asyncHandler = require('../utils/async-handler');
 
 const BACKUP_DIR = path.join(__dirname, '..', 'backups');
@@ -39,6 +40,35 @@ router.post('/restore', authenticate, requireStats, asyncHandler(async (req, res
   const dbPassword = process.env.DB_PASSWORD || 'postgres123';
   execSync(`${PSQL} -U postgres ${dbName} < "${filepath}"`, { env: { ...process.env, PGPASSWORD: dbPassword } });
   res.json({ success: true });
+}));
+
+// GET /api/backup/exchange-rate-history — 汇率变更历史
+router.get('/exchange-rate-history', authenticate, asyncHandler(async (req, res) => {
+  const rows = await getAll(
+    `SELECT effective_month, old_value, new_value, changed_by, changed_at
+     FROM exchange_rate_history ORDER BY effective_month DESC, changed_at DESC`
+  );
+
+  // 按月份聚合
+  const monthMap = {};
+  for (const row of rows) {
+    const m = row.effective_month;
+    if (!monthMap[m]) {
+      monthMap[m] = { month: m, currentValue: null, changes: [] };
+    }
+    // 最新的 new_value 就是当前值
+    if (!monthMap[m].currentValue) {
+      monthMap[m].currentValue = parseFloat(row.new_value);
+    }
+    monthMap[m].changes.push({
+      date: new Date(row.changed_at).toLocaleDateString('zh-CN'),
+      from: row.old_value ? parseFloat(row.old_value).toString() : '—',
+      to: parseFloat(row.new_value).toString(),
+      operator: row.changed_by
+    });
+  }
+
+  res.json({ success: true, data: Object.values(monthMap) });
 }));
 
 module.exports = router;
