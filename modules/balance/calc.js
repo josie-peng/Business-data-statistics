@@ -5,7 +5,7 @@
 
 const { getAll } = require('../../db/postgres');
 const FormulaParser = require('../../shared/formula-parser');
-const { DEPT_CONFIG, SHARED_EXPENSE_FIELDS } = require('../index');
+const { DEPT_CONFIG, SHARED_EXPENSE_FIELDS, getCurrencyFields, getFixedExpenseFields } = require('../index');
 
 // 公式和标签缓存（每 5 分钟刷新一次，避免每次计算都查数据库）
 let formulaCache = {};   // { dept: [formulas] }
@@ -83,6 +83,88 @@ async function loadConstants(recordDate) {
   }
 }
 
+// 加载某部门当月生效的固定费用配置
+async function loadFixedExpenses(dept, recordDate) {
+  try {
+    const dateStr = recordDate instanceof Date
+      ? recordDate.toISOString().substring(0, 7)
+      : String(recordDate).substring(0, 7);
+    if (!dateStr || dateStr.length < 7) return {};
+
+    const moduleName = `balance_fixed_${dept}`;
+    const rows = await getAll(
+      `SELECT DISTINCT ON (name) name, value FROM formula_constants
+       WHERE module = ? AND effective_month <= ? ORDER BY name, effective_month DESC`,
+      [moduleName, dateStr]
+    );
+    const map = {};
+    for (const r of rows) { map[r.name] = parseFloat(r.value); }
+    return map;
+  } catch (err) {
+    console.warn('[calc] 加载固定费用失败:', err.message);
+    return {};
+  }
+}
+
+// 对所有金额字段执行人民币→港币转换
+// skipFields: 已被其他步骤转换过的字段，跳过避免重复转换
+function applyExchangeRate(dept, record, exchangeRate, skipFields = []) {
+  if (!exchangeRate || exchangeRate === 0) return record;
+  const result = { ...record };
+  const currencyFields = getCurrencyFields(dept);
+  const skipSet = new Set(skipFields);
+  for (const field of currencyFields) {
+    if (skipSet.has(field)) continue;
+    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
+      result[field] = parseFloat(result[field]) / exchangeRate;
+    }
+  }
+  return result;
+}
+
+// 计算并代入固定费用到记录中
+function applyFixedExpenses(dept, record, fixedConfig, exchangeRate) {
+  const result = { ...record };
+  const workDays = fixedConfig.work_days || 0;
+
+  // 总台数（啤机，半永久，直接代入）
+  if (dept === 'beer' && fixedConfig.total_machines) {
+    result.total_machines = fixedConfig.total_machines;
+  }
+
+  // 房租 = 总房租 / 上班天数 / 汇率
+  if (fixedConfig.rent && workDays > 0 && exchangeRate > 0) {
+    result.rent = fixedConfig.rent / workDays / exchangeRate;
+  }
+
+  // 管工工资 = (底薪 + 奖金) / 上班天数 / 汇率
+  const baseSalary = fixedConfig.gw_base_salary || 0;
+  const bonus = fixedConfig.gw_bonus || 0;
+  if ((baseSalary + bonus) > 0 && workDays > 0 && exchangeRate > 0) {
+    result.supervisor_wage = (baseSalary + bonus) / workDays / exchangeRate;
+  }
+
+  // 水电费
+  if (exchangeRate > 0) {
+    if (dept === 'beer') {
+      // 啤机：单价 × 开机台数 / 汇率
+      const utilityUnit = fixedConfig.utility_unit || 0;
+      const runningMachines = parseFloat(result.running_machines) || 0;
+      if (utilityUnit > 0 && runningMachines > 0) {
+        result.utility_fee = utilityUnit * runningMachines / exchangeRate;
+      }
+    } else {
+      // 印喷/装配：总水电费 / 上班天数 / 汇率
+      const utilityTotal = fixedConfig.utility_total || 0;
+      if (utilityTotal > 0 && workDays > 0) {
+        result.utility_fee = utilityTotal / workDays / exchangeRate;
+      }
+    }
+  }
+
+  return result;
+}
+
 // 基于数据库公式的计算
 async function calculateRecordFromDB(dept, record) {
   const { formulas, tags } = await loadFormulasAndTags(dept);
@@ -121,16 +203,28 @@ function calculateRecordHardcoded(dept, record) {
   result.balance_ratio = dailyOutput > 0 ? result.balance / dailyOutput : 0;
 
   if (dept === 'beer') {
+    // 开机台数 = 开机时间 / 24（计算字段）
+    const runHours = parseFloat(result.run_hours) || 0;
+    result.running_machines = runHours > 0 ? runHours / 24 : 0;
+
     const total = parseFloat(result.total_machines) || 0;
     const running = parseFloat(result.running_machines) || 0;
     result.machine_rate = total > 0 ? running / total : 0;
     result.avg_output_per_machine = running > 0 ? dailyOutput / running : 0;
     result.output_tax_incl = dailyOutput / 1.13;
+
+    // 人均产值（新增）
+    const workerCount = parseFloat(result.worker_count) || 0;
+    result.per_capita_output = workerCount > 0 ? dailyOutput / workerCount : 0;
+
     result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0) + (parseFloat(result.misc_worker_wage) || 0)) / dailyOutput : 0;
     result.mold_cost_ratio = dailyOutput > 0 ? (parseFloat(result.mold_repair) || 0) / dailyOutput : 0;
     result.gate_cost_ratio = dailyOutput > 0 ? (parseFloat(result.gate_processing_fee) || 0) / dailyOutput : 0;
     result.avg_balance_per_machine = running > 0 ? result.balance / running : 0;
   } else if (dept === 'print') {
+    // 总工时 = 员工人数 × 员工工时（计算字段）
+    result.total_hours = (parseFloat(result.worker_count) || 0) * (parseFloat(result.work_hours) || 0);
+
     const padTotal = parseFloat(result.pad_total_machines) || 0;
     const padRunning = parseFloat(result.pad_running_machines) || 0;
     const sprayTotal = parseFloat(result.spray_total_machines) || 0;
@@ -162,4 +256,4 @@ async function calculateRecord(dept, record) {
   return calculateRecordFromDB(dept, record);
 }
 
-module.exports = { calculateRecord, clearCache };
+module.exports = { calculateRecord, clearCache, loadConstants, loadFixedExpenses, applyExchangeRate, applyFixedExpenses };
