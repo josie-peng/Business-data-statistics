@@ -1976,7 +1976,12 @@ const UserManagementPage = {
             <el-checkbox label="beer">啤机部</el-checkbox>
             <el-checkbox label="print">印喷部</el-checkbox>
             <el-checkbox label="assembly">装配部</el-checkbox>
+            <el-checkbox label="bags">胶袋部</el-checkbox>
+            <el-checkbox label="color">配色部</el-checkbox>
+            <el-checkbox label="blister">吸塑部</el-checkbox>
+            <el-checkbox label="electronic">电子部</el-checkbox>
             <el-checkbox label="summary">三工汇总</el-checkbox>
+            <el-checkbox label="small-summary">小部门汇总</el-checkbox>
           </div>
         </el-checkbox-group>
         <template #footer>
@@ -2188,7 +2193,7 @@ const FormulaConfig = {
       <div style="display:flex; align-items:center; gap:16px; border-bottom:1px solid var(--border-color); padding-bottom:12px; margin-bottom:16px;">
         <span style="font-size:14px; color:#666;">部门：</span>
         <el-radio-group v-model="currentDept" size="default" @change="loadFormulas">
-          <el-radio-button v-for="(label, key) in BALANCE_DEPARTMENTS" :key="key" :value="key">{{ label }}</el-radio-button>
+          <el-radio-button v-for="(label, key) in ALL_BALANCE_DEPARTMENTS" :key="key" :value="key">{{ label }}</el-radio-button>
         </el-radio-group>
         <div style="flex:1"></div>
         <template v-if="!readonly">
@@ -2440,7 +2445,7 @@ const FormulaConfig = {
         <el-form label-width="80px" size="default">
           <el-form-item label="部门">
             <el-select v-model="recalcForm.department" style="width:100%">
-              <el-option v-for="(label, key) in BALANCE_DEPARTMENTS" :key="key" :label="label" :value="key" />
+              <el-option v-for="(label, key) in ALL_BALANCE_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
           <el-form-item label="开始日期">
@@ -2513,7 +2518,7 @@ const FormulaConfig = {
   `,
   data() {
     return {
-      BALANCE_DEPARTMENTS,
+      ALL_BALANCE_DEPARTMENTS,
       currentDept: 'beer',
       formulas: [],
       fieldRegistry: [],
@@ -3328,7 +3333,7 @@ const DataLocks = {
             <div class="lock-month">{{ row.lock_month }}</div>
             <div class="lock-dept">
               <span class="pill-badge" :class="row.department ? deptBadge(row.department) : 'gray'">
-                {{ row.department ? (BALANCE_DEPARTMENTS[row.department] || row.department) : '全部部门' }}
+                {{ row.department ? (ALL_BALANCE_DEPARTMENTS[row.department] || row.department) : '全部部门' }}
               </span>
             </div>
             <div class="lock-meta">{{ row.locked_by_name }} · {{ row.locked_at ? row.locked_at.substring(0, 16).replace('T', ' ') : '' }}</div>
@@ -3344,7 +3349,7 @@ const DataLocks = {
           </el-form-item>
           <el-form-item label="部门">
             <el-select v-model="lockForm.department" clearable placeholder="全部部门" style="width:100%">
-              <el-option v-for="(label, key) in BALANCE_DEPARTMENTS" :key="key" :label="label" :value="key" />
+              <el-option v-for="(label, key) in ALL_BALANCE_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -3362,7 +3367,7 @@ const DataLocks = {
       saving: false,
       lockDialogVisible: false,
       lockForm: { lock_month: '', department: '' },
-      BALANCE_DEPARTMENTS
+      ALL_BALANCE_DEPARTMENTS
     };
   },
   created() {
