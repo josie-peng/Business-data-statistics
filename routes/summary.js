@@ -5,6 +5,16 @@ const { authenticate } = require('../middleware/auth');
 const { DEPT_CONFIG, getExpenseFields, getExportLabelMap } = require('../modules');
 const asyncHandler = require('../utils/async-handler');
 
+// 三工主部门（大车间汇总/看板仅包含这3个）
+const MAIN_DEPTS = ['beer', 'print', 'assembly'];
+// 小部门
+const SMALL_DEPTS = ['bags', 'color', 'blister', 'electronic'];
+
+// 辅助函数：获取主部门的 [dept, config] 数组
+function getMainDeptEntries() {
+  return MAIN_DEPTS.map(d => [d, DEPT_CONFIG[d]]).filter(([, c]) => c);
+}
+
 // 费用分类映射（用于堆叠图）
 const EXPENSE_CATEGORIES = {
   wage: ['worker_wage', 'supervisor_wage', 'misc_worker_wage', 'no_output_wage', 'assembly_wage_paid', 'office_wage', 'actual_wage', 'borrowed_worker_wage'],
@@ -22,7 +32,7 @@ router.get('/overview', authenticate, asyncHandler(async (req, res) => {
   const { start_date, end_date } = req.query;
   const result = [];
 
-  for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
+  for (const [dept, config] of getMainDeptEntries()) {
     // 获取该部门的全部费用字段（共有+独有），动态拼 SUM
     const expenseFields = getExpenseFields(dept);
     const expenseSumExpr = expenseFields.length > 0
@@ -81,7 +91,7 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
   const departments = [];
   let totalOutput = 0, totalExpense = 0, totalBalance = 0;
 
-  for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
+  for (const [dept, config] of getMainDeptEntries()) {
     const expenseFields = getExpenseFields(dept);
     const expenseSumExpr = expenseFields.map(f => `COALESCE(${f}, 0)`).join(' + ');
 
@@ -115,7 +125,7 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
     prevYear = yearNum - 1;
   }
   let prevOutput = 0, prevExpense = 0, prevBalance = 0;
-  for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
+  for (const [dept, config] of getMainDeptEntries()) {
     const expenseFields = getExpenseFields(dept);
     const expenseSumExpr = expenseFields.map(f => `COALESCE(${f}, 0)`).join(' + ');
     let sql = `SELECT SUM(daily_output) as output, SUM(${expenseSumExpr}) as expense, SUM(balance) as balance
@@ -152,7 +162,7 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
   for (let m = 1; m <= 12; m++) {
     trendMap[`${yearNum}-${String(m).padStart(2, '0')}`] = {};
   }
-  for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
+  for (const [dept, config] of getMainDeptEntries()) {
     const sql = `SELECT EXTRACT(MONTH FROM record_date)::int as m,
                  SUM(daily_output) as output, SUM(balance) as balance
                  FROM ${config.tableName}
@@ -166,8 +176,10 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
       if (trendMap[key]) trendMap[key][`${dept}_ratio`] = output > 0 ? balance / output : 0;
     }
   }
+  const defaultRatios = {};
+  MAIN_DEPTS.forEach(d => { defaultRatios[`${d}_ratio`] = 0; });
   const monthlyTrend = Object.entries(trendMap).sort().map(([month, data]) => ({
-    month, beer_ratio: 0, print_ratio: 0, assembly_ratio: 0, ...data
+    month, ...defaultRatios, ...data
   }));
 
   // === 3. 费用构成（该年每月按分类汇总，三部门合计）===
@@ -177,7 +189,7 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
     breakdownMap[key] = {};
     for (const cat of Object.keys(EXPENSE_CATEGORIES)) breakdownMap[key][cat] = 0;
   }
-  for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
+  for (const [dept, config] of getMainDeptEntries()) {
     const allExpense = getExpenseFields(dept);
     const selectClauses = allExpense.map(f => `SUM(COALESCE(${f}, 0)) as ${f}`).join(', ');
     const sql = `SELECT EXTRACT(MONTH FROM record_date)::int as m, ${selectClauses}
@@ -219,7 +231,7 @@ router.get('/detail', authenticate, asyncHandler(async (req, res) => {
     // === 总览模式：返回三部门的所有字段汇总 ===
     const deptResults = [];
 
-    for (const [dKey, config] of Object.entries(DEPT_CONFIG)) {
+    for (const [dKey, config] of getMainDeptEntries()) {
       const sharedExpFields = balanceConfig.sharedFields.filter(f => f.expense).map(f => f.field);
       const uniqueExpFields = config.uniqueExpenseFields;
       const allExpFields = [...sharedExpFields, ...uniqueExpFields];
@@ -323,7 +335,7 @@ router.get('/detail', authenticate, asyncHandler(async (req, res) => {
     allRows.push(balanceRow);
     allRows.push(ratioRow);
 
-    res.json({ success: true, data: { mode: 'overview', rows: allRows, departments: ['beer', 'print', 'assembly'] } });
+    res.json({ success: true, data: { mode: 'overview', rows: allRows, departments: MAIN_DEPTS } });
 
   } else {
     // === 部门明细模式 ===
@@ -534,7 +546,7 @@ router.get('/monthly', authenticate, asyncHandler(async (req, res) => {
   const departments = [];
   const prevDepartments = [];
 
-  for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
+  for (const [dept, config] of getMainDeptEntries()) {
     const tableName = config.tableName;
     const expenseFields = getExpenseFields(dept);
     const uniqueExpenseFields = expenseFields.filter(f => !shownSharedFields.includes(f) && !otherSharedFields.includes(f));
@@ -619,6 +631,97 @@ router.get('/monthly', authenticate, asyncHandler(async (req, res) => {
       departments: comparison,
       prev_month: `${prevYear}-${String(prevMon).padStart(2, '0')}`
     }
+  });
+}));
+
+// GET /api/summary/small-monthly?month=2026-03
+// 小部门月度汇总 + 环比对比
+router.get('/small-monthly', authenticate, asyncHandler(async (req, res) => {
+  const { month } = req.query;
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: '无效月份格式' });
+
+  const [year, mon] = month.split('-').map(Number);
+  const startDate = `${year}-${String(mon).padStart(2, '0')}-01`;
+  const endDate = mon === 12 ? `${year + 1}-01-01` : `${year}-${String(mon + 1).padStart(2, '0')}-01`;
+  const prevMon = mon === 1 ? 12 : mon - 1;
+  const prevYear = mon === 1 ? year - 1 : year;
+  const prevStart = `${prevYear}-${String(prevMon).padStart(2, '0')}-01`;
+  const prevEnd = startDate;
+
+  const shownSharedFields = ['worker_wage', 'supervisor_wage', 'rent', 'utility_fee', 'social_insurance', 'tax'];
+  const otherSharedFields = ['tool_investment', 'equipment', 'renovation', 'misc_fee', 'shipping_fee'];
+
+  const departments = [];
+  const prevDepartments = [];
+
+  for (const dept of SMALL_DEPTS) {
+    const config = DEPT_CONFIG[dept];
+    if (!config) continue;
+    const tableName = config.tableName;
+    const expenseFields = getExpenseFields(dept);
+    const uniqueExpenseFields = expenseFields.filter(f => !shownSharedFields.includes(f) && !otherSharedFields.includes(f));
+    const otherFields = [...otherSharedFields.filter(f => expenseFields.includes(f)), ...uniqueExpenseFields];
+    const otherExpr = otherFields.length > 0 ? otherFields.map(f => `SUM(COALESCE(${f}, 0))`).join(' + ') : '0';
+    const totalExpenseExpr = expenseFields.length > 0 ? expenseFields.map(f => `SUM(COALESCE(${f}, 0))`).join(' + ') : '0';
+
+    const sql = `SELECT
+      SUM(COALESCE(daily_output, 0)) AS daily_output,
+      ${shownSharedFields.map(f => `SUM(COALESCE(${f}, 0)) AS ${f}`).join(', ')},
+      ${otherExpr} AS other_expense,
+      ${totalExpenseExpr} AS total_expense
+      FROM ${tableName} r
+      JOIN workshops w ON r.workshop_id = w.id
+      WHERE r.record_date >= ? AND r.record_date < ?`;
+
+    const [curr = {}] = await getAll(sql, [startDate, endDate]);
+    curr.balance = (curr.daily_output || 0) - (curr.total_expense || 0);
+    curr.balance_ratio = curr.daily_output > 0 ? curr.balance / curr.daily_output : 0;
+    curr.dept = dept;
+    curr.label = config.label;
+    departments.push(curr);
+
+    const [prev = {}] = await getAll(sql, [prevStart, prevEnd]);
+    prev.balance = (prev.daily_output || 0) - (prev.total_expense || 0);
+    prev.balance_ratio = prev.daily_output > 0 ? prev.balance / prev.daily_output : 0;
+    prev.dept = dept;
+    prev.label = config.label;
+    prevDepartments.push(prev);
+  }
+
+  // 计算合计行
+  const calcTotal = (depts) => {
+    const t = { dept: 'total', label: '小部门合计' };
+    const numKeys = ['daily_output', ...shownSharedFields, 'other_expense', 'total_expense', 'balance'];
+    numKeys.forEach(k => { t[k] = depts.reduce((sum, d) => sum + (Number(d[k]) || 0), 0); });
+    t.balance_ratio = t.daily_output > 0 ? t.balance / t.daily_output : 0;
+    return t;
+  };
+
+  const currentTotal = calcTotal(departments);
+  const prevTotal = calcTotal(prevDepartments);
+
+  // 计算环比变化
+  const calcComparison = (curr, prev) => {
+    const pctChange = (c, p) => p > 0 ? (c - p) / p : null;
+    return {
+      dept: curr.dept, label: curr.label,
+      output_change: (curr.daily_output || 0) - (prev.daily_output || 0),
+      output_change_pct: pctChange(curr.daily_output, prev.daily_output),
+      expense_change: (curr.total_expense || 0) - (prev.total_expense || 0),
+      expense_change_pct: pctChange(curr.total_expense, prev.total_expense),
+      balance_change: (curr.balance || 0) - (prev.balance || 0),
+      balance_change_pct: pctChange(curr.balance, prev.balance),
+      ratio_change: (curr.balance_ratio || 0) - (prev.balance_ratio || 0),
+      prev_balance: prev.balance || 0, curr_balance: curr.balance || 0
+    };
+  };
+
+  const comparison = departments.map((d, i) => calcComparison(d, prevDepartments[i]));
+  comparison.push(calcComparison(currentTotal, prevTotal));
+
+  res.json({
+    current: { departments, total: currentTotal },
+    comparison: { departments: comparison, prev_month: `${prevYear}-${String(prevMon).padStart(2, '0')}` }
   });
 }));
 
