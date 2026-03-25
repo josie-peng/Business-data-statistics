@@ -5,7 +5,7 @@
 
 const { getAll } = require('../../db/postgres');
 const FormulaParser = require('../../shared/formula-parser');
-const { DEPT_CONFIG, SHARED_EXPENSE_FIELDS, getCurrencyFields, getFixedExpenseFields } = require('../index');
+const { DEPT_CONFIG, SHARED_EXPENSE_FIELDS, getCurrencyFields, getFixedExpenseFields, getIncomeFields } = require('../index');
 
 // 公式和标签缓存（每 5 分钟刷新一次，避免每次计算都查数据库）
 let formulaCache = {};   // { dept: [formulas] }
@@ -198,8 +198,11 @@ function calculateRecordHardcoded(dept, record) {
   const expenseFields = [...SHARED_EXPENSE_FIELDS, ...config.uniqueExpenseFields];
   const totalExpense = expenseFields.reduce((sum, field) => sum + (parseFloat(result[field]) || 0), 0);
   const dailyOutput = parseFloat(result.daily_output) || 0;
+  // 收入字段（如边角料），结余 = 产值 + 收入 - 费用
+  const incomeFields = getIncomeFields(dept);
+  const totalIncome = incomeFields.reduce((sum, field) => sum + (parseFloat(result[field]) || 0), 0);
 
-  result.balance = dailyOutput - totalExpense;
+  result.balance = dailyOutput + totalIncome - totalExpense;
   result.balance_ratio = dailyOutput > 0 ? result.balance / dailyOutput : 0;
 
   if (dept === 'beer') {
@@ -246,6 +249,48 @@ function calculateRecordHardcoded(dept, record) {
     result.balance_tape_ratio = plannedWage > 0 ? result.balance_minus_tape / plannedWage : 0;
     result.tool_invest_ratio = plannedWage > 0 ? ((parseFloat(result.workshop_tool_investment) || 0) + (parseFloat(result.fixture_tool_investment) || 0)) / plannedWage : 0;
     result.borrowed_wage_ratio = plannedWage > 0 ? (parseFloat(result.borrowed_worker_wage) || 0) / plannedWage : 0;
+  } else if (dept === 'bags') {
+    const running = parseFloat(result.running_machines) || 0;
+    const total = parseFloat(result.total_machines) || 0;
+    const workerCount = parseFloat(result.worker_count) || 0;
+    result.machine_rate = total > 0 ? running / total : 0;
+    result.per_capita_output = workerCount > 0 ? dailyOutput / workerCount : 0;
+    result.avg_output_per_machine = running > 0 ? dailyOutput / running : 0;
+    result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0) + (parseFloat(result.misc_worker_wage) || 0)) / dailyOutput : 0;
+    result.avg_balance_per_machine = running > 0 ? result.balance / running : 0;
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    const outsourceProfit = parseFloat(result.outsource_profit) || 0;
+    result.outsource_profit_ratio = outsourceOutput > 0 ? outsourceProfit / outsourceOutput : 0;
+  } else if (dept === 'color') {
+    result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0)) / dailyOutput : 0;
+    // profit_ratio_ex_tax / profit_ratio_inc_tax 待用户提供详细规则
+    result.profit_ratio_ex_tax = 0;
+    result.profit_ratio_inc_tax = 0;
+  } else if (dept === 'blister') {
+    const running = parseFloat(result.running_machines) || 0;
+    const total = parseFloat(result.total_machines) || 0;
+    result.machine_rate = total > 0 ? running / total : 0;
+    result.avg_output_per_machine = running > 0 ? dailyOutput / running : 0;
+    result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0) + (parseFloat(result.misc_worker_wage) || 0)) / dailyOutput : 0;
+    result.raw_material_ratio = dailyOutput > 0 ? (parseFloat(result.raw_material) || 0) / dailyOutput : 0;
+    result.avg_balance_per_machine = running > 0 ? result.balance / running : 0;
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    const outsourceProfit = parseFloat(result.outsource_profit) || 0;
+    result.outsource_profit_ratio = outsourceOutput > 0 ? outsourceProfit / outsourceOutput : 0;
+  } else if (dept === 'electronic') {
+    // 生产工资结余 = 帮定结余 + 贴片结余 + 插件结余
+    const bondingBal = parseFloat(result.bonding_balance) || 0;
+    const smtBal = parseFloat(result.smt_balance) || 0;
+    const pluginBal = parseFloat(result.plugin_balance) || 0;
+    result.production_wage_balance = bondingBal + smtBal + pluginBal;
+    result.production_wage_balance_tax = result.production_wage_balance * 1.13;
+    result.estimated_workshop_profit = dailyOutput * 0.05;
+    // 外发
+    const outsourcePlanned = parseFloat(result.outsource_planned_wage) || 0;
+    const outsourceActual = parseFloat(result.outsource_actual_wage) || 0;
+    result.outsource_wage_balance = outsourcePlanned - outsourceActual;
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    result.outsource_balance_ratio = outsourceOutput > 0 ? result.outsource_wage_balance / outsourceOutput : 0;
   }
 
   return result;
