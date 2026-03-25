@@ -62,6 +62,13 @@ function getExpenseFields(dept) {
   return [...SHARED_EXPENSE_FIELDS, ...DEPT_CONFIG[dept].uniqueExpenseFields];
 }
 
+// 获取部门的收入字段（如边角料），结余公式：产值 + 收入 - 费用
+function getIncomeFields(dept) {
+  const deptConf = balanceConfig.departments[dept];
+  if (!deptConf) return [];
+  return deptConf.uniqueFields.filter(f => f.income).map(f => f.field);
+}
+
 // === 新接口：生成 COLUMN_MAP ===
 
 function getColumnMap(moduleKey) {
@@ -206,6 +213,7 @@ module.exports = {
   getAllInputFields,
   getAllFields,
   getExpenseFields,
+  getIncomeFields,
   validateConfig,
   // 新接口
   MODULES,
