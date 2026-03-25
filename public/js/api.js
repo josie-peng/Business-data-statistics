@@ -88,6 +88,7 @@ const API = {
   getSummaryDetail(params) { return this.get('/summary/detail', params); },
   getSummaryDaily(params) { return this.get('/summary/daily', params); },
   getSummaryMonthly(params) { return this.get('/summary/monthly', params); },
+  getSmallSummaryMonthly(params) { return this.get('/summary/small-monthly', params); },
 
   // === 字段注册表 & 标签 API ===
   getFieldRegistry(params) { return this.get('/settings/field-registry', params); },
