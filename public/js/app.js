@@ -3700,6 +3700,22 @@ const app = Vue.createApp({
               <span class="icon">🔧</span>
               <span v-show="!sidebarCollapsed">装配部</span>
             </a>
+            <a class="menu-item" :class="{ active: currentRoute === '/bags' }" @click="navigate('/bags')">
+              <span class="icon">🛍️</span>
+              <span v-show="!sidebarCollapsed">胶袋部</span>
+            </a>
+            <a class="menu-item" :class="{ active: currentRoute === '/color' }" @click="navigate('/color')">
+              <span class="icon">🎨</span>
+              <span v-show="!sidebarCollapsed">配色部</span>
+            </a>
+            <a class="menu-item" :class="{ active: currentRoute === '/blister' }" @click="navigate('/blister')">
+              <span class="icon">📦</span>
+              <span v-show="!sidebarCollapsed">吸塑部</span>
+            </a>
+            <a class="menu-item" :class="{ active: currentRoute === '/electronic' }" @click="navigate('/electronic')">
+              <span class="icon">💡</span>
+              <span v-show="!sidebarCollapsed">电子部</span>
+            </a>
             <div class="menu-group">
               <a class="menu-item" :class="{ active: currentRoute === '/summary' }" @click="summaryExpanded = !summaryExpanded">
                 <span class="icon">📊</span>
@@ -3710,6 +3726,10 @@ const app = Vue.createApp({
                 <a class="menu-item sub-item" :class="{ active: currentRoute === '/summary' }" @click="navigate('/summary')">
                   <span class="icon">📋</span>
                   大车间汇总
+                </a>
+                <a class="menu-item sub-item" :class="{ active: currentRoute === '/small-summary' }" @click="navigate('/small-summary')">
+                  <span class="icon">📋</span>
+                  小部门汇总
                 </a>
               </template>
             </div>
