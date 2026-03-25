@@ -278,19 +278,48 @@ function calculateRecordHardcoded(dept, record) {
     const outsourceProfit = parseFloat(result.outsource_profit) || 0;
     result.outsource_profit_ratio = outsourceOutput > 0 ? outsourceProfit / outsourceOutput : 0;
   } else if (dept === 'electronic') {
-    // 生产工资结余 = 帮定结余 + 贴片结余 + 插件结余
-    const bondingBal = parseFloat(result.bonding_balance) || 0;
-    const smtBal = parseFloat(result.smt_balance) || 0;
-    const pluginBal = parseFloat(result.plugin_balance) || 0;
-    result.production_wage_balance = bondingBal + smtBal + pluginBal;
-    result.production_wage_balance_tax = result.production_wage_balance * 1.13;
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    const totalOutputAll = dailyOutput + outsourceOutput;
+
+    // 自动计算字段（按系数）
     result.estimated_workshop_profit = dailyOutput * 0.05;
-    // 外发
+    result.hk_expense = totalOutputAll * 0.01;
+    result.transport_packing_fee = totalOutputAll * 0.004;
+    result.hq_allocation = totalOutputAll * 0.0029;
+    result.estimated_tax = totalOutputAll * 0.03;
+
+    // 外发人工结余
     const outsourcePlanned = parseFloat(result.outsource_planned_wage) || 0;
     const outsourceActual = parseFloat(result.outsource_actual_wage) || 0;
     result.outsource_wage_balance = outsourcePlanned - outsourceActual;
-    const outsourceOutput = parseFloat(result.outsource_output) || 0;
-    result.outsource_balance_ratio = outsourceOutput > 0 ? result.outsource_wage_balance / outsourceOutput : 0;
+    result.outsource_balance_ratio = outsourcePlanned > 0 ? result.outsource_wage_balance / outsourcePlanned : 0;
+
+    // 电子部专属结余公式（与标准公式完全不同）
+    // 收入：帮定结余 + 贴片结余 + 插件结余 + 生产工资结余 + 生产工资结余含税 + 预估车间利润
+    const incomeSum = (parseFloat(result.bonding_balance) || 0)
+      + (parseFloat(result.smt_balance) || 0)
+      + (parseFloat(result.plugin_balance) || 0)
+      + (parseFloat(result.production_wage_balance) || 0)
+      + (parseFloat(result.production_wage_balance_tax) || 0)
+      + result.estimated_workshop_profit;
+    // 支出：管工×3 + 厂租 + 水电 + 香港支出 + 杂费 + 离职补贴 + 工具 + 设备 + 装修 + 运输包装 + 应缴税收 + 总部支出
+    const expenseSum = (parseFloat(result.production_supervisor_wage) || 0)
+      + (parseFloat(result.office_supervisor_wage) || 0)
+      + (parseFloat(result.shared_staff_wage) || 0)
+      + (parseFloat(result.rent) || 0)
+      + (parseFloat(result.utility_fee) || 0)
+      + result.hk_expense
+      + (parseFloat(result.misc_fee) || 0)
+      + (parseFloat(result.severance_fee) || 0)
+      + (parseFloat(result.tool_investment) || 0)
+      + (parseFloat(result.equipment) || 0)
+      + (parseFloat(result.renovation) || 0)
+      + result.transport_packing_fee
+      + (parseFloat(result.payable_tax) || 0)
+      + result.hq_allocation;
+    // 覆盖标准结余计算
+    result.balance = incomeSum - expenseSum;
+    result.balance_ratio = totalOutputAll > 0 ? result.balance / totalOutputAll : 0;
   }
 
   return result;

@@ -45,13 +45,23 @@ for (const [dept, deptConf] of Object.entries(balanceConfig.departments)) {
 
 // === 兼容旧接口的函数 ===
 
+// 获取部门排除的共享字段集合
+function getExcludeSet(dept) {
+  const deptConf = balanceConfig.departments[dept];
+  return new Set(deptConf?.excludeSharedFields || []);
+}
+
 function getAllInputFields(dept) {
-  return [...SHARED_INPUT_FIELDS, ...DEPT_CONFIG[dept].uniqueInputFields, 'remark'];
+  const exclude = getExcludeSet(dept);
+  const shared = SHARED_INPUT_FIELDS.filter(f => !exclude.has(f));
+  return [...shared, ...DEPT_CONFIG[dept].uniqueInputFields, 'remark'];
 }
 
 function getAllFields(dept) {
+  const exclude = getExcludeSet(dept);
+  const sharedInput = SHARED_INPUT_FIELDS.filter(f => !exclude.has(f));
   return [
-    ...SHARED_INPUT_FIELDS, ...SHARED_CALC_FIELDS,
+    ...sharedInput, ...SHARED_CALC_FIELDS,
     ...DEPT_CONFIG[dept].uniqueInputFields,
     ...DEPT_CONFIG[dept].uniqueCalcFields,
     'remark'
@@ -59,7 +69,9 @@ function getAllFields(dept) {
 }
 
 function getExpenseFields(dept) {
-  return [...SHARED_EXPENSE_FIELDS, ...DEPT_CONFIG[dept].uniqueExpenseFields];
+  const exclude = getExcludeSet(dept);
+  const sharedExpense = SHARED_EXPENSE_FIELDS.filter(f => !exclude.has(f));
+  return [...sharedExpense, ...DEPT_CONFIG[dept].uniqueExpenseFields];
 }
 
 // 获取部门的收入字段（如边角料），结余公式：产值 + 收入 - 费用

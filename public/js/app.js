@@ -170,28 +170,31 @@ const DEPT_CONFIG = {
     { field: 'outsource_profit', label: '外发利润', shortLabel: '外发利润', editable: true, type: 'number' },
     { field: 'outsource_profit_ratio', label: '外发利润率%', shortLabel: '外发利%', editable: false, type: 'ratio', calculated: true, formula: '外发利润 / 外发产值' },
   ]},
-  electronic: { key: 'electronic', name: '电子部', uniqueFields: [
+  electronic: { key: 'electronic', name: '电子部',
+    // 电子部不使用这些共享字段
+    excludeSharedFields: ['worker_wage', 'supervisor_wage', 'social_insurance', 'tax', 'shipping_fee'],
+    uniqueFields: [
     { field: 'bonding_balance', label: '帮定结余', shortLabel: '帮定结余', editable: true, type: 'number' },
     { field: 'smt_balance', label: '贴片结余', shortLabel: '贴片结余', editable: true, type: 'number' },
     { field: 'plugin_balance', label: '插件结余', shortLabel: '插件结余', editable: true, type: 'number' },
-    { field: 'production_wage_balance', label: '生产工资结余', shortLabel: '工资结余', editable: false, type: 'number', calculated: true, formula: '帮定结余 + 贴片结余 + 插件结余' },
-    { field: 'production_wage_balance_tax', label: '生产工资结余(含1.13)', shortLabel: '结余含税', editable: false, type: 'number', calculated: true, formula: '生产工资结余 × 1.13' },
-    { field: 'estimated_workshop_profit', label: '预估车间利润', shortLabel: '预估利润', editable: false, type: 'number', calculated: true, formula: '产值/天 × 0.05' },
-    { field: 'production_supervisor_wage', label: '生产管工工资', shortLabel: '生产管工', editable: true, type: 'number' },
-    { field: 'office_supervisor_wage', label: '办公室管工工资', shortLabel: '办公管工', editable: true, type: 'number' },
-    { field: 'shared_staff_wage', label: '共用人员工资', shortLabel: '共用工资', editable: true, type: 'number' },
-    { field: 'hk_expense', label: '香港支出', shortLabel: '港支出', editable: true, type: 'number' },
+    { field: 'production_wage_balance', label: '生产工资结余', shortLabel: '工资结余', editable: true, type: 'number' },
+    { field: 'production_wage_balance_tax', label: '生产工资结余(含1.13)', shortLabel: '结余含税', editable: true, type: 'number' },
+    { field: 'estimated_workshop_profit', label: '预估车间利润', shortLabel: '预估利润', editable: false, type: 'number', calculated: true, formula: '总产值 × 0.05' },
+    { field: 'production_supervisor_wage', label: '生产管工工资', shortLabel: '生产管工', editable: true, type: 'number', fixedExpense: true, formula: '总额 / 上班天数 / 汇率' },
+    { field: 'office_supervisor_wage', label: '办公室管工工资', shortLabel: '办公管工', editable: true, type: 'number', fixedExpense: true, formula: '总额 / 汇率 / 上班天数' },
+    { field: 'shared_staff_wage', label: '共用人员工资', shortLabel: '共用工资', editable: true, type: 'number', fixedExpense: true, formula: '总额 / 汇率 / 上班天数' },
+    { field: 'hk_expense', label: '香港支出', shortLabel: '港支出', editable: false, type: 'number', calculated: true, formula: '(总产值 + 外发产值) × 0.01' },
     { field: 'severance_fee', label: '离职补贴费用', shortLabel: '离职补贴', editable: true, type: 'number' },
     { field: 'excess_material', label: '超出原材料', shortLabel: '超原材料', editable: true, type: 'number' },
-    { field: 'transport_packing_fee', label: '运输包装费', shortLabel: '运输包装', editable: true, type: 'number' },
-    { field: 'payable_tax', label: '应缴税收', shortLabel: '应缴税', editable: true, type: 'number' },
-    { field: 'hq_allocation', label: '总部支出', shortLabel: '总部支出', editable: true, type: 'number' },
-    { field: 'estimated_tax', label: '预计税金', shortLabel: '预计税金', editable: true, type: 'number' },
+    { field: 'transport_packing_fee', label: '运输包装费', shortLabel: '运输包装', editable: false, type: 'number', calculated: true, formula: '(总产值 + 外发产值) × 0.004' },
+    { field: 'payable_tax', label: '应缴税收', shortLabel: '应缴税', editable: true, type: 'number', fixedExpense: true, formula: '总额 / 汇率 / 上班天数' },
+    { field: 'hq_allocation', label: '总部支出', shortLabel: '总部支出', editable: false, type: 'number', calculated: true, formula: '(总产值 + 外发产值) × 0.0029' },
+    { field: 'estimated_tax', label: '预计税金', shortLabel: '预计税金', editable: false, type: 'number', calculated: true, formula: '(总产值 + 外发产值) × 0.03' },
     { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
     { field: 'outsource_planned_wage', label: '外发计划工资(含1.13)', shortLabel: '外发计划', editable: true, type: 'number' },
     { field: 'outsource_actual_wage', label: '外发实际工资', shortLabel: '外发实际', editable: true, type: 'number' },
     { field: 'outsource_wage_balance', label: '外发人工结余', shortLabel: '外发结余', editable: false, type: 'number', calculated: true, formula: '外发计划工资 - 外发实际工资' },
-    { field: 'outsource_balance_ratio', label: '外发结余比例', shortLabel: '外发比例', editable: false, type: 'ratio', calculated: true, formula: '外发人工结余 / 外发产值' },
+    { field: 'outsource_balance_ratio', label: '外发结余比例', shortLabel: '外发比例', editable: false, type: 'ratio', calculated: true, formula: '外发人工结余 / 外发计划工资' },
   ]}
 };
 
@@ -309,6 +312,9 @@ function getDeptColumns(dept) {
   if (!config) return [...SHARED_COLUMNS, REMARK_COLUMN];
 
   const unique = config.uniqueFields || [];
+  // 部门可排除的共享字段（如电子部不使用 worker_wage 等）
+  const excludeSet = new Set(config.excludeSharedFields || []);
+  const filterShared = (arr) => excludeSet.size > 0 ? arr.filter(f => !excludeSet.has(f.field)) : arr;
 
   // 按字段名分类到对应分组
   const groups = { machines: [], people: [], time: [], output: [], wage: [], afterBalance: [] };
@@ -323,12 +329,12 @@ function getDeptColumns(dept) {
 
   return [
     ...groups.machines,
-    ...SHARED_PEOPLE, ...groups.people,
+    ...filterShared(SHARED_PEOPLE), ...groups.people,
     ...groups.time,
-    ...SHARED_OUTPUT, ...groups.output,
-    ...SHARED_WAGE, ...groups.wage,
-    ...SHARED_EXPENSE,
-    ...SHARED_BALANCE,
+    ...filterShared(SHARED_OUTPUT), ...groups.output,
+    ...filterShared(SHARED_WAGE), ...groups.wage,
+    ...filterShared(SHARED_EXPENSE),
+    ...filterShared(SHARED_BALANCE),
     ...groups.afterBalance,
     REMARK_COLUMN
   ];

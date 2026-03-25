@@ -349,37 +349,44 @@ module.exports = {
       tableName: 'electronic_records',
       label: '电子部',
       workshops: ['登信'],
+      // 电子部不使用这些共享字段（有自己独立的工资/费用体系）
+      excludeSharedFields: ['worker_wage', 'supervisor_wage', 'social_insurance', 'tax', 'shipping_fee'],
       sharedFieldAliases: {
         rent: ['厂租', '厂 租'],
         tool_investment: ['工具', '工 具'],
       },
       uniqueFields: [
-        // 子部门结余
+        // 子部门结余（手工输入，来自车间收支表，参与结余+）
         { field: 'bonding_balance', label: '帮定结余', type: 'number', input: true, expense: false, currency: true },
         { field: 'smt_balance', label: '贴片结余', type: 'number', input: true, expense: false, currency: true },
         { field: 'plugin_balance', label: '插件结余', type: 'number', input: true, expense: false, currency: true },
-        // 工资结余（计算）
-        { field: 'production_wage_balance', label: '生产工资结余', type: 'number', calc: true,
-          skipAliases: ['生产工资结余'] },
-        { field: 'production_wage_balance_tax', label: '生产工资结余(含1.13)', type: 'number', calc: true,
-          skipAliases: ['生产工资结余（含1.13）'] },
+        // 工资结余（手工输入，来自车间收支表，参与结余+）
+        { field: 'production_wage_balance', label: '生产工资结余', type: 'number', input: true, expense: false, currency: true },
+        { field: 'production_wage_balance_tax', label: '生产工资结余(含1.13)', type: 'number', input: true, expense: false, currency: true },
+        // 预估利润（自动计算，参与结余+）
         { field: 'estimated_workshop_profit', label: '预估车间利润', type: 'number', calc: true,
           skipAliases: ['预估车间利润（产值*0.05）'] },
-        // 工资组（独有，替代共享的 worker_wage/supervisor_wage）
-        { field: 'production_supervisor_wage', label: '生产管工工资', type: 'number', input: true, expense: true, currency: true },
-        { field: 'office_supervisor_wage', label: '办公室管工工资', type: 'number', input: true, expense: true, currency: true },
-        { field: 'shared_staff_wage', label: '共用人员工资', type: 'number', input: true, expense: true, currency: true },
-        // 费用组
-        { field: 'hk_expense', label: '香港支出', type: 'number', input: true, expense: true, currency: true,
-          aliases: ['香港支出(占产值约1.0%)'] },
+        // 工资组（固定费用，参与结余-）
+        { field: 'production_supervisor_wage', label: '生产管工工资', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'office_supervisor_wage', label: '办公室管工工资', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'shared_staff_wage', label: '共用人员工资', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        // 自动计算费用（按系数算，参与结余-）
+        { field: 'hk_expense', label: '香港支出', type: 'number', calc: true,
+          skipAliases: ['香港支出(占产值约1.0%)', '香港支出'] },
+        // 手工输入费用（参与结余-）
         { field: 'severance_fee', label: '离职补贴费用', type: 'number', input: true, expense: true, currency: true },
-        { field: 'excess_material', label: '超出原材料', type: 'number', input: true, expense: true, currency: true },
-        { field: 'transport_packing_fee', label: '运输包装费', type: 'number', input: true, expense: true, currency: true },
-        { field: 'payable_tax', label: '应缴税收', type: 'number', input: true, expense: true, currency: true },
-        { field: 'hq_allocation', label: '总部支出', type: 'number', input: true, expense: true, currency: true,
-          aliases: ['总部支出（占产值）0.0029'] },
-        // 其他
-        { field: 'estimated_tax', label: '预计税金', type: 'number', input: true, expense: false, currency: true },
+        { field: 'excess_material', label: '超出原材料', type: 'number', input: true, expense: false, currency: true },
+        // 自动计算费用（按系数算，参与结余-）
+        { field: 'transport_packing_fee', label: '运输包装费', type: 'number', calc: true,
+          skipAliases: ['运输包装费'] },
+        // 固定费用（参与结余-）
+        { field: 'payable_tax', label: '应缴税收', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        // 自动计算费用（按系数算，参与结余-）
+        { field: 'hq_allocation', label: '总部支出', type: 'number', calc: true,
+          skipAliases: ['总部支出（占产值）0.0029', '总部支出'] },
+        // 自动计算（不参与结余）
+        { field: 'estimated_tax', label: '预计税金', type: 'number', calc: true,
+          skipAliases: ['预计税金'] },
         // 外发组
         { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true,
           aliases: ['外发产值($)'] },
