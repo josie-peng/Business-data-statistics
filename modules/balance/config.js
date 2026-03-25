@@ -233,7 +233,7 @@ module.exports = {
     bags: {
       tableName: 'bags_records',
       label: '胶袋部',
-      workshops: ['小部门'],
+      workshops: ['胶袋'],
       sharedFieldAliases: {},
       uniqueFields: [
         // 机台组
@@ -276,7 +276,7 @@ module.exports = {
     color: {
       tableName: 'color_records',
       label: '配色部',
-      workshops: ['小部门'],
+      workshops: ['配色'],
       sharedFieldAliases: {},
       uniqueFields: [
         // 工资组
@@ -303,7 +303,7 @@ module.exports = {
     blister: {
       tableName: 'blister_records',
       label: '吸塑部',
-      workshops: ['小部门'],
+      workshops: ['吸塑'],
       sharedFieldAliases: {},
       uniqueFields: [
         // 机台组
