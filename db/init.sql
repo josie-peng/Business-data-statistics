@@ -310,6 +310,201 @@ CREATE TABLE IF NOT EXISTS assembly_records (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 胶袋部数据表
+CREATE TABLE IF NOT EXISTS bags_records (
+  id SERIAL PRIMARY KEY,
+  record_date DATE NOT NULL,
+  workshop_id INT REFERENCES workshops(id),
+  -- 共有字段
+  supervisor_count INT DEFAULT 0,
+  worker_count INT DEFAULT 0,
+  daily_output NUMERIC(14,2) DEFAULT 0,
+  worker_wage NUMERIC(12,2) DEFAULT 0,
+  supervisor_wage NUMERIC(12,2) DEFAULT 0,
+  rent NUMERIC(12,2) DEFAULT 0,
+  utility_fee NUMERIC(12,2) DEFAULT 0,
+  tool_investment NUMERIC(12,2) DEFAULT 0,
+  equipment NUMERIC(12,2) DEFAULT 0,
+  renovation NUMERIC(12,2) DEFAULT 0,
+  misc_fee NUMERIC(12,2) DEFAULT 0,
+  shipping_fee NUMERIC(12,2) DEFAULT 0,
+  social_insurance NUMERIC(12,2) DEFAULT 0,
+  tax NUMERIC(12,2) DEFAULT 0,
+  balance NUMERIC(14,2) DEFAULT 0,
+  balance_ratio NUMERIC(8,4) DEFAULT 0,
+  remark TEXT DEFAULT '',
+  -- 胶袋独有字段
+  total_machines INT DEFAULT 0,
+  running_machines INT DEFAULT 0,
+  machine_rate NUMERIC(8,4) DEFAULT 0,
+  misc_workers INT DEFAULT 0,
+  per_capita_output NUMERIC(12,2) DEFAULT 0,
+  scrap_income NUMERIC(12,2) DEFAULT 0,
+  avg_output_per_machine NUMERIC(14,2) DEFAULT 0,
+  misc_worker_wage NUMERIC(12,2) DEFAULT 0,
+  wage_ratio NUMERIC(8,4) DEFAULT 0,
+  raw_material_cost NUMERIC(12,2) DEFAULT 0,
+  diesel NUMERIC(12,2) DEFAULT 0,
+  machine_repair NUMERIC(12,2) DEFAULT 0,
+  material_supplement NUMERIC(12,2) DEFAULT 0,
+  gate_processing_fee NUMERIC(12,2) DEFAULT 0,
+  avg_balance_per_machine NUMERIC(14,2) DEFAULT 0,
+  outsource_output NUMERIC(14,2) DEFAULT 0,
+  outsource_profit NUMERIC(14,2) DEFAULT 0,
+  outsource_profit_ratio NUMERIC(8,4) DEFAULT 0,
+  -- 元数据
+  created_by INT,
+  updated_by INT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 配色部数据表
+CREATE TABLE IF NOT EXISTS color_records (
+  id SERIAL PRIMARY KEY,
+  record_date DATE NOT NULL,
+  workshop_id INT REFERENCES workshops(id),
+  -- 共有字段
+  supervisor_count INT DEFAULT 0,
+  worker_count INT DEFAULT 0,
+  daily_output NUMERIC(14,2) DEFAULT 0,
+  worker_wage NUMERIC(12,2) DEFAULT 0,
+  supervisor_wage NUMERIC(12,2) DEFAULT 0,
+  rent NUMERIC(12,2) DEFAULT 0,
+  utility_fee NUMERIC(12,2) DEFAULT 0,
+  tool_investment NUMERIC(12,2) DEFAULT 0,
+  equipment NUMERIC(12,2) DEFAULT 0,
+  renovation NUMERIC(12,2) DEFAULT 0,
+  misc_fee NUMERIC(12,2) DEFAULT 0,
+  shipping_fee NUMERIC(12,2) DEFAULT 0,
+  social_insurance NUMERIC(12,2) DEFAULT 0,
+  tax NUMERIC(12,2) DEFAULT 0,
+  balance NUMERIC(14,2) DEFAULT 0,
+  balance_ratio NUMERIC(8,4) DEFAULT 0,
+  remark TEXT DEFAULT '',
+  -- 配色独有字段
+  wage_ratio NUMERIC(8,4) DEFAULT 0,
+  hq_allocation NUMERIC(12,2) DEFAULT 0,
+  raw_material_cost NUMERIC(12,2) DEFAULT 0,
+  color_powder NUMERIC(12,2) DEFAULT 0,
+  hk_expense NUMERIC(12,2) DEFAULT 0,
+  outsource_output NUMERIC(14,2) DEFAULT 0,
+  outsource_tax NUMERIC(12,2) DEFAULT 0,
+  outsource_profit NUMERIC(14,2) DEFAULT 0,
+  total_profit NUMERIC(14,2) DEFAULT 0,
+  profit_ratio_ex_tax NUMERIC(8,4) DEFAULT 0,
+  profit_ratio_inc_tax NUMERIC(8,4) DEFAULT 0,
+  -- 元数据
+  created_by INT,
+  updated_by INT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 吸塑部数据表
+CREATE TABLE IF NOT EXISTS blister_records (
+  id SERIAL PRIMARY KEY,
+  record_date DATE NOT NULL,
+  workshop_id INT REFERENCES workshops(id),
+  -- 共有字段
+  supervisor_count INT DEFAULT 0,
+  worker_count INT DEFAULT 0,
+  daily_output NUMERIC(14,2) DEFAULT 0,
+  worker_wage NUMERIC(12,2) DEFAULT 0,
+  supervisor_wage NUMERIC(12,2) DEFAULT 0,
+  rent NUMERIC(12,2) DEFAULT 0,
+  utility_fee NUMERIC(12,2) DEFAULT 0,
+  tool_investment NUMERIC(12,2) DEFAULT 0,
+  equipment NUMERIC(12,2) DEFAULT 0,
+  renovation NUMERIC(12,2) DEFAULT 0,
+  misc_fee NUMERIC(12,2) DEFAULT 0,
+  shipping_fee NUMERIC(12,2) DEFAULT 0,
+  social_insurance NUMERIC(12,2) DEFAULT 0,
+  tax NUMERIC(12,2) DEFAULT 0,
+  balance NUMERIC(14,2) DEFAULT 0,
+  balance_ratio NUMERIC(8,4) DEFAULT 0,
+  remark TEXT DEFAULT '',
+  -- 吸塑独有字段
+  total_machines INT DEFAULT 0,
+  running_machines INT DEFAULT 0,
+  machine_rate NUMERIC(8,4) DEFAULT 0,
+  misc_workers INT DEFAULT 0,
+  avg_output_per_machine NUMERIC(14,2) DEFAULT 0,
+  misc_worker_wage NUMERIC(12,2) DEFAULT 0,
+  wage_ratio NUMERIC(8,4) DEFAULT 0,
+  raw_material NUMERIC(12,2) DEFAULT 0,
+  raw_material_ratio NUMERIC(8,4) DEFAULT 0,
+  supplies NUMERIC(12,2) DEFAULT 0,
+  materials NUMERIC(12,2) DEFAULT 0,
+  machine_repair NUMERIC(12,2) DEFAULT 0,
+  gate_processing_fee NUMERIC(12,2) DEFAULT 0,
+  material_supplement NUMERIC(12,2) DEFAULT 0,
+  cartons NUMERIC(12,2) DEFAULT 0,
+  plastic_bags NUMERIC(12,2) DEFAULT 0,
+  scrap_income NUMERIC(12,2) DEFAULT 0,
+  avg_balance_per_machine NUMERIC(14,2) DEFAULT 0,
+  outsource_output NUMERIC(14,2) DEFAULT 0,
+  outsource_profit NUMERIC(14,2) DEFAULT 0,
+  outsource_profit_ratio NUMERIC(8,4) DEFAULT 0,
+  -- 元数据
+  created_by INT,
+  updated_by INT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 电子部数据表
+CREATE TABLE IF NOT EXISTS electronic_records (
+  id SERIAL PRIMARY KEY,
+  record_date DATE NOT NULL,
+  workshop_id INT REFERENCES workshops(id),
+  -- 共有字段
+  supervisor_count INT DEFAULT 0,
+  worker_count INT DEFAULT 0,
+  daily_output NUMERIC(14,2) DEFAULT 0,
+  worker_wage NUMERIC(12,2) DEFAULT 0,
+  supervisor_wage NUMERIC(12,2) DEFAULT 0,
+  rent NUMERIC(12,2) DEFAULT 0,
+  utility_fee NUMERIC(12,2) DEFAULT 0,
+  tool_investment NUMERIC(12,2) DEFAULT 0,
+  equipment NUMERIC(12,2) DEFAULT 0,
+  renovation NUMERIC(12,2) DEFAULT 0,
+  misc_fee NUMERIC(12,2) DEFAULT 0,
+  shipping_fee NUMERIC(12,2) DEFAULT 0,
+  social_insurance NUMERIC(12,2) DEFAULT 0,
+  tax NUMERIC(12,2) DEFAULT 0,
+  balance NUMERIC(14,2) DEFAULT 0,
+  balance_ratio NUMERIC(8,4) DEFAULT 0,
+  remark TEXT DEFAULT '',
+  -- 电子独有字段
+  bonding_balance NUMERIC(14,2) DEFAULT 0,
+  smt_balance NUMERIC(14,2) DEFAULT 0,
+  plugin_balance NUMERIC(14,2) DEFAULT 0,
+  production_wage_balance NUMERIC(14,2) DEFAULT 0,
+  production_wage_balance_tax NUMERIC(14,2) DEFAULT 0,
+  estimated_workshop_profit NUMERIC(14,2) DEFAULT 0,
+  production_supervisor_wage NUMERIC(12,2) DEFAULT 0,
+  office_supervisor_wage NUMERIC(12,2) DEFAULT 0,
+  shared_staff_wage NUMERIC(12,2) DEFAULT 0,
+  hk_expense NUMERIC(12,2) DEFAULT 0,
+  severance_fee NUMERIC(12,2) DEFAULT 0,
+  excess_material NUMERIC(12,2) DEFAULT 0,
+  transport_packing_fee NUMERIC(12,2) DEFAULT 0,
+  payable_tax NUMERIC(12,2) DEFAULT 0,
+  hq_allocation NUMERIC(12,2) DEFAULT 0,
+  estimated_tax NUMERIC(12,2) DEFAULT 0,
+  outsource_output NUMERIC(14,2) DEFAULT 0,
+  outsource_planned_wage NUMERIC(14,2) DEFAULT 0,
+  outsource_actual_wage NUMERIC(14,2) DEFAULT 0,
+  outsource_wage_balance NUMERIC(14,2) DEFAULT 0,
+  outsource_balance_ratio NUMERIC(8,4) DEFAULT 0,
+  -- 元数据
+  created_by INT,
+  updated_by INT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 初始数据：默认管理员（密码: admin123）
 INSERT INTO users (username, password_hash, name, role, batch_permission)
 VALUES ('RRxing', '$2b$10$ze7gVY5.pNxvkkm2mlJI9efDNtKHHj5XBMmZl71vNSC.zLL8y1qie', '系统管理员', 'stats', true)
@@ -329,6 +524,11 @@ INSERT INTO workshops (name, region, department, sort_order) VALUES
   ('华登A', '清溪', 'assembly', 3),
   ('华嘉', '清溪', 'assembly', 4),
   ('邵阳华登', '湖南', 'assembly', 5),
+  -- 小部门
+  ('小部门', '清溪', 'bags', 1),
+  ('小部门', '清溪', 'color', 1),
+  ('小部门', '清溪', 'blister', 1),
+  ('登信', '清溪', 'electronic', 1),
   -- 扩展部门（暂不参与三工结余汇总）
   ('兴信A', '清溪', 'fixture', 1),
   ('华登A', '清溪', 'roto_casting', 1)
@@ -341,6 +541,14 @@ CREATE INDEX IF NOT EXISTS idx_print_date ON print_records(record_date);
 CREATE INDEX IF NOT EXISTS idx_print_workshop ON print_records(workshop_id);
 CREATE INDEX IF NOT EXISTS idx_assembly_date ON assembly_records(record_date);
 CREATE INDEX IF NOT EXISTS idx_assembly_workshop ON assembly_records(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_bags_date ON bags_records(record_date);
+CREATE INDEX IF NOT EXISTS idx_bags_workshop ON bags_records(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_color_date ON color_records(record_date);
+CREATE INDEX IF NOT EXISTS idx_color_workshop ON color_records(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_blister_date ON blister_records(record_date);
+CREATE INDEX IF NOT EXISTS idx_blister_workshop ON blister_records(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_electronic_date ON electronic_records(record_date);
+CREATE INDEX IF NOT EXISTS idx_electronic_workshop ON electronic_records(workshop_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_field_registry_module ON field_registry(module, department);
 CREATE INDEX IF NOT EXISTS idx_field_tags_module ON field_tags(module, department);
