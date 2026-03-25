@@ -42,7 +42,10 @@ module.exports = {
   ],
 
   // 导入时需要跳过的 Excel 列名（不属于任何字段的 label/alias）
-  skipColumns: ['结余金额', '结余%', '人均产值'],
+  skipColumns: ['结余金额', '结余%', '人均产值',
+    '每台机平均产值', '平均每台结余', '总工资占产值%', '原料比率', '外发利润率%', '占比率',
+    '不含税比润', '含税总比润', '生产工资结余', '生产工资结余(含1.13)', '预估车间利润',
+    '外发人工结余', '外发结余比例'],
 
   departments: {
     beer: {
@@ -224,6 +227,168 @@ module.exports = {
           aliases: ['借调工人工资'] },
         { field: 'borrowed_wage_ratio', label: '外借人员工资占计划工资%', type: 'ratio', calc: true,
           skipAliases: ['外借人员工资占计划工资%'] },
+      ]
+    },
+
+    bags: {
+      tableName: 'bags_records',
+      label: '胶袋部',
+      workshops: ['小部门'],
+      sharedFieldAliases: {},
+      uniqueFields: [
+        // 机台组
+        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false },
+        { field: 'running_machines', label: '开机台数', type: 'integer', input: true, expense: false },
+        { field: 'machine_rate', label: '开机率', type: 'ratio', calc: true,
+          skipAliases: ['开机率'] },
+        // 人数组
+        { field: 'misc_workers', label: '杂工人数', type: 'integer', input: true, expense: false },
+        // 产值组
+        { field: 'per_capita_output', label: '人均产值', type: 'number', calc: true,
+          skipAliases: ['人均产值'] },
+        { field: 'scrap_income', label: '边角料(收入)', type: 'number', input: true, expense: false, income: true, currency: true,
+          aliases: ['边角料（收入）'] },
+        { field: 'avg_output_per_machine', label: '每台机平均产值', type: 'number', calc: true,
+          skipAliases: ['每台机平均产值'] },
+        // 工资组
+        { field: 'misc_worker_wage', label: '杂工工资/天', type: 'number', input: true, expense: true, currency: true },
+        { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
+          skipAliases: ['总工资（包管工）占产值%', '总工资(包管工)占产值%'] },
+        // 费用组
+        { field: 'raw_material_cost', label: '原料成本', type: 'number', input: true, expense: true, currency: true },
+        { field: 'diesel', label: '柴油', type: 'number', input: true, expense: true, currency: true },
+        { field: 'machine_repair', label: '机器维修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'material_supplement', label: '原料补料/损耗', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['原料补料'] },
+        { field: 'gate_processing_fee', label: '批水口加工费', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['批水口加工费用'] },
+        // 结余组
+        { field: 'avg_balance_per_machine', label: '平均每台结余', type: 'number', calc: true,
+          skipAliases: ['平均每台结余'] },
+        // 外发组
+        { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit', label: '利润', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit_ratio', label: '占比率', type: 'ratio', calc: true,
+          skipAliases: ['占比率'] },
+      ]
+    },
+
+    color: {
+      tableName: 'color_records',
+      label: '配色部',
+      workshops: ['小部门'],
+      sharedFieldAliases: {},
+      uniqueFields: [
+        // 工资组
+        { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
+          skipAliases: ['总工资（包管工）占产值%', '总工资(包管工)占产值%'] },
+        // 费用组
+        { field: 'hq_allocation', label: '总部分摊', type: 'number', input: true, expense: true, currency: true },
+        { field: 'raw_material_cost', label: '原料成本', type: 'number', input: true, expense: true, currency: true },
+        { field: 'color_powder', label: '色粉', type: 'number', input: true, expense: true, currency: true },
+        { field: 'hk_expense', label: '税收/香港开支', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['税收、香港开支'] },
+        // 外发组
+        { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_tax', label: '税收(外发)', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit', label: '利润', type: 'number', input: true, expense: false, currency: true },
+        { field: 'total_profit', label: '总利润', type: 'number', input: true, expense: false, currency: true },
+        { field: 'profit_ratio_ex_tax', label: '不含税比润', type: 'ratio', calc: true,
+          skipAliases: ['不含税比润'] },
+        { field: 'profit_ratio_inc_tax', label: '含税总比润', type: 'ratio', calc: true,
+          skipAliases: ['含税总比润'] },
+      ]
+    },
+
+    blister: {
+      tableName: 'blister_records',
+      label: '吸塑部',
+      workshops: ['小部门'],
+      sharedFieldAliases: {},
+      uniqueFields: [
+        // 机台组
+        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false },
+        { field: 'running_machines', label: '开机台数', type: 'integer', input: true, expense: false },
+        { field: 'machine_rate', label: '开机率', type: 'ratio', calc: true,
+          skipAliases: ['开机率'] },
+        // 人数组
+        { field: 'misc_workers', label: '杂工人数', type: 'integer', input: true, expense: false },
+        // 产值组
+        { field: 'avg_output_per_machine', label: '每台机平均产值', type: 'number', calc: true,
+          skipAliases: ['每台机平均产值'] },
+        // 工资组
+        { field: 'misc_worker_wage', label: '杂工工资/天', type: 'number', input: true, expense: true, currency: true },
+        { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
+          skipAliases: ['总工资（包管工）占产值%', '总工资(包管工)占产值%'] },
+        // 费用组
+        { field: 'raw_material', label: '原料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'raw_material_ratio', label: '原料比率', type: 'ratio', calc: true,
+          skipAliases: ['原料比率'] },
+        { field: 'supplies', label: '用料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'materials', label: '物料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'machine_repair', label: '机器维修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'gate_processing_fee', label: '批水口加工费', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['批水口加工费用'] },
+        { field: 'material_supplement', label: '原料补料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'cartons', label: '纸箱', type: 'number', input: true, expense: true, currency: true },
+        { field: 'plastic_bags', label: '胶袋', type: 'number', input: true, expense: true, currency: true },
+        { field: 'scrap_income', label: '边角料(收入)', type: 'number', input: true, expense: false, income: true, currency: true,
+          aliases: ['边角料'] },
+        // 结余组
+        { field: 'avg_balance_per_machine', label: '平均每台结余', type: 'number', calc: true,
+          skipAliases: ['平均每台结余'] },
+        // 外发组
+        { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit', label: '外发利润', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit_ratio', label: '外发利润率%', type: 'ratio', calc: true,
+          skipAliases: ['外发利润率%'] },
+      ]
+    },
+
+    electronic: {
+      tableName: 'electronic_records',
+      label: '电子部',
+      workshops: ['登信'],
+      sharedFieldAliases: {
+        rent: ['厂租', '厂 租'],
+        tool_investment: ['工具', '工 具'],
+      },
+      uniqueFields: [
+        // 子部门结余
+        { field: 'bonding_balance', label: '帮定结余', type: 'number', input: true, expense: false, currency: true },
+        { field: 'smt_balance', label: '贴片结余', type: 'number', input: true, expense: false, currency: true },
+        { field: 'plugin_balance', label: '插件结余', type: 'number', input: true, expense: false, currency: true },
+        // 工资结余（计算）
+        { field: 'production_wage_balance', label: '生产工资结余', type: 'number', calc: true,
+          skipAliases: ['生产工资结余'] },
+        { field: 'production_wage_balance_tax', label: '生产工资结余(含1.13)', type: 'number', calc: true,
+          skipAliases: ['生产工资结余（含1.13）'] },
+        { field: 'estimated_workshop_profit', label: '预估车间利润', type: 'number', calc: true,
+          skipAliases: ['预估车间利润（产值*0.05）'] },
+        // 工资组（独有，替代共享的 worker_wage/supervisor_wage）
+        { field: 'production_supervisor_wage', label: '生产管工工资', type: 'number', input: true, expense: true, currency: true },
+        { field: 'office_supervisor_wage', label: '办公室管工工资', type: 'number', input: true, expense: true, currency: true },
+        { field: 'shared_staff_wage', label: '共用人员工资', type: 'number', input: true, expense: true, currency: true },
+        // 费用组
+        { field: 'hk_expense', label: '香港支出', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['香港支出(占产值约1.0%)'] },
+        { field: 'severance_fee', label: '离职补贴费用', type: 'number', input: true, expense: true, currency: true },
+        { field: 'excess_material', label: '超出原材料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'transport_packing_fee', label: '运输包装费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'payable_tax', label: '应缴税收', type: 'number', input: true, expense: true, currency: true },
+        { field: 'hq_allocation', label: '总部支出', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['总部支出（占产值）0.0029'] },
+        // 其他
+        { field: 'estimated_tax', label: '预计税金', type: 'number', input: true, expense: false, currency: true },
+        // 外发组
+        { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true,
+          aliases: ['外发产值($)'] },
+        { field: 'outsource_planned_wage', label: '外发计划工资(含1.13)', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_actual_wage', label: '外发实际工资', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_wage_balance', label: '外发人工结余', type: 'number', calc: true,
+          skipAliases: ['外发人工结余'] },
+        { field: 'outsource_balance_ratio', label: '外发结余比例', type: 'ratio', calc: true,
+          skipAliases: ['外发结余比例'] },
       ]
     },
   }
