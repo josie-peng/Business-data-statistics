@@ -2,10 +2,39 @@
 // 生产经营数据系统 - Vue 3 前端应用
 // ==========================================
 
+// ===== Element Plus 中文语言包 =====
+const zhCnLocale = {
+  name: 'zh-cn',
+  el: {
+    datepicker: {
+      now: '此刻', today: '今天', cancel: '取消', clear: '清空', confirm: '确定',
+      selectDate: '选择日期', selectTime: '选择时间',
+      startDate: '开始日期', startTime: '开始时间',
+      endDate: '结束日期', endTime: '结束时间',
+      prevYear: '前一年', nextYear: '后一年', prevMonth: '上个月', nextMonth: '下个月',
+      year: '年', month1: '1月', month2: '2月', month3: '3月', month4: '4月',
+      month5: '5月', month6: '6月', month7: '7月', month8: '8月',
+      month9: '9月', month10: '10月', month11: '11月', month12: '12月',
+      weeks: { sun: '日', mon: '一', tue: '二', wed: '三', thu: '四', fri: '五', sat: '六' },
+      months: { jan: '一月', feb: '二月', mar: '三月', apr: '四月', may: '五月', jun: '六月',
+        jul: '七月', aug: '八月', sep: '九月', oct: '十月', nov: '十一月', dec: '十二月' }
+    },
+    select: { loading: '加载中', noMatch: '无匹配数据', noData: '无数据', placeholder: '请选择' },
+    table: { emptyText: '暂无数据', confirmFilter: '筛选', resetFilter: '重置', clearFilter: '全部', sumText: '合计' },
+    pagination: { goto: '前往', pagesize: '条/页', total: '共 {total} 条', pageClassifier: '页' },
+    messagebox: { title: '提示', confirm: '确定', cancel: '取消', error: '输入的数据不合法!' },
+    upload: { deleteTip: '按 delete 键可删除', delete: '删除', preview: '查看图片', continue: '继续上传' },
+    popconfirm: { confirmButtonText: '确定', cancelButtonText: '取消' },
+    dialog: { close: '关闭' },
+    drawer: { close: '关闭' },
+    transfer: { noMatch: '无匹配数据', noData: '无数据', titles: ['列表 1', '列表 2'], filterPlaceholder: '请输入搜索内容', noCheckedFormat: '共 {total} 项', hasCheckedFormat: '已选 {checked}/{total} 项' }
+  }
+};
+
 // ===== 部门配置 =====
 const DEPT_CONFIG = {
   beer: { key: 'beer', name: '啤机部', uniqueFields: [
-    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer', fixedExpense: true },
+    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
     { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', calculated: true, type: 'number' },
     { field: 'run_hours', label: '开机时间', shortLabel: '开机时间', editable: true, type: 'number' },
     { field: 'machine_rate', label: '开机率', shortLabel: '开机率', editable: false, type: 'ratio', calculated: true, formula: '开机台数 / 总台数' },
@@ -84,19 +113,101 @@ const DEPT_CONFIG = {
     { field: 'supplement', label: '补料', shortLabel: '补料', editable: true, type: 'number' },
     { field: 'borrowed_worker_wage', label: '外借人员工资', shortLabel: '外借工资', editable: true, type: 'number' },
     { field: 'borrowed_wage_ratio', label: '外借人员工资占计划工资%', shortLabel: '外借占比', editable: false, type: 'ratio', calculated: true, formula: '外借人员工资 / 计划总工资' },
+  ]},
+  bags: { key: 'bags', name: '胶袋部', uniqueFields: [
+    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer' },
+    { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', editable: true, type: 'integer' },
+    { field: 'machine_rate', label: '开机率', shortLabel: '开机率', editable: false, type: 'ratio', calculated: true, formula: '开机台数 / 总台数' },
+    { field: 'misc_workers', label: '杂工人数', shortLabel: '杂工人数', editable: true, type: 'integer' },
+    { field: 'per_capita_output', label: '人均产值', shortLabel: '人均产值', editable: false, type: 'number', calculated: true, formula: '产值/天 / 员工人数' },
+    { field: 'scrap_income', label: '边角料(收入)', shortLabel: '边角料', editable: true, type: 'number' },
+    { field: 'avg_output_per_machine', label: '每台机平均产值', shortLabel: '台均产值', editable: false, type: 'number', calculated: true, formula: '产值/天 / 开机台数' },
+    { field: 'misc_worker_wage', label: '杂工工资/天', shortLabel: '杂工工资', editable: true, type: 'number' },
+    { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(员工工资+管工工资+杂工工资) / 产值/天' },
+    { field: 'raw_material_cost', label: '原料成本', shortLabel: '原料成本', editable: true, type: 'number' },
+    { field: 'diesel', label: '柴油', shortLabel: '柴油', editable: true, type: 'number' },
+    { field: 'machine_repair', label: '机器维修', shortLabel: '机器维修', editable: true, type: 'number' },
+    { field: 'material_supplement', label: '原料补料/损耗', shortLabel: '原料补料', editable: true, type: 'number' },
+    { field: 'gate_processing_fee', label: '批水口加工费', shortLabel: '水口加工', editable: true, type: 'number' },
+    { field: 'avg_balance_per_machine', label: '平均每台结余', shortLabel: '台均结余', editable: false, type: 'number', calculated: true, formula: '结余金额 / 开机台数' },
+    { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
+    { field: 'outsource_profit', label: '利润', shortLabel: '利润', editable: true, type: 'number' },
+    { field: 'outsource_profit_ratio', label: '占比率', shortLabel: '占比率', editable: false, type: 'ratio', calculated: true, formula: '利润 / 外发产值' },
+  ]},
+  color: { key: 'color', name: '配色部', uniqueFields: [
+    { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(员工工资+管工工资) / 产值/天' },
+    { field: 'hq_allocation', label: '总部分摊', shortLabel: '总部分摊', editable: true, type: 'number' },
+    { field: 'raw_material_cost', label: '原料成本', shortLabel: '原料成本', editable: true, type: 'number' },
+    { field: 'color_powder', label: '色粉', shortLabel: '色粉', editable: true, type: 'number' },
+    { field: 'hk_expense', label: '税收/香港开支', shortLabel: '港支出', editable: true, type: 'number' },
+    { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
+    { field: 'outsource_tax', label: '税收(外发)', shortLabel: '外发税', editable: true, type: 'number' },
+    { field: 'outsource_profit', label: '利润', shortLabel: '利润', editable: true, type: 'number' },
+    { field: 'total_profit', label: '总利润', shortLabel: '总利润', editable: true, type: 'number' },
+    { field: 'profit_ratio_ex_tax', label: '不含税比润', shortLabel: '不含税%', editable: false, type: 'ratio', calculated: true },
+    { field: 'profit_ratio_inc_tax', label: '含税总比润', shortLabel: '含税%', editable: false, type: 'ratio', calculated: true },
+  ]},
+  blister: { key: 'blister', name: '吸塑部', uniqueFields: [
+    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer' },
+    { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', editable: true, type: 'integer' },
+    { field: 'machine_rate', label: '开机率', shortLabel: '开机率', editable: false, type: 'ratio', calculated: true, formula: '开机台数 / 总台数' },
+    { field: 'misc_workers', label: '杂工人数', shortLabel: '杂工人数', editable: true, type: 'integer' },
+    { field: 'avg_output_per_machine', label: '每台机平均产值', shortLabel: '台均产值', editable: false, type: 'number', calculated: true, formula: '产值/天 / 开机台数' },
+    { field: 'misc_worker_wage', label: '杂工工资/天', shortLabel: '杂工工资', editable: true, type: 'number' },
+    { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(员工工资+管工工资+杂工工资) / 产值/天' },
+    { field: 'raw_material', label: '原料', shortLabel: '原料', editable: true, type: 'number' },
+    { field: 'raw_material_ratio', label: '原料比率', shortLabel: '原料比', editable: false, type: 'ratio', calculated: true, formula: '原料 / 产值/天' },
+    { field: 'supplies', label: '用料', shortLabel: '用料', editable: true, type: 'number' },
+    { field: 'materials', label: '物料', shortLabel: '物料', editable: true, type: 'number' },
+    { field: 'machine_repair', label: '机器维修', shortLabel: '机器维修', editable: true, type: 'number' },
+    { field: 'gate_processing_fee', label: '批水口加工费', shortLabel: '水口加工', editable: true, type: 'number' },
+    { field: 'material_supplement', label: '原料补料', shortLabel: '原料补料', editable: true, type: 'number' },
+    { field: 'cartons', label: '纸箱', shortLabel: '纸箱', editable: true, type: 'number' },
+    { field: 'plastic_bags', label: '胶袋', shortLabel: '胶袋', editable: true, type: 'number' },
+    { field: 'scrap_income', label: '边角料(收入)', shortLabel: '边角料', editable: true, type: 'number' },
+    { field: 'avg_balance_per_machine', label: '平均每台结余', shortLabel: '台均结余', editable: false, type: 'number', calculated: true, formula: '结余金额 / 开机台数' },
+    { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
+    { field: 'outsource_profit', label: '外发利润', shortLabel: '外发利润', editable: true, type: 'number' },
+    { field: 'outsource_profit_ratio', label: '外发利润率%', shortLabel: '外发利%', editable: false, type: 'ratio', calculated: true, formula: '外发利润 / 外发产值' },
+  ]},
+  electronic: { key: 'electronic', name: '电子部', uniqueFields: [
+    { field: 'bonding_balance', label: '帮定结余', shortLabel: '帮定结余', editable: true, type: 'number' },
+    { field: 'smt_balance', label: '贴片结余', shortLabel: '贴片结余', editable: true, type: 'number' },
+    { field: 'plugin_balance', label: '插件结余', shortLabel: '插件结余', editable: true, type: 'number' },
+    { field: 'production_wage_balance', label: '生产工资结余', shortLabel: '工资结余', editable: false, type: 'number', calculated: true, formula: '帮定结余 + 贴片结余 + 插件结余' },
+    { field: 'production_wage_balance_tax', label: '生产工资结余(含1.13)', shortLabel: '结余含税', editable: false, type: 'number', calculated: true, formula: '生产工资结余 × 1.13' },
+    { field: 'estimated_workshop_profit', label: '预估车间利润', shortLabel: '预估利润', editable: false, type: 'number', calculated: true, formula: '产值/天 × 0.05' },
+    { field: 'production_supervisor_wage', label: '生产管工工资', shortLabel: '生产管工', editable: true, type: 'number' },
+    { field: 'office_supervisor_wage', label: '办公室管工工资', shortLabel: '办公管工', editable: true, type: 'number' },
+    { field: 'shared_staff_wage', label: '共用人员工资', shortLabel: '共用工资', editable: true, type: 'number' },
+    { field: 'hk_expense', label: '香港支出', shortLabel: '港支出', editable: true, type: 'number' },
+    { field: 'severance_fee', label: '离职补贴费用', shortLabel: '离职补贴', editable: true, type: 'number' },
+    { field: 'excess_material', label: '超出原材料', shortLabel: '超原材料', editable: true, type: 'number' },
+    { field: 'transport_packing_fee', label: '运输包装费', shortLabel: '运输包装', editable: true, type: 'number' },
+    { field: 'payable_tax', label: '应缴税收', shortLabel: '应缴税', editable: true, type: 'number' },
+    { field: 'hq_allocation', label: '总部支出', shortLabel: '总部支出', editable: true, type: 'number' },
+    { field: 'estimated_tax', label: '预计税金', shortLabel: '预计税金', editable: true, type: 'number' },
+    { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
+    { field: 'outsource_planned_wage', label: '外发计划工资(含1.13)', shortLabel: '外发计划', editable: true, type: 'number' },
+    { field: 'outsource_actual_wage', label: '外发实际工资', shortLabel: '外发实际', editable: true, type: 'number' },
+    { field: 'outsource_wage_balance', label: '外发人工结余', shortLabel: '外发结余', editable: false, type: 'number', calculated: true, formula: '外发计划工资 - 外发实际工资' },
+    { field: 'outsource_balance_ratio', label: '外发结余比例', shortLabel: '外发比例', editable: false, type: 'ratio', calculated: true, formula: '外发人工结余 / 外发产值' },
   ]}
 };
 
 // ===== 所有部门映射（含未来扩展） =====
 const ALL_DEPARTMENTS = {
   beer: '啤机部', print: '印喷部', assembly: '装配部',
-  electronic: '电子部', clothing: '车衣部',
-  blister: '吸塑', bags_color: '胶袋/配色',
-  fixture: '夹具部', roto_casting: '搪胶部',
+  bags: '胶袋部', color: '配色部', blister: '吸塑部', electronic: '电子部',
+  clothing: '车衣部', fixture: '夹具部', roto_casting: '搪胶部',
   blowing: '吹气部'
 };
-// 三工结余模块的3个部门（数据锁定等仅限此范围）
+// 三工结余模块的3个主部门
 const BALANCE_DEPARTMENTS = { beer: '啤机部', print: '印喷部', assembly: '装配部' };
+// 小部门
+const SMALL_DEPARTMENTS = { bags: '胶袋部', color: '配色部', blister: '吸塑部', electronic: '电子部' };
+// 所有参与结余计算的部门（三工 + 小部门，用于公式配置等）
+const ALL_BALANCE_DEPARTMENTS = { ...BALANCE_DEPARTMENTS, ...SMALL_DEPARTMENTS };
 
 // ===== 共享字段分组（shortLabel=表头简称，label=全称，双击表头显示全称+公式） =====
 const SHARED_PEOPLE = [
@@ -108,11 +219,11 @@ const SHARED_OUTPUT = [
 ];
 const SHARED_WAGE = [
   { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
-  { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true },
+  { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
 ];
 const SHARED_EXPENSE = [
-  { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true },
-  { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
+  { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
+  { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true, formula: '啤机：水电单价 × 开机台数 / 汇率 | 印喷装配：总水电费 / 上班天数 / 汇率' },
   { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
   { field: 'equipment', label: '设备', editable: true, type: 'number' },
   { field: 'renovation', label: '装修', editable: true, type: 'number' },
@@ -368,7 +479,7 @@ const DeptRecordsPage = {
                            :width="getColumnWidth(col)" :min-width="getColumnWidth(col)"
                            :class-name="getColumnClass(col)">
             <template #header>
-              <span @dblclick.stop="showHeaderNote($event, col)" style="cursor:pointer;">
+              <span @mouseenter="showHeaderNote($event, col)" @mouseleave="hideHeaderNote" style="cursor:pointer;">
                 {{ col.shortLabel || col.label }}
               </span>
             </template>
@@ -478,7 +589,10 @@ const DeptRecordsPage = {
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
           <el-input v-model="fixedExpenseForm.label" placeholder="项目名" size="small" style="width:120px" />
           <el-input v-model="fixedExpenseForm.name" placeholder="英文标识" size="small" style="width:130px" />
-          <el-input v-model="fixedExpenseForm.effective_month" placeholder="月份(0000-00=永久)" size="small" style="width:160px" />
+          <el-date-picker v-model="fixedExpenseForm.effective_month" type="month" placeholder="选择月份"
+                          value-format="YYYY-MM" size="small" style="width:140px"
+                          :disabled="fixedExpenseForm.isPermanent" />
+          <el-checkbox v-model="fixedExpenseForm.isPermanent" size="small" @change="onPermanentChange">永久</el-checkbox>
           <el-input v-model="fixedExpenseForm.value" placeholder="值" size="small" style="width:100px" type="number" />
           <el-button type="primary" size="small" @click="handleSaveFixedExpense" :loading="fixedExpenseSaving">保存</el-button>
         </div>
@@ -487,7 +601,8 @@ const DeptRecordsPage = {
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <el-input v-model="gwForm.baseSalary" placeholder="底薪(永久)" size="small" style="width:110px" type="number" />
             <el-input v-model="gwForm.bonus" placeholder="奖金(月)" size="small" style="width:100px" type="number" />
-            <el-input v-model="gwForm.month" placeholder="月份 2026-03" size="small" style="width:130px" />
+            <el-date-picker v-model="gwForm.month" type="month" placeholder="选择月份"
+                            value-format="YYYY-MM" size="small" style="width:140px" />
             <el-input v-model="gwForm.workDays" placeholder="上班天数" size="small" style="width:100px" type="number" />
             <el-button type="success" size="small" @click="handleSaveGwForm" :loading="fixedExpenseSaving">保存</el-button>
           </div>
@@ -495,7 +610,9 @@ const DeptRecordsPage = {
         <el-table :data="fixedExpenseList" border stripe size="small" v-loading="fixedExpenseLoading" max-height="280">
           <el-table-column prop="label" label="名称" width="120" />
           <el-table-column prop="name" label="标识" width="140" />
-          <el-table-column prop="effective_month" label="生效月份" width="100" align="center" />
+          <el-table-column prop="effective_month" label="生效月份" width="100" align="center">
+            <template #default="{ row }">{{ row.effective_month === '0000-00' ? '永久' : row.effective_month }}</template>
+          </el-table-column>
           <el-table-column prop="value" label="值" width="120" align="right">
             <template #default="{ row }">{{ Number(row.value).toLocaleString('zh-CN', {minimumFractionDigits:2}) }}</template>
           </el-table-column>
@@ -533,7 +650,7 @@ const DeptRecordsPage = {
       // 固定费用配置
       fixedExpenseVisible: false,
       fixedExpenseList: [],
-      fixedExpenseForm: { name: '', label: '', effective_month: '', value: '' },
+      fixedExpenseForm: { name: '', label: '', effective_month: '', value: '', isPermanent: false },
       gwForm: { baseSalary: '', bonus: '', month: '', workDays: '' },
       fixedExpenseLoading: false,
       fixedExpenseSaving: false,
@@ -675,11 +792,8 @@ const DeptRecordsPage = {
     async loadWorkshops() {
       try {
         const res = await API.get('/workshops', { department: this.dept });
-        // 三工结余模块只使用这5个车间
-        const allowedWorkshops = ['兴信A', '兴信B', '华登A', '邵阳华登', '华嘉'];
         this.workshopList = (res.data || res || [])
-          .map(w => ({ id: w.id, name: w.name, region: w.region, company: w.company, sort_order: w.sort_order }))
-          .filter(w => allowedWorkshops.includes(w.name));
+          .map(w => ({ id: w.id, name: w.name, region: w.region, company: w.company, sort_order: w.sort_order }));
       } catch (err) { console.error('Failed to load workshops', err); }
     },
     async loadData() {
@@ -790,17 +904,22 @@ const DeptRecordsPage = {
         event.target.value = v.substring(0, dotIdx + 7);
       }
     },
-    // 双击表头显示批注气泡
+    // 悬停表头显示批注气泡
     showHeaderNote(event, col) {
       // 移除已有气泡
-      document.querySelectorAll('.header-note-bubble').forEach(b => b.remove());
-      // 构造内容
-      let text = col.label;
-      if (col.formula) text += '\n公式=' + col.formula;
+      this.hideHeaderNote();
+      // 构造内容：全称加粗 + 类型标签 + 公式
       const bubble = document.createElement('div');
       bubble.className = 'header-note-bubble';
       let html = '<div class="note-full">' + col.label + '</div>';
-      if (col.formula) html += '<div class="note-formula">公式=' + col.formula + '</div>';
+      if (col.fixedExpense) {
+        html += '<div class="note-type note-type-fixed">固定费用（自动代入）</div>';
+      } else if (col.calculated) {
+        html += '<div class="note-type note-type-calc">计算字段（自动计算）</div>';
+      } else if (col.editable) {
+        html += '<div class="note-type note-type-input">输入字段（手动录入）</div>';
+      }
+      if (col.formula) html += '<div class="note-formula">公式：' + col.formula + '</div>';
       bubble.innerHTML = html;
       // 定位在表头下方
       const th = event.target.closest('th') || event.target;
@@ -809,10 +928,9 @@ const DeptRecordsPage = {
       bubble.style.left = rect.left + 'px';
       bubble.style.top = (rect.bottom + 4) + 'px';
       document.body.appendChild(bubble);
-      // 8秒后或点击其他地方消失
-      const remove = () => { bubble.remove(); document.removeEventListener('click', remove); };
-      setTimeout(remove, 8000);
-      setTimeout(() => document.addEventListener('click', remove), 100);
+    },
+    hideHeaderNote() {
+      document.querySelectorAll('.header-note-bubble').forEach(b => b.remove());
     },
     async saveCell(row, field, event) {
       const value = event.target.value;
@@ -834,12 +952,15 @@ const DeptRecordsPage = {
       return 90;
     },
     getColumnClass(col) {
+      // 3种单元格背景色：浅绿(固定费用) > 浅紫(计算字段) > 浅黄(可编辑)
+      if (col.fixedExpense) return 'cell-fixed-expense';
       if (col.calculated) return 'cell-calculated';
       if (col.editable) return 'cell-editable';
       return '';
     },
     getCellClasses(row, col) {
       const classes = [];
+      // 结余列正负色
       if (col.field === 'balance') {
         classes.push('cell-balance');
         if (Number(row.balance) >= 0) classes.push('positive');
@@ -997,10 +1118,14 @@ const DeptRecordsPage = {
     // === 固定费用配置 ===
     async showFixedExpenseDialog() {
       this.fixedExpenseVisible = true;
-      this.fixedExpenseForm = { name: '', label: '', effective_month: '', value: '' };
+      this.fixedExpenseForm = { name: '', label: '', effective_month: '', value: '', isPermanent: false };
       this.gwForm = { baseSalary: '', bonus: '', month: '', workDays: '' };
       this.activeFixedTag = '';
       await this.loadFixedExpenses();
+    },
+    // 永久复选框切换：勾选时清空月份，取消勾选时恢复
+    onPermanentChange(val) {
+      if (val) this.fixedExpenseForm.effective_month = '';
     },
     async loadFixedExpenses() {
       this.fixedExpenseLoading = true;
@@ -1019,13 +1144,18 @@ const DeptRecordsPage = {
         ElementPlus.ElMessage.warning('请填写完整信息');
         return;
       }
+      // 非永久时必须选择月份
+      if (!f.isPermanent && !f.effective_month) {
+        ElementPlus.ElMessage.warning('请选择月份或勾选"永久"');
+        return;
+      }
       this.fixedExpenseSaving = true;
       try {
         await API.saveFixedExpense(this.dept, {
           name: f.name,
           label: f.label,
           value: f.value,
-          effective_month: f.effective_month || '0000-00'
+          effective_month: f.isPermanent ? '0000-00' : f.effective_month
         });
         ElementPlus.ElMessage.success('保存成功');
         f.value = '';
@@ -3530,7 +3660,12 @@ const BREADCRUMB_MAP = {
   '/beer': '三工结余 / 啤机部',
   '/print': '三工结余 / 印喷部',
   '/assembly': '三工结余 / 装配部',
+  '/bags': '三工结余 / 胶袋部',
+  '/color': '三工结余 / 配色部',
+  '/blister': '三工结余 / 吸塑部',
+  '/electronic': '三工结余 / 电子部',
   '/summary': '结余收支汇总 / 大车间汇总',
+  '/small-summary': '结余收支汇总 / 小部门汇总',
   '/settings': '系统设置'
 };
 
@@ -3634,13 +3769,12 @@ const app = Vue.createApp({
   },
   computed: {
     isDeptPage() {
-      return ['/beer', '/print', '/assembly'].includes(this.currentRoute);
+      return ['/beer', '/print', '/assembly', '/bags', '/color', '/blister', '/electronic'].includes(this.currentRoute);
     },
     currentDept() {
-      if (this.currentRoute === '/beer') return 'beer';
-      if (this.currentRoute === '/print') return 'print';
-      if (this.currentRoute === '/assembly') return 'assembly';
-      return '';
+      const deptMap = { '/beer': 'beer', '/print': 'print', '/assembly': 'assembly',
+        '/bags': 'bags', '/color': 'color', '/blister': 'blister', '/electronic': 'electronic' };
+      return deptMap[this.currentRoute] || '';
     },
     breadcrumb() {
       return BREADCRUMB_MAP[this.currentRoute] || '';
@@ -3729,6 +3863,6 @@ app.component('data-locks', DataLocks);
 app.component('audit-logs', AuditLogs);
 app.component('backup-page', BackupPage);
 
-// Use Element Plus and mount
-app.use(ElementPlus);
+// Use Element Plus（中文语言包）and mount
+app.use(ElementPlus, { locale: zhCnLocale });
 app.mount('#app');
