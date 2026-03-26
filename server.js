@@ -21,6 +21,7 @@ app.get('/api/health', (req, res) => {
 // 路由注册
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api', require('./routes/records'));
+app.use('/api', require('./routes/settlement'));
 app.use('/api', require('./routes/import-export'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/workshops', require('./routes/workshops'));
