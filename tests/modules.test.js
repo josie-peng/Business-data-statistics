@@ -42,15 +42,17 @@ describe('modules/ 兼容层', () => {
       expect(config.DEPT_CONFIG.beer.uniqueInputFields).toContain('materials');
     });
 
-    test('beer: uniqueCalcFields 有 7 个字段', () => {
-      // output_tax_incl 从 input 改为 calc，从6变为7
-      expect(config.DEPT_CONFIG.beer.uniqueCalcFields).toHaveLength(7);
+    test('beer: uniqueCalcFields 有 9 个字段', () => {
+      // 含 running_machines, machine_rate, output_tax_incl, per_capita_output,
+      // avg_output_per_machine, wage_ratio, avg_balance_per_machine, mold_cost_ratio, gate_cost_ratio
+      expect(config.DEPT_CONFIG.beer.uniqueCalcFields).toHaveLength(9);
       expect(config.DEPT_CONFIG.beer.uniqueCalcFields).toContain('machine_rate');
     });
 
-    test('beer: uniqueExpenseFields 有 7 个字段', () => {
-      // recoverable_gate_fee 从 expense 改为非 expense，output_tax_incl 从 input 改为 calc
-      expect(config.DEPT_CONFIG.beer.uniqueExpenseFields).toHaveLength(7);
+    test('beer: uniqueExpenseFields 有 8 个字段', () => {
+      // misc_worker_wage, machine_repair, mold_repair, materials, material_supplement,
+      // gate_processing_fee, assembly_gate_parts_fee, outsource_nozzle
+      expect(config.DEPT_CONFIG.beer.uniqueExpenseFields).toHaveLength(8);
       expect(config.DEPT_CONFIG.beer.uniqueExpenseFields).toContain('misc_worker_wage');
       expect(config.DEPT_CONFIG.beer.uniqueExpenseFields).not.toContain('recoverable_gate_fee');
     });
@@ -60,8 +62,8 @@ describe('modules/ 兼容层', () => {
       expect(config.DEPT_CONFIG.print.uniqueInputFields).toHaveLength(23);
     });
 
-    test('print: uniqueExpenseFields 有 11 个字段', () => {
-      expect(config.DEPT_CONFIG.print.uniqueExpenseFields).toHaveLength(11);
+    test('print: uniqueExpenseFields 有 12 个字段', () => {
+      expect(config.DEPT_CONFIG.print.uniqueExpenseFields).toHaveLength(12);
     });
 
     test('assembly: uniqueInputFields 有 15 个字段', () => {
@@ -82,9 +84,9 @@ describe('modules/ 兼容层', () => {
       expect(fields).toHaveLength(13 + 14 + 1);
     });
 
-    test('getExpenseFields(beer) 有 18 个费用字段', () => {
-      // 11 shared + 7 unique (recoverable_gate_fee 不再是费用)
-      expect(config.getExpenseFields('beer')).toHaveLength(11 + 7);
+    test('getExpenseFields(beer) 有 19 个费用字段', () => {
+      // 11 shared + 8 unique (recoverable_gate_fee 不再是费用，outsource_nozzle 是费用)
+      expect(config.getExpenseFields('beer')).toHaveLength(11 + 8);
     });
   });
 

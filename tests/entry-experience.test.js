@@ -66,11 +66,12 @@ describe('ENTRY-01: 最小字段创建记录', () => {
     expect(res.body.data.id).toBeDefined();
 
     // 断言：数值字段默认为 0 或 null（不能是 undefined）
+    // PostgreSQL decimal 类型可能返回字符串 "0.00"，用 == 宽松比较
     const record = res.body.data;
     // worker_count 应该是 0 或 null，不能是 undefined
-    expect(record.worker_count === 0 || record.worker_count === null).toBe(true);
+    expect(record.worker_count == 0 || record.worker_count === null).toBe(true);
     // daily_output 应该是 0 或 null
-    expect(record.daily_output === 0 || record.daily_output === null).toBe(true);
+    expect(record.daily_output == 0 || record.daily_output === null).toBe(true);
 
     createdRecordId = record.id;
   });
