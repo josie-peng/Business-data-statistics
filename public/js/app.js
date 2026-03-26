@@ -214,15 +214,15 @@ const ALL_BALANCE_DEPARTMENTS = { ...BALANCE_DEPARTMENTS, ...SMALL_DEPARTMENTS }
 
 // ===== 共享字段分组（shortLabel=表头简称，label=全称，双击表头显示全称+公式） =====
 const SHARED_PEOPLE = [
-  { field: 'supervisor_count', label: '管工人数', shortLabel: '管工人数', editable: true, type: 'integer' },
+  { field: 'supervisor_count', label: '管工人数', shortLabel: '管工人数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
   { field: 'worker_count', label: '员工人数', shortLabel: '员工人数', editable: true, type: 'integer' },
 ];
 const SHARED_OUTPUT = [
   { field: 'daily_output', label: '总产值/天', shortLabel: '产值/天', editable: true, type: 'number' },
 ];
 const SHARED_WAGE = [
-  { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
   { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
+  { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
 ];
 const SHARED_EXPENSE = [
   { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },

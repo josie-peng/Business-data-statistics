@@ -10,7 +10,7 @@ describe('calculateRecord', () => {
       misc_worker_wage: 3960, machine_repair: 1500, mold_repair: 1500,
       gate_processing_fee: 2750, assembly_gate_parts_fee: 0,
       recoverable_gate_fee: 0, material_supplement: 0,
-      total_machines: 42, running_machines: 30
+      total_machines: 42, run_hours: 720
     });
     expect(r.balance).toBeCloseTo(50000 - 6000 - 2000 - 900 - 7000 - 263 - 809 - 3960 - 1500 - 1500 - 2750, 1);
     expect(r.balance_ratio).toBeCloseTo(r.balance / 50000, 4);
