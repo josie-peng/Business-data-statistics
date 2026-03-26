@@ -80,6 +80,17 @@ const API = {
     return this.post('/settings/constants', { module: `balance_fixed_${dept}`, ...data });
   },
 
+  // === 月底结算 API ===
+  getSettlementPreview(dept, params) {
+    return this.get(`/${dept}/settlement/preview`, params);
+  },
+  settlementAvg(dept, data) {
+    return this.post(`/${dept}/settlement/avg`, data);
+  },
+  settlementCustom(dept, data) {
+    return this.post(`/${dept}/settlement/custom`, data);
+  },
+
   // === 汇率历史 API ===
   getExchangeRateHistory() { return this.get('/backup/exchange-rate-history'); },
 
