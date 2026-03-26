@@ -445,6 +445,7 @@ const DeptRecordsPage = {
         <el-button type="success" size="small" @click="showExportDialog">导出Excel</el-button>
         <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</el-button>
         <button class="fixed-expense-btn" @click="showFixedExpenseDialog" v-if="currentDept">&#9881; 固定费用配置</button>
+        <button class="settlement-btn" @click="showSettlementDialog" v-if="user && user.role === 'stats' && currentDept">&#128197; 月底结算</button>
       </div>
 
       <!-- 导入弹窗 -->
@@ -691,6 +692,134 @@ const DeptRecordsPage = {
           <p>公式：房租 = 总房租/上班天数/汇率 | 管工工资 = (底薪+奖金)/上班天数/汇率 | 水电费 = 单价×开机台数/汇率(啤机) 或 总水电费/上班天数/汇率(印喷装配)。<b>上班天数</b>影响多项费用计算，请通过快捷标签单独配置。</p>
         </div>
       </el-dialog>
+
+      <!-- 月底结算弹窗 -->
+      <el-dialog v-model="settlementVisible" title="月底结算" width="900px" destroy-on-close top="5vh">
+        <!-- 顶部筛选区 -->
+        <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+          <div>
+            <span style="font-size:13px;color:#666;margin-right:4px;">车间：</span>
+            <el-select v-model="settlementWorkshopId" placeholder="选择车间" size="small" style="width:160px"
+                       @change="loadSettlementPreview">
+              <el-option v-for="w in workshopList" :key="w.id" :label="w.name" :value="w.id" />
+            </el-select>
+          </div>
+          <div>
+            <span style="font-size:13px;color:#666;margin-right:4px;">月份：</span>
+            <el-date-picker v-model="settlementMonth" type="month" placeholder="选择月份" size="small"
+                            value-format="YYYY-MM" style="width:140px" @change="loadSettlementPreview" />
+          </div>
+          <div v-if="settlementPreview" style="font-size:13px;color:#7F41C0;">
+            本月有记录 <b>{{ settlementPreview.totalRecords }}</b> 天
+            <span v-if="settlementPreview.sundayCount > 0">（含 {{ settlementPreview.sundayCount }} 个周日）</span>
+          </div>
+        </div>
+
+        <!-- 区块一：均摊型费用 -->
+        <div v-if="avgFields.length > 0" style="margin-bottom:24px;">
+          <h4 style="margin:0 0 12px;color:#333;border-bottom:2px solid #7F41C0;padding-bottom:6px;">
+            均摊型费用 <span style="font-size:12px;color:#999;font-weight:normal;">（固定费用，按月均摊到每天）</span>
+          </h4>
+          <el-table :data="avgFields" border size="small" style="width:100%">
+            <el-table-column prop="label" label="字段名" width="140">
+              <template #default="{ row }">{{ row.label }} <span style="color:#999">/天</span></template>
+            </el-table-column>
+            <el-table-column label="当前月度总额" width="150" align="right">
+              <template #default="{ row }">
+                <span style="color:#999">{{ row.currentTotal != null ? row.currentTotal.toFixed(2) : '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="实际月度总额" width="160">
+              <template #default="{ row }">
+                <el-input-number v-model="row.actualTotal" :precision="2" :controls="false" size="small"
+                                 placeholder="不填则跳过" style="width:130px" />
+              </template>
+            </el-table-column>
+            <el-table-column label="结算后每日值" width="140" align="right">
+              <template #default="{ row }">
+                <span v-if="row.actualTotal && settlementPreview" style="color:#57B894;font-weight:bold">
+                  {{ (row.actualTotal / getSettlementDivisor(row.method)).toFixed(2) }}
+                </span>
+                <span v-else style="color:#ccc">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="分摊方式" width="200">
+              <template #default="{ row }">
+                <el-radio-group v-model="row.method" size="small">
+                  <el-radio value="all">所有天</el-radio>
+                  <el-radio value="existing">仅已录入</el-radio>
+                </el-radio-group>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- 区块二：指定日型费用 -->
+        <div v-if="customFields.length > 0">
+          <h4 style="margin:0 0 12px;color:#333;border-bottom:2px solid #7F41C0;padding-bottom:6px;">
+            指定日型费用 <span style="font-size:12px;color:#999;font-weight:normal;">（一次性费用，分摊到指定日期段）</span>
+          </h4>
+          <div v-for="(cf, idx) in customFields" :key="cf.field"
+               style="border:1px solid #e0e0e0;border-radius:6px;padding:12px;margin-bottom:12px;">
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+              <span style="font-weight:bold;color:#333;">{{ cf.label }}</span>
+              <el-input-number v-model="cf.amount" :precision="2" :controls="false" size="small"
+                               placeholder="实际金额" style="width:140px" />
+              <el-button size="small" type="primary" plain @click="openCalendarPicker(cf)">选择日期段</el-button>
+            </div>
+            <!-- 已选日期段标签 -->
+            <div v-if="cf.dateRanges.length > 0" style="display:flex;flex-wrap:wrap;gap:6px;">
+              <el-tag v-for="(dr, drIdx) in cf.dateRanges" :key="drIdx" closable
+                      @close="cf.dateRanges.splice(drIdx, 1)" type="primary" size="small">
+                {{ dr.start.substring(5) }} → {{ dr.end.substring(5) }} × {{ dr.days }}天
+              </el-tag>
+            </div>
+            <div v-if="cf.amount && cf.dateRanges.length > 0" style="margin-top:6px;font-size:12px;color:#57B894;">
+              每天分摊：{{ (cf.amount / getTotalCustomDays(cf)).toFixed(2) }}
+              （共 {{ getTotalCustomDays(cf) }} 天）
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部 -->
+        <template #footer>
+          <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+            <span style="color:#E88EA0;font-size:13px;">&#9888;&#65039; 确认后将覆盖已录入数据，不可撤销</span>
+            <div>
+              <el-button @click="settlementVisible = false">取消</el-button>
+              <el-button type="primary" :loading="settlementSubmitting" @click="executeSettlement"
+                         :disabled="!canExecuteSettlement">
+                确认结算（将更新 {{ getSettlementUpdateCount() }} 条记录）
+              </el-button>
+            </div>
+          </div>
+        </template>
+      </el-dialog>
+
+      <!-- 日历日期段选择器弹窗 -->
+      <el-dialog v-model="calendarPickerVisible" title="选择日期段" width="360px" append-to-body>
+        <div class="settlement-calendar">
+          <div style="text-align:center;margin-bottom:8px;font-weight:bold;">
+            {{ settlementMonth }}
+          </div>
+          <div class="cal-grid">
+            <div class="cal-header" v-for="d in ['一','二','三','四','五','六','日']" :key="d">{{ d }}</div>
+            <div v-for="(day, i) in calendarDays" :key="i"
+                 :class="getCalendarDayClass(day)"
+                 @click="handleCalendarDayClick(day)">
+              {{ day ? day.date : '' }}
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:#999;">
+            点击选起始日，再点击选结束日。周日不可选。
+          </div>
+        </div>
+        <template #footer>
+          <el-button size="small" @click="calendarPickerVisible = false">取消</el-button>
+          <el-button size="small" type="primary" @click="confirmCalendarRange"
+                     :disabled="!calendarStart || !calendarEnd">确认</el-button>
+        </template>
+      </el-dialog>
     </div>
   `,
   data() {
@@ -720,6 +849,21 @@ const DeptRecordsPage = {
       fixedExpenseLoading: false,
       fixedExpenseSaving: false,
       activeFixedTag: '',
+      // 月底结算
+      settlementVisible: false,
+      settlementLoading: false,
+      settlementSubmitting: false,
+      settlementMonth: '',
+      settlementWorkshopId: '',
+      settlementPreview: null,
+      avgFields: [],
+      customFields: [],
+      calendarPickerVisible: false,
+      calendarField: null,
+      calendarStart: null,
+      calendarEnd: null,
+      calendarDays: [],
+      currentCalendarField: null,
       // 导出弹窗
       exportDialogVisible: false,
       exportDateRange: null,
