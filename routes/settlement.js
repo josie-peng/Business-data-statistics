@@ -139,4 +139,68 @@ router.post('/:dept/settlement/avg', authenticate, validateDept, requireStats, a
   res.json({ success: true, updatedCount: recordIds.length });
 }));
 
+// POST /api/:dept/settlement/custom
+// 指定日型结算：金额均分到指定日期段内的非周日记录
+// Body: { workshop_id, items: [{ field, amount, dateRanges: [{start, end}, ...] }] }
+router.post('/:dept/settlement/custom', authenticate, validateDept, requireStats, asyncHandler(async (req, res) => {
+  const { dept } = req.params;
+  const { workshop_id, items } = req.body;
+
+  if (!workshop_id || !items || items.length === 0) {
+    return res.status(400).json({ success: false, message: '参数不完整' });
+  }
+
+  const config = DEPT_CONFIG[dept];
+  let totalUpdated = 0;
+
+  for (const item of items) {
+    const { field, amount, dateRanges } = item;
+    if (!field || !amount || !dateRanges || dateRanges.length === 0) continue;
+
+    // 收集所有非周日日期
+    const allDates = [];
+    for (const range of dateRanges) {
+      const start = new Date(range.start);
+      const end = new Date(range.end);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 0) { // 排除周日
+          allDates.push(d.toISOString().substring(0, 10));
+        }
+      }
+    }
+
+    if (allDates.length === 0) continue;
+
+    const dailyValue = parseFloat(amount) / allDates.length;
+
+    // 更新对应日期的记录
+    const datePlaceholders = allDates.map(() => '?').join(', ');
+    const sql = `UPDATE ${config.tableName}
+                 SET ${field} = ?, updated_by = ?, updated_at = NOW()
+                 WHERE workshop_id = ? AND record_date::date IN (${datePlaceholders})`;
+    const result = await query(sql, [dailyValue, req.user.id, workshop_id, ...allDates]);
+    totalUpdated += result.rowCount || 0;
+
+    // 重算被更新记录的结余
+    const { calculateRecord } = require('../modules/balance/calc');
+    const updatedRows = await getAll(
+      `SELECT id FROM ${config.tableName} WHERE workshop_id = ? AND record_date::date IN (${datePlaceholders})`,
+      [workshop_id, ...allDates]
+    );
+    for (const row of updatedRows) {
+      const current = await getOne(`SELECT * FROM ${config.tableName} WHERE id = ?`, [row.id]);
+      const recalculated = await calculateRecord(dept, current);
+      await query(
+        `UPDATE ${config.tableName} SET balance = ?, balance_ratio = ? WHERE id = ?`,
+        [recalculated.balance, recalculated.balance_ratio, row.id]
+      );
+    }
+  }
+
+  await logAction(req.user.id, req.user.name, 'settlement_custom', config.tableName, null,
+    { workshop_id }, { items: items.map(i => i.field), totalUpdated });
+
+  res.json({ success: true, updatedCount: totalUpdated });
+}));
+
 module.exports = router;
