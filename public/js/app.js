@@ -743,6 +743,7 @@ const DeptRecordsPage = {
         { name: 'gw_base_salary', label: '管工底薪' },
         { name: 'gw_bonus', label: '管工奖金' },
         { name: 'work_days', label: '上班天数' },
+        { name: 'supervisor_count', label: '管工人数' },
       ];
       if (this.dept === 'beer') {
         return [{ name: 'total_machines', label: '总台数' }, { name: 'utility_unit', label: '水电单价' }, ...common];
