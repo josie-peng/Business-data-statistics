@@ -448,7 +448,7 @@ const DeptRecordsPage = {
       </div>
 
       <!-- 导入弹窗 -->
-      <el-dialog v-model="importDialogVisible" title="导入 Excel" width="460px" :close-on-click-modal="false">
+      <el-dialog v-model="importDialogVisible" title="导入 Excel" width="920px" :close-on-click-modal="false">
         <div class="import-dialog-upload" :class="{ dragging: isDragging }"
              @dragover.prevent="isDragging = true"
              @dragleave.prevent="isDragging = false"
@@ -462,7 +462,7 @@ const DeptRecordsPage = {
       </el-dialog>
 
       <!-- 导出弹窗 -->
-      <el-dialog v-model="exportDialogVisible" title="导出 Excel" width="420px" :close-on-click-modal="false">
+      <el-dialog v-model="exportDialogVisible" title="导出 Excel" width="630px" :close-on-click-modal="false">
         <el-form label-width="80px" size="small">
           <el-form-item label="日期范围">
             <el-date-picker v-model="exportDateRange" type="daterange" range-separator="至"
@@ -667,9 +667,9 @@ const DeptRecordsPage = {
             <el-input v-model="gwForm.bonus" placeholder="奖金(月)" size="small" style="width:100px" type="number" />
             <el-date-picker v-model="gwForm.month" type="month" placeholder="选择月份"
                             value-format="YYYY-MM" size="small" style="width:140px" />
-            <el-input v-model="gwForm.workDays" placeholder="上班天数" size="small" style="width:100px" type="number" />
             <el-button type="success" size="small" @click="handleSaveGwForm" :loading="fixedExpenseSaving">保存</el-button>
           </div>
+          <div style="font-size:11px;color:#999;margin-top:4px;">公式：(底薪 + 奖金) / 上班天数 / 汇率。上班天数请用上方快捷标签单独配置。</div>
         </div>
         <el-table :data="fixedExpenseList" border stripe size="small" v-loading="fixedExpenseLoading" max-height="280">
           <el-table-column prop="label" label="名称" width="120" />
@@ -688,7 +688,7 @@ const DeptRecordsPage = {
         </el-table>
         <div style="margin-top:10px;font-size:12px;color:#999;">
           <p>月份填 <b>0000-00</b> 表示半永久（如总台数、底薪），填具体月份（如 2026-03）表示按月生效。</p>
-          <p>公式：房租 = 总房租/上班天数/汇率 | 管工工资 = (底薪+奖金)/上班天数/汇率 | 水电费 = 单价×开机台数/汇率(啤机) 或 总水电费/上班天数/汇率(印喷装配)</p>
+          <p>公式：房租 = 总房租/上班天数/汇率 | 管工工资 = (底薪+奖金)/上班天数/汇率 | 水电费 = 单价×开机台数/汇率(啤机) 或 总水电费/上班天数/汇率(印喷装配)。<b>上班天数</b>影响多项费用计算，请通过快捷标签单独配置。</p>
         </div>
       </el-dialog>
     </div>
@@ -716,7 +716,7 @@ const DeptRecordsPage = {
       fixedExpenseVisible: false,
       fixedExpenseList: [],
       fixedExpenseForm: { name: '', label: '', effective_month: '', value: '', isPermanent: false },
-      gwForm: { baseSalary: '', bonus: '', month: '', workDays: '' },
+      gwForm: { baseSalary: '', bonus: '', month: '' },
       fixedExpenseLoading: false,
       fixedExpenseSaving: false,
       activeFixedTag: '',
@@ -1215,7 +1215,7 @@ const DeptRecordsPage = {
     async showFixedExpenseDialog() {
       this.fixedExpenseVisible = true;
       this.fixedExpenseForm = { name: '', label: '', effective_month: '', value: '', isPermanent: false };
-      this.gwForm = { baseSalary: '', bonus: '', month: '', workDays: '' };
+      this.gwForm = { baseSalary: '', bonus: '', month: '' };
       this.activeFixedTag = '';
       await this.loadFixedExpenses();
     },
@@ -1265,8 +1265,12 @@ const DeptRecordsPage = {
     },
     async handleSaveGwForm() {
       const g = this.gwForm;
-      if (!g.month || !g.workDays) {
-        ElementPlus.ElMessage.warning('请填写月份和上班天数');
+      if (!g.month) {
+        ElementPlus.ElMessage.warning('请填写月份');
+        return;
+      }
+      if (!g.baseSalary && !g.bonus) {
+        ElementPlus.ElMessage.warning('请至少填写底薪或奖金');
         return;
       }
       this.fixedExpenseSaving = true;
@@ -1283,10 +1287,6 @@ const DeptRecordsPage = {
             name: 'gw_bonus', label: '管工奖金', value: g.bonus, effective_month: g.month
           });
         }
-        // 保存上班天数（每月）
-        await API.saveFixedExpense(this.dept, {
-          name: 'work_days', label: '上班天数', value: g.workDays, effective_month: g.month
-        });
         ElementPlus.ElMessage.success('管工工资配置保存成功');
         await this.loadFixedExpenses();
       } catch (err) {
@@ -1599,7 +1599,7 @@ const SummaryPage = {
       </div>
 
       <!-- 导出弹窗 -->
-      <el-dialog v-model="exportDialogVisible" title="导出 Excel" width="420px" :close-on-click-modal="false">
+      <el-dialog v-model="exportDialogVisible" title="导出 Excel" width="630px" :close-on-click-modal="false">
         <el-form label-width="80px" size="small">
           <template v-if="exportMode === 'daily'">
             <el-form-item label="日期范围">
