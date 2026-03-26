@@ -184,29 +184,59 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   color: #fff;
   border-color: var(--primary);
 }
+/* ===== 弹窗内快捷选择按钮（比工具栏版本更大更宽松） ===== */
+.el-dialog .quick-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.el-dialog .quick-btns button {
+  padding: 7px 20px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.el-dialog .quick-btns button:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
 .toolbar-right { margin-left: auto; display: flex; gap: 8px; }
 
-/* ===== 拖拽上传区 ===== */
-.drag-upload {
+/* ===== 导入按钮（天青蓝） ===== */
+.import-btn.el-button {
+  background-color: #5B9BD5 !important;
+  border-color: #5B9BD5 !important;
+  color: #fff !important;
+}
+.import-btn.el-button:hover,
+.import-btn.el-button:focus {
+  background-color: #4A89C0 !important;
+  border-color: #4A89C0 !important;
+  color: #fff !important;
+}
+
+/* ===== 导入弹窗拖拽区 ===== */
+.import-dialog-upload {
   border: 2px dashed var(--border-color);
   border-radius: 8px;
-  padding: 16px 24px;
+  padding: 80px 48px;
   text-align: center;
-  margin-bottom: 16px;
   transition: all 0.3s;
   cursor: pointer;
   background: #fff;
   color: var(--text-secondary);
   font-size: 14px;
 }
-.drag-upload:hover,
-.drag-upload.dragging {
-  border-color: var(--primary);
-  background: rgba(112, 48, 160, 0.04);
-  color: var(--primary);
+.import-dialog-upload:hover,
+.import-dialog-upload.dragging {
+  border-color: #5B9BD5;
+  background: rgba(91, 155, 213, 0.04);
+  color: #5B9BD5;
 }
-.drag-upload .upload-icon { font-size: 28px; margin-bottom: 4px; }
-.drag-upload .upload-text { font-size: 13px; }
+.import-dialog-upload .upload-icon { font-size: 56px; margin-bottom: 16px; }
+.import-dialog-upload .upload-text { font-size: 16px; margin-bottom: 8px; }
+.import-dialog-upload .upload-hint { font-size: 13px; color: var(--text-secondary); }
 
 /* ===== 数据表格 ===== */
 .data-table-wrapper {
@@ -249,13 +279,13 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   font-size: 12px;
 }
 
-/* 可编辑单元格 */
-.cell-editable {
+/* 可编辑单元格（浅黄背景，覆盖斑马纹） */
+.el-table td.el-table__cell.cell-editable {
   background: var(--editable-bg) !important;
   cursor: text;
   position: relative;
 }
-.cell-editable:hover { background: #FFF9C4 !important; }
+.el-table td.el-table__cell.cell-editable:hover { background: #FFF9C4 !important; }
 /* 编辑状态：绝对定位撑满整个 td 单元格 */
 .editing-cell-wrapper {
   position: absolute;
@@ -279,8 +309,8 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   box-sizing: border-box;
 }
 
-/* 计算字段单元格 */
-.cell-calculated {
+/* 计算字段单元格（浅紫背景，覆盖斑马纹） */
+.el-table td.el-table__cell.cell-calculated {
   background: #F3EDF7 !important;
   font-weight: 600;
   color: #6A35A3;
@@ -294,21 +324,26 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 /* ===== 表头批注气泡 ===== */
 .header-note-bubble {
   position: absolute;
-  background: #E88EA0;
-  border: 1px solid #d47a8c;
+  background: #FFFDE7;
+  border: 1px solid #FFD54F;
   border-radius: 8px;
   padding: 8px 12px;
+  font-family: '幼圆', 'YouYuan', 'Microsoft YaHei', sans-serif;
   font-size: 12px;
   line-height: 1.6;
-  color: #fff;
+  color: #333;
   z-index: 999;
   box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
-  max-width: 300px;
+  max-width: 320px;
   white-space: normal;
   pointer-events: none;
 }
-.header-note-bubble .note-full { font-weight: bold; color: #fff; }
-.header-note-bubble .note-formula { color: #ffe0e6; margin-top: 2px; }
+.header-note-bubble .note-full { font-weight: bold; color: #333; margin-bottom: 2px; }
+.header-note-bubble .note-type { font-size: 11px; margin-bottom: 2px; }
+.header-note-bubble .note-type-fixed { color: #3D8361; }
+.header-note-bubble .note-type-calc { color: #6A35A3; }
+.header-note-bubble .note-type-input { color: #B8860B; }
+.header-note-bubble .note-formula { color: #555; margin-top: 2px; font-size: 11px; }
 
 /* ===== 底部固定合计区（紧凑版） ===== */
 .summary-footer {
@@ -995,9 +1030,70 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   border-color: #ffd54f;
 }
 
-/* 固定费用单元格（自动代入，录入员只读） */
-.cell-fixed-expense {
-  background: var(--summary-bg) !important;
-  color: var(--primary);
+/* 固定费用单元格（浅绿背景，覆盖斑马纹） */
+.el-table td.el-table__cell.cell-fixed-expense {
+  background: #E8F5E9 !important;
+  color: #3D8361;
   font-weight: 500;
+}
+
+/* === 月底结算 === */
+.settlement-btn {
+  background: #7F41C0;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+.settlement-btn:hover {
+  background: #6A35A3;
+}
+
+/* 日历网格 */
+.settlement-calendar .cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+.settlement-calendar .cal-header {
+  font-size: 12px;
+  color: #999;
+  padding: 4px 0;
+}
+.settlement-calendar .cal-day {
+  padding: 6px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+.settlement-calendar .cal-day:hover {
+  background: #F0E6F6;
+}
+.settlement-calendar .cal-empty {
+  padding: 6px 0;
+}
+.settlement-calendar .cal-sunday {
+  color: #ccc;
+  cursor: not-allowed;
+}
+.settlement-calendar .cal-disabled {
+  pointer-events: none;
+  opacity: 0.4;
+}
+.settlement-calendar .cal-no-record {
+  color: #bbb;
+}
+.settlement-calendar .cal-selected-start,
+.settlement-calendar .cal-selected-end {
+  background: #7F41C0;
+  color: #fff;
+}
+.settlement-calendar .cal-in-range {
+  background: #F0E6F6;
+  color: #7F41C0;
 }
