@@ -1418,7 +1418,7 @@ const SummaryPage = {
               value-format="YYYY-MM" @change="loadDailyData" style="width:130px" />
             <el-date-picker v-model="dailyDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="small"
               value-format="YYYY-MM-DD" @change="filterDailyByRange" style="width:240px" clearable />
-            <el-button type="success" size="small" @click="handleTableExport">导出Excel</el-button>
+            <el-button type="success" size="small" @click="showExportDialog('daily')">导出Excel</el-button>
           </div>
 
           <!-- 月度合计卡 -->
@@ -1522,7 +1522,7 @@ const SummaryPage = {
           <div class="toolbar">
             <el-date-picker v-model="monthlyMonth" type="month" placeholder="选择月份" size="small"
               value-format="YYYY-MM" @change="loadMonthlyData" style="width:130px" />
-            <el-button type="success" size="small" @click="handleTableExport">导出Excel</el-button>
+            <el-button type="success" size="small" @click="showExportDialog('monthly')">导出Excel</el-button>
           </div>
 
           <template v-if="monthlyData.current">
@@ -1597,6 +1597,37 @@ const SummaryPage = {
           <div v-if="!monthlyData.current && !monthlyLoading" style="text-align:center; padding:40px; color:#999;">暂无数据，请选择月份</div>
         </div>
       </div>
+
+      <!-- 导出弹窗 -->
+      <el-dialog v-model="exportDialogVisible" title="导出 Excel" width="420px" :close-on-click-modal="false">
+        <el-form label-width="80px" size="small">
+          <template v-if="exportMode === 'daily'">
+            <el-form-item label="日期范围">
+              <el-date-picker v-model="exportDateRange" type="daterange" range-separator="至"
+                start-placeholder="开始日期" end-placeholder="结束日期"
+                value-format="YYYY-MM-DD" style="width:100%" />
+            </el-form-item>
+            <el-form-item label="快捷选择">
+              <div class="quick-btns">
+                <button type="button" @click="setExportQuickRange('7d')">近7天</button>
+                <button type="button" @click="setExportQuickRange('month')">本月</button>
+                <button type="button" @click="setExportQuickRange('lastMonth')">上月</button>
+              </div>
+            </el-form-item>
+          </template>
+          <template v-if="exportMode === 'monthly'">
+            <el-form-item label="月份范围">
+              <el-date-picker v-model="exportMonthRange" type="monthrange" range-separator="至"
+                start-placeholder="开始月份" end-placeholder="结束月份"
+                value-format="YYYY-MM" style="width:100%" />
+            </el-form-item>
+          </template>
+        </el-form>
+        <template #footer>
+          <el-button size="small" @click="exportDialogVisible = false">取消</el-button>
+          <el-button type="success" size="small" @click="confirmTableExport">确认导出</el-button>
+        </template>
+      </el-dialog>
     </div>
   `,
   data() {
@@ -1624,7 +1655,12 @@ const SummaryPage = {
       // 按月汇总
       monthlyMonth: now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'),
       monthlyLoading: false,
-      monthlyData: { current: null, comparison: null }
+      monthlyData: { current: null, comparison: null },
+      // 导出弹窗
+      exportDialogVisible: false,
+      exportMode: '',
+      exportDateRange: null,
+      exportMonthRange: null
     };
   },
   computed: {
@@ -1850,35 +1886,80 @@ const SummaryPage = {
       return val >= 0 ? 'val-positive' : 'val-negative';
     },
 
-    // ===== 导出 =====
-    handleTableExport() {
+    // ===== 导出弹窗 =====
+    showExportDialog(mode) {
+      this.exportMode = mode;
+      if (mode === 'daily') {
+        this.exportDateRange = this.dailyDateRange ? [...this.dailyDateRange] : null;
+      } else {
+        this.exportMonthRange = this.monthlyMonth ? [this.monthlyMonth, this.monthlyMonth] : null;
+      }
+      this.exportDialogVisible = true;
+    },
+    // 快捷日期按钮（按日汇总导出用）
+    setExportQuickRange(type) {
+      const now = new Date();
+      let start, end;
+      if (type === '7d') {
+        end = new Date(now);
+        start = new Date(now);
+        start.setDate(start.getDate() - 6);
+      } else if (type === 'month') {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      } else if (type === 'lastMonth') {
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0);
+      }
+      const fmt = d => d.toISOString().substring(0, 10);
+      this.exportDateRange = [fmt(start), fmt(end)];
+    },
+    // 确认导出：根据模式调用不同的导出方法
+    async confirmTableExport() {
       try {
-        if (this.tableView === 'daily') {
-          this.exportDaily();
+        if (this.exportMode === 'daily') {
+          await this.exportDailyWithRange();
         } else {
-          this.exportMonthly();
+          await this.exportMonthlyWithRange();
         }
+        this.exportDialogVisible = false;
       } catch (err) {
         ElementPlus.ElMessage.error('导出失败: ' + (err.message || '未知错误'));
       }
     },
-
-    exportDaily() {
-      const data = this.dailyData;
+    // 按日汇总导出：用弹窗选择的日期范围过滤数据
+    async exportDailyWithRange() {
+      const params = { dept: this.dailyDept };
+      if (this.exportDateRange && this.exportDateRange[0]) {
+        params.month = this.exportDateRange[0].substring(0, 7);
+      } else if (this.dailyMonth) {
+        params.month = this.dailyMonth;
+      } else {
+        ElementPlus.ElMessage.warning('请选择日期范围');
+        return;
+      }
+      const res = await API.getSummaryDaily(params);
+      const data = res.data || res;
       if (!data.monthly) { ElementPlus.ElMessage.warning('无数据可导出'); return; }
+
       const cols = data.columns || [];
       const rows = [];
-      // 月度合计
+      // 月度合计行
       for (const ws of data.monthly.workshops) {
-        const row = { '类型': '月度合计', '日期': this.dailyMonth, '车间': ws.workshop_name };
+        const row = { '类型': '月度合计', '日期': params.month, '车间': ws.workshop_name };
         cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
         row['费用合计'] = ws.total_expense ?? '';
         row['结余'] = ws.balance ?? '';
         row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
         rows.push(row);
       }
-      // 每日明细
-      for (const card of data.daily) {
+      // 每日明细（按弹窗日期范围过滤）
+      let dailyCards = data.daily || [];
+      if (this.exportDateRange && this.exportDateRange[0]) {
+        const [start, end] = this.exportDateRange;
+        dailyCards = dailyCards.filter(card => card.date >= start && card.date <= end);
+      }
+      for (const card of dailyCards) {
         for (const ws of card.workshops) {
           const row = { '类型': '每日', '日期': card.date, '车间': ws.workshop_name };
           cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
@@ -1888,34 +1969,58 @@ const SummaryPage = {
           rows.push(row);
         }
       }
+
+      const deptLabel = this.currentDeptLabel;
       const wsSheet = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
-      const deptLabel = this.currentDeptLabel;
       XLSX.utils.book_append_sheet(wb, wsSheet, deptLabel);
-      XLSX.writeFile(wb, `按日汇总_${deptLabel}_${this.dailyMonth}.xlsx`);
+      const rangeStr = this.exportDateRange ? `${this.exportDateRange[0]}_${this.exportDateRange[1]}` : params.month;
+      XLSX.writeFile(wb, `按日汇总_${deptLabel}_${rangeStr}.xlsx`);
       ElementPlus.ElMessage.success('导出成功');
     },
-
-    exportMonthly() {
-      const data = this.monthlyData;
-      if (!data.current) { ElementPlus.ElMessage.warning('无数据可导出'); return; }
-      const rows = [];
-      const allDepts = [...data.current.departments, data.current.total];
-      for (const d of allDepts) {
-        rows.push({
-          '部门': d.label, '总产值': d.daily_output,
-          '员工工资': d.worker_wage, '管工工资': d.supervisor_wage,
-          '房租': d.rent, '水电费': d.utility_fee,
-          '社保': d.social_insurance, '税收': d.tax,
-          '其他费用': d.other_expense, '费用合计': d.total_expense,
-          '结余': d.balance,
-          '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(1) + '%' : ''
-        });
+    // 按月汇总导出：支持跨月范围，每月一个 Sheet
+    async exportMonthlyWithRange() {
+      if (!this.exportMonthRange || !this.exportMonthRange[0]) {
+        ElementPlus.ElMessage.warning('请选择月份范围');
+        return;
       }
-      const wsSheet = XLSX.utils.json_to_sheet(rows);
+      const [startMonth, endMonth] = this.exportMonthRange;
+      // 生成月份列表
+      const months = [];
+      let cur = startMonth;
+      while (cur <= endMonth) {
+        months.push(cur);
+        const [y, m] = cur.split('-').map(Number);
+        const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+        cur = next;
+      }
+
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, wsSheet, '按月汇总');
-      XLSX.writeFile(wb, `按月汇总_${this.monthlyMonth}.xlsx`);
+      for (const month of months) {
+        const res = await API.getSummaryMonthly({ month });
+        const data = res.data || res;
+        if (!data.current) continue;
+        const rows = [];
+        const allDepts = [...data.current.departments, data.current.total];
+        for (const d of allDepts) {
+          rows.push({
+            '部门': d.label, '总产值': d.daily_output,
+            '员工工资': d.worker_wage, '管工工资': d.supervisor_wage,
+            '房租': d.rent, '水电费': d.utility_fee,
+            '社保': d.social_insurance, '税收': d.tax,
+            '其他费用': d.other_expense, '费用合计': d.total_expense,
+            '结余': d.balance,
+            '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(1) + '%' : ''
+          });
+        }
+        const wsSheet = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, wsSheet, month);
+      }
+      if (wb.SheetNames.length === 0) {
+        ElementPlus.ElMessage.warning('所选月份范围无数据');
+        return;
+      }
+      XLSX.writeFile(wb, `按月汇总_${startMonth}_${endMonth}.xlsx`);
       ElementPlus.ElMessage.success('导出成功');
     }
   }
