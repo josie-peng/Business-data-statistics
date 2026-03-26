@@ -132,6 +132,11 @@ function applyFixedExpenses(dept, record, fixedConfig, exchangeRate) {
     result.total_machines = fixedConfig.total_machines;
   }
 
+  // 管工人数（半永久，直接代入，不受汇率影响）
+  if (fixedConfig.supervisor_count) {
+    result.supervisor_count = fixedConfig.supervisor_count;
+  }
+
   // 房租 = 总房租 / 上班天数 / 汇率
   if (fixedConfig.rent && workDays > 0 && exchangeRate > 0) {
     result.rent = fixedConfig.rent / workDays / exchangeRate;

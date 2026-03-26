@@ -15,7 +15,7 @@ module.exports = {
 
   // 所有部门共享的输入字段
   sharedFields: [
-    { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false },
+    { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false, fixedExpense: true },
     { field: 'worker_count', label: '员工人数', type: 'integer', input: true, expense: false,
       aliases: ['员工人数(不包杂工)'] },
     { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false, currency: true,
@@ -55,7 +55,7 @@ module.exports = {
       sharedFieldAliases: {},
       uniqueFields: [
         // 台数组
-        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false, fixedExpense: true },
+        { field: 'total_machines', label: '总台数', type: 'number', input: true, expense: false, fixedExpense: true },
         { field: 'running_machines', label: '开机台数', type: 'number', calc: true },
         { field: 'run_hours', label: '开机时间', type: 'number', input: true, expense: false },
         { field: 'machine_rate', label: '开机率', type: 'ratio', calc: true,
@@ -108,15 +108,15 @@ module.exports = {
       },
       uniqueFields: [
         // 台数组
-        { field: 'pad_total_machines', label: '移印机总台数', type: 'integer', input: true, expense: false,
+        { field: 'pad_total_machines', label: '移印机总台数', type: 'number', input: true, expense: false,
           aliases: ['移印总台数', '移印机总台数'] },
-        { field: 'pad_running_machines', label: '每天开机台数', type: 'integer', input: true, expense: false,
+        { field: 'pad_running_machines', label: '每天开机台数', type: 'number', input: true, expense: false,
           aliases: ['移印开机台数'] },
         { field: 'pad_machine_rate', label: '移印开机率', type: 'ratio', calc: true,
           skipAliases: ['开机率'] },
-        { field: 'spray_total_machines', label: '喷油机总台数', type: 'integer', input: true, expense: false,
+        { field: 'spray_total_machines', label: '喷油机总台数', type: 'number', input: true, expense: false,
           aliases: ['喷油总台数', '喷油机总台数'] },
-        { field: 'spray_running_machines', label: '每天开机台数_1', type: 'integer', input: true, expense: false },
+        { field: 'spray_running_machines', label: '每天开机台数_1', type: 'number', input: true, expense: false },
         { field: 'spray_machine_rate', label: '喷油开机率', type: 'ratio', calc: true,
           skipAliases: ['开机率_1'] },
         // 人数组
