@@ -893,6 +893,12 @@ const DeptRecordsPage = {
         return [{ name: 'total_machines', label: '总台数' }, { name: 'utility_unit', label: '水电单价' }, ...common];
       }
       return [{ name: 'utility_total', label: '总水电费' }, ...common];
+    },
+    canExecuteSettlement() {
+      if (!this.settlementPreview) return false;
+      const hasAvg = this.avgFields.some(f => f.actualTotal != null && f.actualTotal !== '');
+      const hasCustom = this.customFields.some(f => f.amount && f.dateRanges.length > 0);
+      return hasAvg || hasCustom;
     }
   },
   watch: {
@@ -1456,6 +1462,303 @@ const DeptRecordsPage = {
       this.activeFixedTag = name;
       this.fixedExpenseForm.name = name;
       this.fixedExpenseForm.label = label;
+    },
+
+    // === 月底结算 ===
+    async showSettlementDialog() {
+      this.settlementVisible = true;
+      this.settlementMonth = '';
+      this.settlementWorkshopId = '';
+      this.settlementPreview = null;
+      this.avgFields = [];
+      this.customFields = [];
+    },
+
+    async loadSettlementPreview() {
+      if (!this.settlementMonth || !this.settlementWorkshopId) return;
+      this.settlementLoading = true;
+      try {
+        const res = await API.getSettlementPreview(this.dept, {
+          month: this.settlementMonth,
+          workshop_id: this.settlementWorkshopId
+        });
+        this.settlementPreview = res.data;
+        this.initSettlementFields();
+      } catch (err) {
+        ElementPlus.ElMessage.error('加载预览失败: ' + (err.message || ''));
+      } finally {
+        this.settlementLoading = false;
+      }
+    },
+
+    initSettlementFields() {
+      // 均摊型字段（fixedExpense: true 的费用字段）
+      const AVG_EXPENSE_FIELDS = [
+        { field: 'supervisor_wage', label: '管工工资/天' },
+        { field: 'rent', label: '房租' },
+        { field: 'utility_fee', label: '水电费' },
+        { field: 'social_insurance', label: '社保' },
+        { field: 'tax', label: '税收' },
+      ];
+      // 指定日型字段（非 fixedExpense 的共享费用字段）
+      const CUSTOM_EXPENSE_FIELDS = [
+        { field: 'tool_investment', label: '工具投资' },
+        { field: 'equipment', label: '设备' },
+        { field: 'renovation', label: '装修' },
+        { field: 'misc_fee', label: '杂费' },
+        { field: 'shipping_fee', label: '运费' },
+      ];
+
+      // 部门独有费用字段（指定日型）
+      const deptCustom = {
+        beer: [
+          { field: 'misc_worker_wage', label: '杂工工资/天' },
+          { field: 'machine_repair', label: '机器维修' },
+          { field: 'mold_repair', label: '模具维修' },
+          { field: 'materials', label: '物料' },
+          { field: 'material_supplement', label: '原料补料' },
+          { field: 'gate_processing_fee', label: '批水口加工费' },
+          { field: 'assembly_gate_parts_fee', label: '装配批水口配件费' },
+          { field: 'outsource_nozzle', label: '外发水口' },
+        ],
+        print: [
+          { field: 'repair_fee', label: '维修费' },
+          { field: 'materials', label: '物料' },
+          { field: 'oil_water_amount', label: '油水金额' },
+          { field: 'subsidy', label: '补贴' },
+          { field: 'actual_material', label: '实际用料' },
+          { field: 'no_output_wage', label: '无产值工资' },
+          { field: 'assembly_wage_paid', label: '付装配工资' },
+          { field: 'office_wage', label: '做办工资' },
+          { field: 'non_recoverable_tool_fee', label: '不可回收工具费' },
+          { field: 'auto_mold_fee', label: '自动机模费' },
+          { field: 'hunan_mold_fee', label: '发湖南模费' },
+          { field: 'indonesia_mold_fee', label: '发印尼模费' },
+        ],
+        assembly: [
+          { field: 'actual_wage', label: '实际总工资' },
+          { field: 'hunan_social_insurance', label: '湖南社保' },
+          { field: 'hunan_tax', label: '湖南税收' },
+          { field: 'workshop_repair', label: '车间维修费' },
+          { field: 'electrical_repair', label: '机电部维修费' },
+          { field: 'workshop_materials', label: '车间物料费' },
+          { field: 'stretch_film', label: '拉伸膜' },
+          { field: 'tape', label: '胶纸' },
+          { field: 'workshop_tool_investment', label: '车间工具投资' },
+          { field: 'fixture_tool_investment', label: '夹具部工具投资' },
+          { field: 'supplement', label: '补料' },
+          { field: 'borrowed_worker_wage', label: '外借人员工资' },
+        ]
+      };
+
+      this.avgFields = AVG_EXPENSE_FIELDS.map(f => ({
+        field: f.field,
+        label: f.label,
+        currentTotal: null,
+        actualTotal: null,
+        method: 'all'
+      }));
+
+      this.customFields = [...CUSTOM_EXPENSE_FIELDS, ...(deptCustom[this.dept] || [])].map(f => ({
+        field: f.field,
+        label: f.label,
+        amount: null,
+        dateRanges: []
+      }));
+
+      // 加载当前月度总额
+      this.loadCurrentTotals();
+    },
+
+    async loadCurrentTotals() {
+      try {
+        const [year, mon] = this.settlementMonth.split('-');
+        const startDate = `${year}-${mon}-01`;
+        const lastDay = new Date(parseInt(year), parseInt(mon), 0).getDate();
+        const endDate = `${year}-${mon}-${String(lastDay).padStart(2, '0')}`;
+
+        const res = await API.get(`/${this.dept}/records`, {
+          start_date: startDate,
+          end_date: endDate,
+          workshop_id: this.settlementWorkshopId
+        });
+        const records = res.data || [];
+
+        // 对均摊型字段求和得到当前月度总额
+        for (const af of this.avgFields) {
+          af.currentTotal = records.reduce((sum, r) => sum + (parseFloat(r[af.field]) || 0), 0);
+        }
+      } catch (err) {
+        console.warn('加载当前总额失败:', err);
+      }
+    },
+
+    getSettlementDivisor(method) {
+      if (!this.settlementPreview) return 1;
+      if (method === 'existing') {
+        return this.settlementPreview.totalRecords - this.settlementPreview.sundayCount || 1;
+      }
+      return this.settlementPreview.totalRecords || 1;
+    },
+
+    getTotalCustomDays(cf) {
+      return cf.dateRanges.reduce((sum, dr) => sum + dr.days, 0) || 1;
+    },
+
+    getSettlementUpdateCount() {
+      if (!this.settlementPreview) return 0;
+      return this.settlementPreview.totalRecords;
+    },
+
+    // === 日历选择器 ===
+    openCalendarPicker(cf) {
+      if (!this.settlementMonth) {
+        ElementPlus.ElMessage.warning('请先选择月份');
+        return;
+      }
+      this.currentCalendarField = cf;
+      this.calendarStart = null;
+      this.calendarEnd = null;
+      this.buildCalendarDays();
+      this.calendarPickerVisible = true;
+    },
+
+    buildCalendarDays() {
+      const [year, mon] = this.settlementMonth.split('-').map(Number);
+      const firstDay = new Date(year, mon - 1, 1);
+      const lastDay = new Date(year, mon, 0).getDate();
+      // 周一 = 0 的偏移 (JS getDay: 0=日, 1=一 ... 6=六)
+      let startOffset = firstDay.getDay() - 1;
+      if (startOffset < 0) startOffset = 6; // 周日变成最后一列
+
+      const days = [];
+      // 补空位
+      for (let i = 0; i < startOffset; i++) days.push(null);
+      // 填日期
+      for (let d = 1; d <= lastDay; d++) {
+        const dateObj = new Date(year, mon - 1, d);
+        const isSunday = dateObj.getDay() === 0;
+        const dateStr = `${year}-${String(mon).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const hasRecord = this.settlementPreview?.recordDates?.some(rd =>
+          rd.substring(0, 10) === dateStr
+        );
+        days.push({
+          date: d,
+          dateStr,
+          isSunday,
+          hasRecord,
+          disabled: isSunday
+        });
+      }
+      this.calendarDays = days;
+    },
+
+    getCalendarDayClass(day) {
+      if (!day) return 'cal-empty';
+      const classes = ['cal-day'];
+      if (day.isSunday) classes.push('cal-sunday');
+      if (day.disabled) classes.push('cal-disabled');
+      if (!day.hasRecord) classes.push('cal-no-record');
+      if (this.calendarStart && day.dateStr === this.calendarStart) classes.push('cal-selected-start');
+      if (this.calendarEnd && day.dateStr === this.calendarEnd) classes.push('cal-selected-end');
+      if (this.calendarStart && this.calendarEnd &&
+          day.dateStr > this.calendarStart && day.dateStr < this.calendarEnd) {
+        classes.push('cal-in-range');
+      }
+      return classes.join(' ');
+    },
+
+    handleCalendarDayClick(day) {
+      if (!day || day.disabled) return;
+      if (!this.calendarStart) {
+        this.calendarStart = day.dateStr;
+        this.calendarEnd = null;
+      } else if (!this.calendarEnd) {
+        if (day.dateStr < this.calendarStart) {
+          this.calendarStart = day.dateStr;
+        } else {
+          this.calendarEnd = day.dateStr;
+        }
+      } else {
+        this.calendarStart = day.dateStr;
+        this.calendarEnd = null;
+      }
+    },
+
+    confirmCalendarRange() {
+      if (!this.calendarStart || !this.calendarEnd || !this.currentCalendarField) return;
+      // 计算非周日天数
+      let days = 0;
+      const start = new Date(this.calendarStart);
+      const end = new Date(this.calendarEnd);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 0) days++;
+      }
+      this.currentCalendarField.dateRanges.push({
+        start: this.calendarStart,
+        end: this.calendarEnd,
+        days
+      });
+      this.calendarPickerVisible = false;
+    },
+
+    // === 执行结算 ===
+    async executeSettlement() {
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '确认执行月底结算？此操作将覆盖已录入数据，不可撤销。',
+          '确认结算',
+          { type: 'warning', confirmButtonText: '确认结算', cancelButtonText: '取消' }
+        );
+      } catch { return; }
+
+      this.settlementSubmitting = true;
+      try {
+        let totalUpdated = 0;
+
+        // 执行均摊型结算
+        const avgPayload = {};
+        for (const f of this.avgFields) {
+          if (f.actualTotal != null && f.actualTotal !== '') {
+            avgPayload[f.field] = f.actualTotal;
+          }
+        }
+        if (Object.keys(avgPayload).length > 0) {
+          // 取第一个有值的字段的 method（均摊型字段共用同一个 method）
+          const method = this.avgFields.find(f => avgPayload[f.field])?.method || 'all';
+          const res = await API.settlementAvg(this.dept, {
+            month: this.settlementMonth,
+            workshop_id: this.settlementWorkshopId,
+            fields: avgPayload,
+            method
+          });
+          totalUpdated += res.updatedCount || 0;
+        }
+
+        // 执行指定日型结算
+        const customItems = this.customFields
+          .filter(f => f.amount && f.dateRanges.length > 0)
+          .map(f => ({
+            field: f.field,
+            amount: f.amount,
+            dateRanges: f.dateRanges.map(dr => ({ start: dr.start, end: dr.end }))
+          }));
+        if (customItems.length > 0) {
+          const res = await API.settlementCustom(this.dept, {
+            workshop_id: this.settlementWorkshopId,
+            items: customItems
+          });
+          totalUpdated += res.updatedCount || 0;
+        }
+
+        ElementPlus.ElMessage.success(`结算完成，共更新 ${totalUpdated} 条记录`);
+        this.settlementVisible = false;
+        this.loadRecords();
+      } catch (err) {
+        ElementPlus.ElMessage.error('结算失败: ' + (err.message || ''));
+      } finally {
+        this.settlementSubmitting = false;
+      }
     }
   }
 };
