@@ -34,7 +34,7 @@ const zhCnLocale = {
 // ===== 部门配置 =====
 const DEPT_CONFIG = {
   beer: { key: 'beer', name: '啤机部', uniqueFields: [
-    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
+    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'number', fixedExpense: true, formula: '固定配置值，直接代入' },
     { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', calculated: true, type: 'number', formula: '开机时间 / 24' },
     { field: 'run_hours', label: '开机时间', shortLabel: '开机时间', editable: true, type: 'number' },
     { field: 'machine_rate', label: '开机率', shortLabel: '开机率', editable: false, type: 'ratio', calculated: true, formula: '开机台数 / 总台数' },
@@ -58,11 +58,11 @@ const DEPT_CONFIG = {
     { field: 'recoverable_gate_fee', label: '可回收批水口费', shortLabel: '回收水口', editable: true, type: 'number' },
   ]},
   print: { key: 'print', name: '印喷部', uniqueFields: [
-    { field: 'pad_total_machines', label: '移印机总台数', shortLabel: '移印台数', editable: true, type: 'integer' },
-    { field: 'pad_running_machines', label: '移印开机台数', shortLabel: '移印开机', editable: true, type: 'integer' },
+    { field: 'pad_total_machines', label: '移印机总台数', shortLabel: '移印台数', editable: true, type: 'number' },
+    { field: 'pad_running_machines', label: '移印开机台数', shortLabel: '移印开机', editable: true, type: 'number' },
     { field: 'pad_machine_rate', label: '移印开机率', shortLabel: '移印机率', editable: false, type: 'ratio', calculated: true, formula: '移印开机台数 / 移印总台数' },
-    { field: 'spray_total_machines', label: '喷油机总台数', shortLabel: '喷油台数', editable: true, type: 'integer' },
-    { field: 'spray_running_machines', label: '喷油开机台数', shortLabel: '喷油开机', editable: true, type: 'integer' },
+    { field: 'spray_total_machines', label: '喷油机总台数', shortLabel: '喷油台数', editable: true, type: 'number' },
+    { field: 'spray_running_machines', label: '喷油开机台数', shortLabel: '喷油开机', editable: true, type: 'number' },
     { field: 'spray_machine_rate', label: '喷油开机率', shortLabel: '喷油机率', editable: false, type: 'ratio', calculated: true, formula: '喷油开机台数 / 喷油总台数' },
     { field: 'misc_workers', label: '杂工人数', shortLabel: '杂工人数', editable: true, type: 'integer' },
     { field: 'work_hours', label: '员工工时', shortLabel: '员工工时', editable: true, type: 'number' },
@@ -298,7 +298,7 @@ function getMonthRange(offset = 0) {
 }
 
 // getDeptColumns: 按逻辑分组拼接共有字段和独有字段
-// 顺序：台数→人数→时间→产值→工资→共有费用→结余→独有费用→备注
+// 顺序：台数→人数→时间→产值→工资→共有费用→独有费用→结余/结余%→不参与结余的字段→备注
 const FIELD_GROUP_MACHINE = ['total_machines', 'running_machines', 'run_hours', 'machine_rate',
   'pad_total_machines', 'pad_running_machines', 'pad_machine_rate',
   'spray_total_machines', 'spray_running_machines', 'spray_machine_rate'];
@@ -306,6 +306,28 @@ const FIELD_GROUP_PEOPLE = ['misc_workers', 'gate_workers'];
 const FIELD_GROUP_TIME = ['work_hours', 'total_hours'];
 const FIELD_GROUP_OUTPUT = ['output_tax_incl', 'per_capita_output', 'avg_output_per_machine', 'avg_output_per_worker'];
 const FIELD_GROUP_WAGE = ['misc_worker_wage', 'wage_ratio', 'planned_wage_tax', 'actual_wage'];
+// 不参与结余公式、应放在结余后面的字段
+const FIELD_GROUP_AFTER_BALANCE = new Set([
+  // 结余衍生字段（由结余计算而来）
+  'avg_balance_per_machine', 'balance_minus_tape', 'balance_tape_ratio', 'total_ratio',
+  // 不参与结余公式
+  'recoverable_electricity',
+  // 装配部：胶纸、外借人员、工具投资占比（不在结余公式中）
+  'tape', 'borrowed_worker_wage', 'borrowed_wage_ratio', 'tool_invest_ratio',
+  // 印喷部：做办工资及占比、模费及占比（不在结余公式中）
+  'office_wage', 'office_wage_ratio',
+  'auto_mold_fee', 'mold_fee_ratio',
+  'hunan_mold_fee', 'hunan_mold_ratio',
+  'indonesia_mold_fee', 'indonesia_mold_ratio',
+  // 非费用输入（不在结余公式中）
+  'scrap_income', 'excess_material',
+  // 不参与结余的计算字段
+  'estimated_tax',
+  // 外发组（独立核算，不参与车间结余）
+  'outsource_output', 'outsource_profit', 'outsource_profit_ratio',
+  'outsource_tax', 'total_profit', 'profit_ratio_ex_tax', 'profit_ratio_inc_tax',
+  'outsource_planned_wage', 'outsource_actual_wage', 'outsource_wage_balance', 'outsource_balance_ratio',
+]);
 
 function getDeptColumns(dept) {
   const config = DEPT_CONFIG[dept];
@@ -317,14 +339,15 @@ function getDeptColumns(dept) {
   const filterShared = (arr) => excludeSet.size > 0 ? arr.filter(f => !excludeSet.has(f.field)) : arr;
 
   // 按字段名分类到对应分组
-  const groups = { machines: [], people: [], time: [], output: [], wage: [], afterBalance: [] };
+  const groups = { machines: [], people: [], time: [], output: [], wage: [], uniqueExpense: [], afterBalance: [] };
   for (const f of unique) {
     if (FIELD_GROUP_MACHINE.includes(f.field)) groups.machines.push(f);
     else if (FIELD_GROUP_PEOPLE.includes(f.field)) groups.people.push(f);
     else if (FIELD_GROUP_TIME.includes(f.field)) groups.time.push(f);
     else if (FIELD_GROUP_OUTPUT.includes(f.field)) groups.output.push(f);
     else if (FIELD_GROUP_WAGE.includes(f.field)) groups.wage.push(f);
-    else groups.afterBalance.push(f);
+    else if (FIELD_GROUP_AFTER_BALANCE.has(f.field)) groups.afterBalance.push(f);
+    else groups.uniqueExpense.push(f);
   }
 
   return [
@@ -334,6 +357,7 @@ function getDeptColumns(dept) {
     ...filterShared(SHARED_OUTPUT), ...groups.output,
     ...filterShared(SHARED_WAGE), ...groups.wage,
     ...filterShared(SHARED_EXPENSE),
+    ...groups.uniqueExpense,
     ...filterShared(SHARED_BALANCE),
     ...groups.afterBalance,
     REMARK_COLUMN
@@ -403,17 +427,6 @@ const DeptRecordsPage = {
   props: ['dept'],
   template: `
     <div class="dept-records-page">
-      <!-- 拖拽上传区 -->
-      <div class="drag-upload" :class="{ dragging: isDragging }"
-           @dragover.prevent="isDragging = true"
-           @dragleave.prevent="isDragging = false"
-           @drop.prevent="handleDrop"
-           @click="triggerFileInput">
-        <div class="upload-icon">📁</div>
-        <div class="upload-text">拖入 Excel 文件导入数据，或点击上传</div>
-        <input type="file" ref="fileInput" style="display:none" accept=".xlsx,.xls" @change="handleFileSelect" />
-      </div>
-
       <!-- 工具栏 -->
       <div class="toolbar">
         <el-date-picker v-model="dateRange" type="daterange" range-separator="-"
@@ -428,10 +441,55 @@ const DeptRecordsPage = {
           <el-option v-for="w in workshopList" :key="w.id" :label="w.name" :value="w.id" />
         </el-select>
         <el-button type="primary" size="small" @click="showAddDialog">+ 新增</el-button>
-        <el-button type="success" size="small" @click="handleExport">导出Excel</el-button>
+        <el-button class="import-btn" size="small" @click="importDialogVisible = true">导入Excel</el-button>
+        <el-button type="success" size="small" @click="showExportDialog">导出Excel</el-button>
         <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</el-button>
         <button class="fixed-expense-btn" @click="showFixedExpenseDialog" v-if="currentDept">&#9881; 固定费用配置</button>
       </div>
+
+      <!-- 导入弹窗 -->
+      <el-dialog v-model="importDialogVisible" title="导入 Excel" width="460px" :close-on-click-modal="false">
+        <div class="import-dialog-upload" :class="{ dragging: isDragging }"
+             @dragover.prevent="isDragging = true"
+             @dragleave.prevent="isDragging = false"
+             @drop.prevent="handleDrop"
+             @click="triggerFileInput">
+          <div class="upload-icon">📁</div>
+          <div class="upload-text">拖入 Excel 文件，或点击选择文件</div>
+          <div class="upload-hint">支持 .xlsx、.xls 格式</div>
+          <input type="file" ref="fileInput" style="display:none" accept=".xlsx,.xls" @change="handleFileSelect" />
+        </div>
+      </el-dialog>
+
+      <!-- 导出弹窗 -->
+      <el-dialog v-model="exportDialogVisible" title="导出 Excel" width="420px" :close-on-click-modal="false">
+        <el-form label-width="80px" size="small">
+          <el-form-item label="日期范围">
+            <el-date-picker v-model="exportDateRange" type="daterange" range-separator="至"
+              start-placeholder="开始日期" end-placeholder="结束日期"
+              value-format="YYYY-MM-DD" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="快捷选择">
+            <div class="quick-btns">
+              <button type="button" @click="setExportQuickRange('7d')">近7天</button>
+              <button type="button" @click="setExportQuickRange('month')">本月</button>
+              <button type="button" @click="setExportQuickRange('lastMonth')">上月</button>
+            </div>
+          </el-form-item>
+          <el-form-item label="车间">
+            <el-select v-model="exportWorkshopId" placeholder="全部车间" clearable style="width:100%">
+              <el-option v-for="w in workshopList" :key="w.id" :label="w.name" :value="w.id" />
+            </el-select>
+          </el-form-item>
+          <div style="color:#999; font-size:12px; margin: -8px 0 12px 80px;">
+            未选车间则导出所有车间数据（含无数据车间）
+          </div>
+        </el-form>
+        <template #footer>
+          <el-button size="small" @click="exportDialogVisible = false">取消</el-button>
+          <el-button type="success" size="small" @click="confirmExport">确认导出</el-button>
+        </template>
+      </el-dialog>
 
       <!-- 数据表格 -->
       <div class="data-table-wrapper">
@@ -646,6 +704,7 @@ const DeptRecordsPage = {
       selectedRows: [],
       editingCell: { rowId: null, field: null },
       isDragging: false,
+      importDialogVisible: false,
       addDialogVisible: false,
       addForm: {},
       newRowId: null,
@@ -660,7 +719,11 @@ const DeptRecordsPage = {
       gwForm: { baseSalary: '', bonus: '', month: '', workDays: '' },
       fixedExpenseLoading: false,
       fixedExpenseSaving: false,
-      activeFixedTag: ''
+      activeFixedTag: '',
+      // 导出弹窗
+      exportDialogVisible: false,
+      exportDateRange: null,
+      exportWorkshopId: ''
     };
   },
   computed: {
@@ -1069,18 +1132,44 @@ const DeptRecordsPage = {
         this.saving = false;
       }
     },
-    async handleExport() {
+    // 打开导出弹窗，用工具栏当前筛选作为默认值
+    showExportDialog() {
+      this.exportDateRange = this.dateRange ? [...this.dateRange] : null;
+      this.exportWorkshopId = this.workshopFilter || '';
+      this.exportDialogVisible = true;
+    },
+    // 快捷日期按钮：近7天/本月/上月
+    setExportQuickRange(type) {
+      const now = new Date();
+      let start, end;
+      if (type === '7d') {
+        end = new Date(now);
+        start = new Date(now);
+        start.setDate(start.getDate() - 6);
+      } else if (type === 'month') {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      } else if (type === 'lastMonth') {
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0);
+      }
+      const fmt = d => d.toISOString().substring(0, 10);
+      this.exportDateRange = [fmt(start), fmt(end)];
+    },
+    // 确认导出：用弹窗中选择的日期范围和车间调用后端
+    async confirmExport() {
       try {
         const params = {};
-        if (this.dateRange && this.dateRange[0]) {
-          params.start_date = this.dateRange[0];
-          params.end_date = this.dateRange[1];
+        if (this.exportDateRange && this.exportDateRange[0]) {
+          params.start_date = this.exportDateRange[0];
+          params.end_date = this.exportDateRange[1];
         }
-        if (this.workshopFilter) params.workshop_id = this.workshopFilter;
+        if (this.exportWorkshopId) params.workshop_id = this.exportWorkshopId;
         const deptName = DEPT_CONFIG[this.dept]?.name || this.dept;
-        const filename = `${deptName}_${this.dateRange?.[0] || ''}_${this.dateRange?.[1] || ''}.xlsx`;
+        const filename = `${deptName}_${this.exportDateRange?.[0] || ''}_${this.exportDateRange?.[1] || ''}.xlsx`;
         await API.download(`/${this.dept}/export`, params, filename);
         ElementPlus.ElMessage.success('导出成功');
+        this.exportDialogVisible = false;
       } catch (err) {
         ElementPlus.ElMessage.error('导出失败: ' + (err.message || '未知错误'));
       }
@@ -1112,6 +1201,7 @@ const DeptRecordsPage = {
         const res = await API.upload(`/${this.dept}/import`, file);
         const msg = res.message || `导入成功，共 ${res.count || 0} 条`;
         ElementPlus.ElMessage.success(msg);
+        this.importDialogVisible = false;
         this.dateRange = null;
         this.quickRange = '';
         await this.loadData();
@@ -1622,16 +1712,22 @@ const SummaryPage = {
       const d = this.dashData;
       if (!d || !d.departments) return;
 
+      // 金额Y轴格式化：0时显示"0万"，否则保留2位小数（避免浮点精度显示问题）
+      const wanFmt = v => v === 0 ? '0万' : parseFloat((v / 10000).toFixed(2)) + '万';
+
       // === 柱状图：部门对比 ===
       if (this.$refs.barChart) {
         if (!this.barChartInstance) this.barChartInstance = echarts.init(this.$refs.barChart);
+        // 数据全为0时，设置合理的默认最大值，避免ECharts自动缩放产生奇怪的刻度
+        const barMaxVal = Math.max(0, ...d.departments.flatMap(dp => [dp.output, dp.expense, dp.balance]));
+        const barYMax = barMaxVal > 0 ? undefined : 100000; // 无数据时默认最大值10万
         this.barChartInstance.setOption({
           color: ['#7F41C0', '#E88EA0', '#57B894'],
           tooltip: { trigger: 'axis', valueFormatter: v => '¥' + (v / 10000).toFixed(1) + '万' },
           legend: { data: ['产值', '费用', '结余'] },
           grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
           xAxis: { type: 'category', data: d.departments.map(dp => dp.label) },
-          yAxis: { type: 'value', axisLabel: { formatter: v => (v / 10000) + '万' } },
+          yAxis: { type: 'value', min: 0, max: barYMax, axisLabel: { formatter: wanFmt } },
           series: [
             { name: '产值', type: 'bar', data: d.departments.map(dp => dp.output) },
             { name: '费用', type: 'bar', data: d.departments.map(dp => dp.expense) },
@@ -1644,13 +1740,16 @@ const SummaryPage = {
       if (this.$refs.lineChart) {
         if (!this.lineChartInstance) this.lineChartInstance = echarts.init(this.$refs.lineChart);
         const months = d.monthly_trend.map((_, i) => (i + 1) + '月');
+        const allRatios = d.monthly_trend.flatMap(m => [m.beer_ratio, m.print_ratio, m.assembly_ratio]);
+        const lineMaxVal = Math.max(0, ...allRatios);
+        const lineYMax = lineMaxVal > 0 ? undefined : 1; // 无数据时默认最大值100%
         this.lineChartInstance.setOption({
           color: ['#7F41C0', '#5B9BD5', '#57B894'],
           tooltip: { trigger: 'axis', valueFormatter: v => (v * 100).toFixed(1) + '%' },
           legend: { data: ['啤机部', '印喷部', '装配部'] },
           grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
           xAxis: { type: 'category', data: months },
-          yAxis: { type: 'value', axisLabel: { formatter: v => (v * 100) + '%' } },
+          yAxis: { type: 'value', min: 0, max: lineYMax, axisLabel: { formatter: v => Math.round(v * 100) + '%' } },
           series: [
             { name: '啤机部', type: 'line', smooth: true, data: d.monthly_trend.map(m => m.beer_ratio) },
             { name: '印喷部', type: 'line', smooth: true, data: d.monthly_trend.map(m => m.print_ratio) },
@@ -1670,12 +1769,14 @@ const SummaryPage = {
           itemStyle: { color: catColors[i] },
           data: d.expense_breakdown.map(m => m[cat] || 0)
         }));
+        const stackMaxVal = Math.max(0, ...d.expense_breakdown.map(m => Object.keys(catNames).reduce((s, cat) => s + (m[cat] || 0), 0)));
+        const stackYMax = stackMaxVal > 0 ? undefined : 100000; // 无数据时默认最大值10万
         this.stackChartInstance.setOption({
           tooltip: { trigger: 'axis', valueFormatter: v => '¥' + (v / 10000).toFixed(1) + '万' },
           legend: { data: Object.values(catNames) },
           grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
           xAxis: { type: 'category', data: months },
-          yAxis: { type: 'value', axisLabel: { formatter: v => (v / 10000) + '万' } },
+          yAxis: { type: 'value', min: 0, max: stackYMax, axisLabel: { formatter: wanFmt } },
           series
         });
       }
