@@ -310,8 +310,6 @@ const FIELD_GROUP_WAGE = ['misc_worker_wage', 'wage_ratio', 'planned_wage_tax', 
 const FIELD_GROUP_AFTER_BALANCE = new Set([
   // 结余衍生字段（由结余计算而来）
   'avg_balance_per_machine', 'balance_minus_tape', 'balance_tape_ratio', 'total_ratio',
-  // 不参与结余公式
-  'recoverable_electricity',
   // 装配部：胶纸、外借人员、工具投资占比（不在结余公式中）
   'tape', 'borrowed_worker_wage', 'borrowed_wage_ratio', 'tool_invest_ratio',
   // 印喷部：做办工资及占比、模费及占比（不在结余公式中）
@@ -445,7 +443,7 @@ const DeptRecordsPage = {
         <el-button type="success" size="small" @click="showExportDialog">导出Excel</el-button>
         <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</el-button>
         <button class="fixed-expense-btn" @click="showFixedExpenseDialog" v-if="currentDept">&#9881; 固定费用配置</button>
-        <button class="settlement-btn" @click="showSettlementDialog" v-if="user && user.role === 'stats' && currentDept">&#128197; 月底结算</button>
+        <button class="settlement-btn" @click="showSettlementDialog" v-if="user && currentDept">&#128197; 月底结算</button>
       </div>
 
       <!-- 导入弹窗 -->
@@ -574,7 +572,7 @@ const DeptRecordsPage = {
           <el-table-column label="操作" width="60" fixed="right" align="center">
             <template #default="{ row }">
               <el-tooltip content="复制此行数据为新行" placement="top" :show-after="500">
-                <el-button type="primary" link size="small" @click="handleCopyRow(row)" title="复制此行">
+                <el-button class="copy-row-btn" size="small" @click="handleCopyRow(row)" title="复制此行">
                   复制
                 </el-button>
               </el-tooltip>
@@ -596,15 +594,17 @@ const DeptRecordsPage = {
                 {{ col.shortLabel || col.label }}
               </td>
             </tr>
-            <template v-for="(wsData, wsName) in summaryData.workshops" :key="'ws-'+wsName">
+            <!-- 清溪车间行 -->
+            <template v-for="(wsData, wsName) in summaryData.qingxiWorkshops" :key="'qxws-'+wsName">
               <tr class="workshop-row">
                 <td></td><td></td><td></td>
                 <td>{{ wsName }}</td>
-                <td v-for="col in columns" :key="'wd-'+wsName+'-'+col.field" style="text-align:right;">
+                <td v-for="col in columns" :key="'qxwd-'+wsName+'-'+col.field" style="text-align:right;">
                   {{ formatSummaryCell(wsData, col) }}
                 </td>
               </tr>
             </template>
+            <!-- 清溪合计 -->
             <tr class="region-row" v-if="summaryData.regions">
               <td></td><td></td><td></td>
               <td>清溪合计</td>
@@ -612,7 +612,26 @@ const DeptRecordsPage = {
                 {{ formatSummaryCell(summaryData.regions['清溪'], col) }}
               </td>
             </tr>
-            <tr class="total-row">
+            <!-- 邵阳车间行 -->
+            <template v-if="summaryData.hasHunan" v-for="(wsData, wsName) in summaryData.hunanWorkshops" :key="'hnws-'+wsName">
+              <tr class="workshop-row">
+                <td></td><td></td><td></td>
+                <td>{{ wsName }}</td>
+                <td v-for="col in columns" :key="'hnwd-'+wsName+'-'+col.field" style="text-align:right;">
+                  {{ formatSummaryCell(wsData, col) }}
+                </td>
+              </tr>
+            </template>
+            <!-- 邵阳合计（仅装配部显示） -->
+            <tr class="region-row" v-if="summaryData.hasHunan && dept === 'assembly'">
+              <td></td><td></td><td></td>
+              <td>邵阳合计</td>
+              <td v-for="col in columns" :key="'hn-'+col.field" style="text-align:right;">
+                {{ formatSummaryCell(summaryData.regions['湖南'], col) }}
+              </td>
+            </tr>
+            <!-- 总合计（装配部不显示） -->
+            <tr class="total-row" v-if="dept !== 'assembly'">
               <td></td><td></td><td></td>
               <td>总合计</td>
               <td v-for="col in columns" :key="'tt-'+col.field" style="text-align:right;">
@@ -1035,17 +1054,19 @@ const DeptRecordsPage = {
         // 将后端返回的扁平数组转换为合计表需要的结构
         const rawSummary = summaryRes.data || summaryRes || [];
         if (Array.isArray(rawSummary) && rawSummary.length > 0) {
-          const workshops = {};
+          const qingxiWorkshops = {};  // 清溪车间
+          const hunanWorkshops = {};   // 邵阳车间
           const regions = {};
           const total = {};
           const numFields = this.columns.map(c => c.field);
-          // 初始化 total
           numFields.forEach(f => { total[f] = 0; });
-          // 按车间分组，按区域汇总
           for (const row of rawSummary) {
-            workshops[row.workshop_name] = row;
-            // 区域汇总（清溪/邵阳）
-            const regionKey = row.region;
+            const regionKey = row.region || '清溪';
+            if (regionKey === '湖南') {
+              hunanWorkshops[row.workshop_name] = row;
+            } else {
+              qingxiWorkshops[row.workshop_name] = row;
+            }
             if (!regions[regionKey]) {
               regions[regionKey] = {};
               numFields.forEach(f => { regions[regionKey][f] = 0; });
@@ -1055,21 +1076,53 @@ const DeptRecordsPage = {
               total[f] += parseFloat(row[f]) || 0;
             });
           }
-          // 计算区域和总合计的比例字段
+          // 重算区域和总合计的比率字段（与后端 RATIO_FORMULAS 一致）
+          const RATIO_FORMULAS = {
+            beer: r => {
+              r.machine_rate = r.total_machines > 0 ? r.running_machines / r.total_machines : 0;
+              r.per_capita_output = r.worker_count > 0 ? r.daily_output / r.worker_count : 0;
+              r.output_tax_incl = r.daily_output / 1.13;
+              r.avg_output_per_machine = r.running_machines > 0 ? r.daily_output / r.running_machines : 0;
+              r.wage_ratio = r.daily_output > 0 ? ((r.worker_wage || 0) + (r.supervisor_wage || 0) + (r.misc_worker_wage || 0)) / r.daily_output : 0;
+              r.mold_cost_ratio = r.daily_output > 0 ? (r.mold_repair || 0) / r.daily_output : 0;
+              r.gate_cost_ratio = r.daily_output > 0 ? (r.gate_processing_fee || 0) / r.daily_output : 0;
+              r.balance_ratio = r.daily_output > 0 ? r.balance / r.daily_output : 0;
+              r.avg_balance_per_machine = r.running_machines > 0 ? r.balance / r.running_machines : 0;
+            },
+            print: r => {
+              r.pad_machine_rate = r.pad_total_machines > 0 ? r.pad_running_machines / r.pad_total_machines : 0;
+              r.spray_machine_rate = r.spray_total_machines > 0 ? r.spray_running_machines / r.spray_total_machines : 0;
+              r.avg_output_per_worker = r.worker_count > 0 ? r.daily_output / r.worker_count : 0;
+              r.wage_ratio = r.daily_output > 0 ? ((r.worker_wage || 0) + (r.supervisor_wage || 0)) / r.daily_output : 0;
+              r.office_wage_ratio = r.daily_output > 0 ? (r.office_wage || 0) / r.daily_output : 0;
+              r.mold_fee_ratio = r.daily_output > 0 ? (r.auto_mold_fee || 0) / r.daily_output : 0;
+              r.hunan_mold_ratio = r.daily_output > 0 ? (r.hunan_mold_fee || 0) / r.daily_output : 0;
+              r.indonesia_mold_ratio = r.daily_output > 0 ? (r.indonesia_mold_fee || 0) / r.daily_output : 0;
+              r.balance_ratio = r.daily_output > 0 ? r.balance / r.daily_output : 0;
+              r.total_ratio = (r.daily_output > 0 ? r.balance / r.daily_output : 0) + (r.daily_output > 0 ? (r.auto_mold_fee || 0) / r.daily_output : 0);
+            },
+            assembly: r => {
+              r.avg_output_per_worker = r.worker_count > 0 ? r.daily_output / r.worker_count : 0;
+              r.balance_ratio = r.daily_output > 0 ? r.balance / r.daily_output : 0;
+              r.balance_minus_tape = r.balance - (r.tape || 0);
+              r.balance_tape_ratio = r.planned_wage_tax > 0 ? (r.balance - (r.tape || 0)) / r.planned_wage_tax : 0;
+              r.tool_invest_ratio = r.planned_wage_tax > 0 ? ((r.workshop_tool_investment || 0) + (r.fixture_tool_investment || 0)) / r.planned_wage_tax : 0;
+              r.borrowed_wage_ratio = r.planned_wage_tax > 0 ? (r.borrowed_worker_wage || 0) / r.planned_wage_tax : 0;
+            },
+          };
           const calcRatios = (obj) => {
-            if (obj.daily_output > 0) {
-              obj.balance_ratio = obj.balance / obj.daily_output;
-            }
-            // 部门独有比例字段由columns中type=ratio的字段决定
-            this.columns.forEach(col => {
-              if (col.type === 'ratio' && col.formula) {
-                // 比例字段不做累加，需要重新计算（暂用balance_ratio兜底）
-              }
-            });
+            const fn = RATIO_FORMULAS[this.dept];
+            if (fn) fn(obj);
           };
           Object.values(regions).forEach(calcRatios);
           calcRatios(total);
-          this.summaryData = { workshops, regions, total };
+          this.summaryData = {
+            qingxiWorkshops,
+            hunanWorkshops,
+            regions,
+            total,
+            hasHunan: Object.keys(hunanWorkshops).length > 0
+          };
         } else {
           this.summaryData = null;
         }
@@ -1168,7 +1221,7 @@ const DeptRecordsPage = {
       }
     },
     getColumnWidth(col) {
-      if (col.field === 'remark') return 120;
+      if (col.field === 'remark') return 300;
       return 90;
     },
     getColumnClass(col) {
@@ -1770,7 +1823,7 @@ const SummaryPage = {
       <!-- 主视图Tab切换 -->
       <div class="main-tab-bar">
         <button class="main-tab-btn" :class="{ active: mainTab === 'dashboard' }" @click="switchMainTab('dashboard')">可视化看板</button>
-        <button class="main-tab-btn" :class="{ active: mainTab === 'table' }" @click="switchMainTab('table')">汇总表</button>
+        <button class="main-tab-btn" :class="{ active: mainTab === 'table' }" @click="switchMainTab('table')">清溪汇总</button>
       </div>
 
       <!-- ========== 可视化看板 ========== -->
@@ -1877,7 +1930,7 @@ const SummaryPage = {
                 <span class="card-subtitle">{{ currentDeptLabel }}月度汇总</span>
               </div>
               <div class="card-stats">
-                总产值：<span class="val">{{ fmtVal(dailyData.monthly.total.daily_output) }}</span>
+                {{ currentDept === 'assembly' ? '计划工资' : '总产值' }}：<span class="val">{{ fmtVal(dailyData.monthly.total[dailyColumns[0]?.field] || 0) }}</span>
                 <span style="margin:0 10px;">|</span>
                 总结余：<span class="val">{{ fmtVal(dailyData.monthly.total.balance) }}</span>
                 <span style="margin:0 10px;">|</span>
@@ -1890,7 +1943,6 @@ const SummaryPage = {
                   <tr>
                     <th class="sticky-col">车间</th>
                     <th v-for="col in dailyColumns" :key="col.field">{{ col.label }}</th>
-                    <th class="expense-val">费用计</th>
                     <th style="color:#3D8361;font-weight:700;">结余</th>
                     <th style="color:#3D8361;">结余率</th>
                   </tr>
@@ -1899,14 +1951,12 @@ const SummaryPage = {
                   <tr v-for="(ws, idx) in dailyData.monthly.workshops" :key="ws.workshop_name">
                     <td class="sticky-col">{{ ws.workshop_name }}</td>
                     <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
-                    <td class="expense-val">{{ fmtVal(ws.total_expense) }}</td>
                     <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
                     <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
                   </tr>
                   <tr class="total-row">
                     <td class="sticky-col">合计</td>
                     <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(dailyData.monthly.total[col.field]) }}</td>
-                    <td class="expense-val">{{ fmtVal(dailyData.monthly.total.total_expense) }}</td>
                     <td :class="dailyData.monthly.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(dailyData.monthly.total.balance) }}</td>
                     <td :class="dailyData.monthly.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(1) }}%</td>
                   </tr>
@@ -1937,7 +1987,6 @@ const SummaryPage = {
                   <tr>
                     <th class="sticky-col">车间</th>
                     <th v-for="col in dailyColumns" :key="col.field">{{ col.label }}</th>
-                    <th class="expense-val">费用计</th>
                     <th style="color:#3D8361;font-weight:700;">结余</th>
                     <th style="color:#3D8361;">结余率</th>
                   </tr>
@@ -1946,14 +1995,12 @@ const SummaryPage = {
                   <tr v-for="ws in card.workshops" :key="ws.workshop_name">
                     <td class="sticky-col">{{ ws.workshop_name }}</td>
                     <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
-                    <td class="expense-val">{{ fmtVal(ws.total_expense) }}</td>
                     <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
                     <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
                   </tr>
                   <tr class="total-row">
                     <td class="sticky-col">合计</td>
                     <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(card.total[col.field]) }}</td>
-                    <td class="expense-val">{{ fmtVal(card.total.total_expense) }}</td>
                     <td :class="card.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(card.total.balance) }}</td>
                     <td :class="card.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (card.total.balance_ratio * 100).toFixed(1) }}%</td>
                   </tr>
@@ -1979,15 +2026,15 @@ const SummaryPage = {
             <table class="monthly-summary-table">
               <thead class="primary">
                 <tr>
-                  <th>部门</th><th>总产值</th><th>员工工资</th><th>管工工资</th>
+                  <th>部门</th><th>总产值/计划工资</th><th>员工工资</th><th>管工工资</th>
                   <th>房租</th><th>水电费</th><th>社保</th><th>税收</th>
-                  <th>其他费用</th><th>费用合计</th><th>结余</th><th>结余率</th>
+                  <th>其他费用</th><th>结余</th><th>结余率</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="d in monthlyData.current.departments" :key="d.dept">
                   <td style="color:#7F41C0;">{{ d.label }}</td>
-                  <td>{{ fmtVal(d.daily_output) }}</td>
+                  <td>{{ fmtVal(d.dept === 'assembly' ? d.planned_wage_tax : d.daily_output) }}</td>
                   <td>{{ fmtVal(d.worker_wage) }}</td>
                   <td>{{ fmtVal(d.supervisor_wage) }}</td>
                   <td>{{ fmtVal(d.rent) }}</td>
@@ -1995,7 +2042,6 @@ const SummaryPage = {
                   <td>{{ fmtVal(d.social_insurance) }}</td>
                   <td>{{ fmtVal(d.tax) }}</td>
                   <td style="color:#999;">{{ fmtVal(d.other_expense) }}</td>
-                  <td class="expense-val">{{ fmtVal(d.total_expense) }}</td>
                   <td :class="d.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(d.balance) }}</td>
                   <td :class="d.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (d.balance_ratio * 100).toFixed(1) }}%</td>
                 </tr>
@@ -2009,7 +2055,6 @@ const SummaryPage = {
                   <td>{{ fmtVal(monthlyData.current.total.social_insurance) }}</td>
                   <td>{{ fmtVal(monthlyData.current.total.tax) }}</td>
                   <td style="color:#999;">{{ fmtVal(monthlyData.current.total.other_expense) }}</td>
-                  <td class="expense-val">{{ fmtVal(monthlyData.current.total.total_expense) }}</td>
                   <td :class="monthlyData.current.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(monthlyData.current.total.balance) }}</td>
                   <td :class="monthlyData.current.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (monthlyData.current.total.balance_ratio * 100).toFixed(1) }}%</td>
                 </tr>
@@ -2022,7 +2067,7 @@ const SummaryPage = {
             <table class="monthly-summary-table">
               <thead class="info">
                 <tr>
-                  <th>部门</th><th>总产值变化</th><th>费用合计变化</th>
+                  <th>部门</th><th>总产值变化</th>
                   <th>结余变化</th><th>结余率变化</th><th>上月结余</th><th>本月结余</th>
                 </tr>
               </thead>
@@ -2031,7 +2076,6 @@ const SummaryPage = {
                   :class="{ 'grand-total-info': c.dept === 'total' }">
                   <td>{{ c.label }}</td>
                   <td :class="changeClass(c.output_change, false)">{{ fmtChange(c.output_change, c.output_change_pct) }}</td>
-                  <td :class="changeClass(c.expense_change, true)">{{ fmtChange(c.expense_change, c.expense_change_pct) }}</td>
                   <td :class="changeClass(c.balance_change, false)">{{ fmtChange(c.balance_change, c.balance_change_pct) }}</td>
                   <td :class="changeClass(c.ratio_change, false)">{{ c.ratio_change != null ? (c.ratio_change >= 0 ? '↑' : '↓') + ' ' + Math.abs(c.ratio_change * 100).toFixed(1) + '%' : '—' }}</td>
                   <td style="color:#999;">{{ fmtVal(c.prev_balance) }}</td>
@@ -2396,7 +2440,6 @@ const SummaryPage = {
       for (const ws of data.monthly.workshops) {
         const row = { '类型': '月度合计', '日期': params.month, '车间': ws.workshop_name };
         cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
-        row['费用合计'] = ws.total_expense ?? '';
         row['结余'] = ws.balance ?? '';
         row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
         rows.push(row);
@@ -2411,7 +2454,6 @@ const SummaryPage = {
         for (const ws of card.workshops) {
           const row = { '类型': '每日', '日期': card.date, '车间': ws.workshop_name };
           cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
-          row['费用合计'] = ws.total_expense ?? '';
           row['结余'] = ws.balance ?? '';
           row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
           rows.push(row);
@@ -2452,11 +2494,12 @@ const SummaryPage = {
         const allDepts = [...data.current.departments, data.current.total];
         for (const d of allDepts) {
           rows.push({
-            '部门': d.label, '总产值': d.daily_output,
+            '部门': d.label,
+            '总产值/计划工资': d.dept === 'assembly' ? d.planned_wage_tax : d.daily_output,
             '员工工资': d.worker_wage, '管工工资': d.supervisor_wage,
             '房租': d.rent, '水电费': d.utility_fee,
             '社保': d.social_insurance, '税收': d.tax,
-            '其他费用': d.other_expense, '费用合计': d.total_expense,
+            '其他费用': d.other_expense,
             '结余': d.balance,
             '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(1) + '%' : ''
           });
@@ -4363,7 +4406,6 @@ const SmallSummaryPage = {
                 <tr>
                   <th class="sticky-col">车间</th>
                   <th v-for="col in dailyColumns" :key="col.field">{{ col.label }}</th>
-                  <th class="expense-val">费用计</th>
                   <th style="color:#3D8361;font-weight:700;">结余</th>
                   <th style="color:#3D8361;">结余率</th>
                 </tr>
@@ -4372,14 +4414,12 @@ const SmallSummaryPage = {
                 <tr v-for="ws in dailyData.monthly.workshops" :key="ws.workshop_name">
                   <td class="sticky-col">{{ ws.workshop_name }}</td>
                   <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
-                  <td class="expense-val">{{ fmtVal(ws.total_expense) }}</td>
                   <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
                   <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
                 </tr>
                 <tr class="total-row">
                   <td class="sticky-col">合计</td>
                   <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(dailyData.monthly.total[col.field]) }}</td>
-                  <td class="expense-val">{{ fmtVal(dailyData.monthly.total.total_expense) }}</td>
                   <td :class="dailyData.monthly.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(dailyData.monthly.total.balance) }}</td>
                   <td :class="dailyData.monthly.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(1) }}%</td>
                 </tr>
@@ -4408,7 +4448,6 @@ const SmallSummaryPage = {
                 <tr>
                   <th class="sticky-col">车间</th>
                   <th v-for="col in dailyColumns" :key="col.field">{{ col.label }}</th>
-                  <th class="expense-val">费用计</th>
                   <th style="color:#3D8361;font-weight:700;">结余</th>
                   <th style="color:#3D8361;">结余率</th>
                 </tr>
@@ -4417,14 +4456,12 @@ const SmallSummaryPage = {
                 <tr v-for="ws in card.workshops" :key="ws.workshop_name">
                   <td class="sticky-col">{{ ws.workshop_name }}</td>
                   <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
-                  <td class="expense-val">{{ fmtVal(ws.total_expense) }}</td>
                   <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
                   <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
                 </tr>
                 <tr class="total-row">
                   <td class="sticky-col">合计</td>
                   <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(card.total[col.field]) }}</td>
-                  <td class="expense-val">{{ fmtVal(card.total.total_expense) }}</td>
                   <td :class="card.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(card.total.balance) }}</td>
                   <td :class="card.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (card.total.balance_ratio * 100).toFixed(1) }}%</td>
                 </tr>
@@ -4449,15 +4486,15 @@ const SmallSummaryPage = {
           <table class="monthly-summary-table">
             <thead class="primary">
               <tr>
-                <th>部门</th><th>总产值</th><th>员工工资</th><th>管工工资</th>
+                <th>部门</th><th>总产值/计划工资</th><th>员工工资</th><th>管工工资</th>
                 <th>房租</th><th>水电费</th><th>社保</th><th>税收</th>
-                <th>其他费用</th><th>费用合计</th><th>结余</th><th>结余率</th>
+                <th>其他费用</th><th>结余</th><th>结余率</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="d in monthlyData.current.departments" :key="d.dept">
                 <td style="color:#7F41C0;">{{ d.label }}</td>
-                <td>{{ fmtVal(d.daily_output) }}</td>
+                <td>{{ fmtVal(d.dept === 'assembly' ? d.planned_wage_tax : d.daily_output) }}</td>
                 <td>{{ fmtVal(d.worker_wage) }}</td>
                 <td>{{ fmtVal(d.supervisor_wage) }}</td>
                 <td>{{ fmtVal(d.rent) }}</td>
@@ -4465,7 +4502,6 @@ const SmallSummaryPage = {
                 <td>{{ fmtVal(d.social_insurance) }}</td>
                 <td>{{ fmtVal(d.tax) }}</td>
                 <td style="color:#999;">{{ fmtVal(d.other_expense) }}</td>
-                <td class="expense-val">{{ fmtVal(d.total_expense) }}</td>
                 <td :class="d.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(d.balance) }}</td>
                 <td :class="d.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (d.balance_ratio * 100).toFixed(1) }}%</td>
               </tr>
@@ -4479,7 +4515,6 @@ const SmallSummaryPage = {
                 <td>{{ fmtVal(monthlyData.current.total.social_insurance) }}</td>
                 <td>{{ fmtVal(monthlyData.current.total.tax) }}</td>
                 <td style="color:#999;">{{ fmtVal(monthlyData.current.total.other_expense) }}</td>
-                <td class="expense-val">{{ fmtVal(monthlyData.current.total.total_expense) }}</td>
                 <td :class="monthlyData.current.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(monthlyData.current.total.balance) }}</td>
                 <td :class="monthlyData.current.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (monthlyData.current.total.balance_ratio * 100).toFixed(1) }}%</td>
               </tr>
@@ -4491,7 +4526,7 @@ const SmallSummaryPage = {
           <table class="monthly-summary-table">
             <thead class="info">
               <tr>
-                <th>部门</th><th>总产值变化</th><th>费用合计变化</th>
+                <th>部门</th><th>总产值变化</th>
                 <th>结余变化</th><th>结余率变化</th><th>上月结余</th><th>本月结余</th>
               </tr>
             </thead>
@@ -4500,7 +4535,6 @@ const SmallSummaryPage = {
                 :class="{ 'grand-total-info': c.dept === 'total' }">
                 <td>{{ c.label }}</td>
                 <td :class="changeClass(c.output_change, false)">{{ fmtChange(c.output_change, c.output_change_pct) }}</td>
-                <td :class="changeClass(c.expense_change, true)">{{ fmtChange(c.expense_change, c.expense_change_pct) }}</td>
                 <td :class="changeClass(c.balance_change, false)">{{ fmtChange(c.balance_change, c.balance_change_pct) }}</td>
                 <td :class="changeClass(c.ratio_change, false)">{{ c.ratio_change != null ? (c.ratio_change >= 0 ? '↑' : '↓') + ' ' + Math.abs(c.ratio_change * 100).toFixed(1) + '%' : '—' }}</td>
                 <td style="color:#999;">{{ fmtVal(c.prev_balance) }}</td>
@@ -4628,7 +4662,6 @@ const SmallSummaryPage = {
       for (const ws of data.monthly.workshops) {
         const row = { '类型': '月度合计', '日期': this.dailyMonth, '车间': ws.workshop_name };
         cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
-        row['费用合计'] = ws.total_expense ?? '';
         row['结余'] = ws.balance ?? '';
         row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
         rows.push(row);
@@ -4637,7 +4670,6 @@ const SmallSummaryPage = {
         for (const ws of card.workshops) {
           const row = { '类型': '每日', '日期': card.date, '车间': ws.workshop_name };
           cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
-          row['费用合计'] = ws.total_expense ?? '';
           row['结余'] = ws.balance ?? '';
           row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
           rows.push(row);
@@ -4656,11 +4688,12 @@ const SmallSummaryPage = {
       const allDepts = [...data.current.departments, data.current.total];
       for (const d of allDepts) {
         rows.push({
-          '部门': d.label, '总产值': d.daily_output,
+          '部门': d.label,
+          '总产值/计划工资': d.dept === 'assembly' ? d.planned_wage_tax : d.daily_output,
           '员工工资': d.worker_wage, '管工工资': d.supervisor_wage,
           '房租': d.rent, '水电费': d.utility_fee,
           '社保': d.social_insurance, '税收': d.tax,
-          '其他费用': d.other_expense, '费用合计': d.total_expense,
+          '其他费用': d.other_expense,
           '结余': d.balance,
           '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(1) + '%' : ''
         });

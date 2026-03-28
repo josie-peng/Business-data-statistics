@@ -249,6 +249,21 @@ function calculateRecordHardcoded(dept, record) {
   } else if (dept === 'assembly') {
     const workerCount = parseFloat(result.worker_count) || 0;
     const plannedWage = parseFloat(result.planned_wage_tax) || 0;
+    const shippingFee = parseFloat(result.shipping_fee) || 0;
+
+    // 装配部按区域使用不同结余公式
+    const region = result.region || '';
+    if (region === '湖南') {
+      // 邵阳：总产值 - 费用(含运费) + 可回收电费
+      // 通用公式已算好 balance = dailyOutput + totalIncome - totalExpense
+      // totalIncome 包含 recoverable_electricity，totalExpense 包含 shipping_fee
+      // 所以通用公式结果已正确，无需调整
+    } else {
+      // 清溪：计划总工资含*1.13 - 费用(不含运费、不含可回收电费)
+      result.balance = plannedWage - (totalExpense - shippingFee);
+    }
+
+    result.balance_ratio = dailyOutput > 0 ? result.balance / dailyOutput : 0;
     result.avg_output_per_worker = workerCount > 0 ? dailyOutput / workerCount : 0;
     result.balance_minus_tape = result.balance - (parseFloat(result.tape) || 0);
     result.balance_tape_ratio = plannedWage > 0 ? result.balance_minus_tape / plannedWage : 0;

@@ -40,20 +40,22 @@ router.get('/overview', authenticate, asyncHandler(async (req, res) => {
       : '0';
 
     let sql = `SELECT
-      SUM(daily_output) as daily_output,
-      SUM(worker_wage + supervisor_wage) as total_wage,
-      SUM(${expenseSumExpr}) as total_expense,
-      SUM(balance) as balance,
-      SUM(supervisor_count) as supervisor_count,
-      SUM(worker_count) as worker_count,
-      SUM(rent) as rent,
-      SUM(utility_fee) as utility_fee,
-      SUM(social_insurance) as social_insurance,
-      SUM(tax) as tax
-      FROM ${config.tableName} WHERE 1=1`;
+      SUM(r.daily_output) as daily_output,
+      SUM(r.worker_wage + r.supervisor_wage) as total_wage,
+      SUM(${expenseFields.map(f => `COALESCE(r.${f}, 0)`).join(' + ')}) as total_expense,
+      SUM(r.balance) as balance,
+      SUM(r.supervisor_count) as supervisor_count,
+      SUM(r.worker_count) as worker_count,
+      SUM(r.rent) as rent,
+      SUM(r.utility_fee) as utility_fee,
+      SUM(r.social_insurance) as social_insurance,
+      SUM(r.tax) as tax
+      FROM ${config.tableName} r
+      JOIN workshops w ON r.workshop_id = w.id
+      WHERE w.region = '清溪'`;
     const params = [];
-    if (start_date) { sql += ' AND record_date >= ?'; params.push(start_date); }
-    if (end_date) { sql += ' AND record_date <= ?'; params.push(end_date); }
+    if (start_date) { sql += ' AND r.record_date >= ?'; params.push(start_date); }
+    if (end_date) { sql += ' AND r.record_date <= ?'; params.push(end_date); }
 
     const rows = await getAll(sql, params);
     const row = rows[0] || {};
@@ -93,13 +95,14 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
 
   for (const [dept, config] of getMainDeptEntries()) {
     const expenseFields = getExpenseFields(dept);
-    const expenseSumExpr = expenseFields.map(f => `COALESCE(${f}, 0)`).join(' + ');
+    const expenseSumExpr = expenseFields.map(f => `COALESCE(r.${f}, 0)`).join(' + ');
 
-    let sql = `SELECT SUM(daily_output) as output, SUM(${expenseSumExpr}) as expense, SUM(balance) as balance
-               FROM ${config.tableName}
-               WHERE EXTRACT(YEAR FROM record_date) = ?`;
+    let sql = `SELECT SUM(r.daily_output) as output, SUM(${expenseSumExpr}) as expense, SUM(r.balance) as balance
+               FROM ${config.tableName} r
+               JOIN workshops w ON r.workshop_id = w.id
+               WHERE w.region = '清溪' AND EXTRACT(YEAR FROM r.record_date) = ?`;
     const params = [yearNum];
-    if (monthNum) { sql += ` AND EXTRACT(MONTH FROM record_date) = ?`; params.push(monthNum); }
+    if (monthNum) { sql += ` AND EXTRACT(MONTH FROM r.record_date) = ?`; params.push(monthNum); }
 
     const rows = await getAll(sql, params);
     const r = rows[0] || {};
@@ -127,12 +130,13 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
   let prevOutput = 0, prevExpense = 0, prevBalance = 0;
   for (const [dept, config] of getMainDeptEntries()) {
     const expenseFields = getExpenseFields(dept);
-    const expenseSumExpr = expenseFields.map(f => `COALESCE(${f}, 0)`).join(' + ');
-    let sql = `SELECT SUM(daily_output) as output, SUM(${expenseSumExpr}) as expense, SUM(balance) as balance
-               FROM ${config.tableName}
-               WHERE EXTRACT(YEAR FROM record_date) = ?`;
+    const expenseSumExpr = expenseFields.map(f => `COALESCE(r.${f}, 0)`).join(' + ');
+    let sql = `SELECT SUM(r.daily_output) as output, SUM(${expenseSumExpr}) as expense, SUM(r.balance) as balance
+               FROM ${config.tableName} r
+               JOIN workshops w ON r.workshop_id = w.id
+               WHERE w.region = '清溪' AND EXTRACT(YEAR FROM r.record_date) = ?`;
     const params = [prevYear];
-    if (prevMonth) { sql += ` AND EXTRACT(MONTH FROM record_date) = ?`; params.push(prevMonth); }
+    if (prevMonth) { sql += ` AND EXTRACT(MONTH FROM r.record_date) = ?`; params.push(prevMonth); }
     const rows = await getAll(sql, params);
     const r = rows[0] || {};
     prevOutput += parseFloat(r.output) || 0;
@@ -163,11 +167,12 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
     trendMap[`${yearNum}-${String(m).padStart(2, '0')}`] = {};
   }
   for (const [dept, config] of getMainDeptEntries()) {
-    const sql = `SELECT EXTRACT(MONTH FROM record_date)::int as m,
-                 SUM(daily_output) as output, SUM(balance) as balance
-                 FROM ${config.tableName}
-                 WHERE EXTRACT(YEAR FROM record_date) = ?
-                 GROUP BY EXTRACT(MONTH FROM record_date)`;
+    const sql = `SELECT EXTRACT(MONTH FROM r.record_date)::int as m,
+                 SUM(r.daily_output) as output, SUM(r.balance) as balance
+                 FROM ${config.tableName} r
+                 JOIN workshops w ON r.workshop_id = w.id
+                 WHERE w.region = '清溪' AND EXTRACT(YEAR FROM r.record_date) = ?
+                 GROUP BY EXTRACT(MONTH FROM r.record_date)`;
     const rows = await getAll(sql, [yearNum]);
     for (const r of rows) {
       const key = `${yearNum}-${String(r.m).padStart(2, '0')}`;
@@ -191,11 +196,12 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
   }
   for (const [dept, config] of getMainDeptEntries()) {
     const allExpense = getExpenseFields(dept);
-    const selectClauses = allExpense.map(f => `SUM(COALESCE(${f}, 0)) as ${f}`).join(', ');
-    const sql = `SELECT EXTRACT(MONTH FROM record_date)::int as m, ${selectClauses}
-                 FROM ${config.tableName}
-                 WHERE EXTRACT(YEAR FROM record_date) = ?
-                 GROUP BY EXTRACT(MONTH FROM record_date)`;
+    const selectClauses = allExpense.map(f => `SUM(COALESCE(r.${f}, 0)) as ${f}`).join(', ');
+    const sql = `SELECT EXTRACT(MONTH FROM r.record_date)::int as m, ${selectClauses}
+                 FROM ${config.tableName} r
+                 JOIN workshops w ON r.workshop_id = w.id
+                 WHERE w.region = '清溪' AND EXTRACT(YEAR FROM r.record_date) = ?
+                 GROUP BY EXTRACT(MONTH FROM r.record_date)`;
     const rows = await getAll(sql, [yearNum]);
     for (const r of rows) {
       const key = `${yearNum}-${String(r.m).padStart(2, '0')}`;
@@ -238,10 +244,10 @@ router.get('/detail', authenticate, asyncHandler(async (req, res) => {
 
       // 查询所有需要的字段
       const allFields = ['daily_output', 'supervisor_count', 'worker_count', ...allExpFields, 'balance'];
-      const selectClauses = allFields.map(f => `SUM(COALESCE(${f}, 0)) as ${f}`).join(', ');
+      const selectClauses = allFields.map(f => `SUM(COALESCE(r.${f}, 0)) as ${f}`).join(', ');
       const params = [];
-      let sql = `SELECT ${selectClauses} FROM ${config.tableName} WHERE 1=1`;
-      sql += buildDateWhere('', params);
+      let sql = `SELECT ${selectClauses} FROM ${config.tableName} r JOIN workshops w ON r.workshop_id = w.id WHERE w.region = '清溪'`;
+      sql += buildDateWhere('r.', params);
 
       const rows = await getAll(sql, params);
       const r = rows[0] || {};
@@ -352,8 +358,8 @@ router.get('/detail', authenticate, asyncHandler(async (req, res) => {
     const selectClauses = queryFields.map(f => `SUM(COALESCE(r.${f}, 0)) as ${f}`).join(', ');
     const params = [];
     let sql = `SELECT w.name as workshop_name, ${selectClauses}
-               FROM ${config.tableName} r LEFT JOIN workshops w ON r.workshop_id = w.id
-               WHERE 1=1`;
+               FROM ${config.tableName} r JOIN workshops w ON r.workshop_id = w.id
+               WHERE w.region = '清溪'`;
     sql += buildDateWhere('r.', params);
     sql += ` GROUP BY w.id, w.name, w.sort_order ORDER BY w.sort_order`;
 
@@ -423,8 +429,10 @@ router.get('/daily', authenticate, asyncHandler(async (req, res) => {
   const tableName = config.tableName;
   const expenseFields = getExpenseFields(dept);
 
-  // 构建 SELECT 字段列表：daily_output + 所有 expense 字段
-  const allFields = ['daily_output', ...expenseFields];
+  // 构建 SELECT 字段列表：收入字段 + 所有 expense 字段
+  // 装配部清溪用"计划总工资含税"代替"总产值"
+  const incomeField = dept === 'assembly' ? 'planned_wage_tax' : 'daily_output';
+  const allFields = [incomeField, ...expenseFields];
   const selectFields = allFields.map(f => `COALESCE(r.${f}, 0) AS ${f}`).join(', ');
   const sumFields = allFields.map(f => `SUM(COALESCE(r.${f}, 0)) AS ${f}`).join(', ');
 
@@ -443,40 +451,42 @@ router.get('/daily', authenticate, asyncHandler(async (req, res) => {
     ? expenseFields.map(f => `SUM(COALESCE(r.${f}, 0))`).join(' + ')
     : '0';
 
-  // 1. 月度合计（按车间分组）
+  // 1. 月度合计（按车间分组，仅清溪）
   const monthlySQL = `
     SELECT w.name AS workshop_name,
       ${sumFields},
-      ${expenseSumAgg} AS total_expense
+      ${expenseSumAgg} AS total_expense,
+      SUM(COALESCE(r.balance, 0)) AS balance
     FROM ${tableName} r
     JOIN workshops w ON r.workshop_id = w.id
-    WHERE r.record_date >= ? AND r.record_date < ?
+    WHERE w.region = '清溪' AND r.record_date >= ? AND r.record_date < ?
     GROUP BY w.name, w.sort_order
     ORDER BY w.sort_order
   `;
   const monthlyRows = await getAll(monthlySQL, [startDate, endDate]);
 
-  // 计算每行的 balance 和 balance_ratio
+  // 结余率
+  const incomeVal = (row) => Number(row[incomeField]) || 0;
   for (const row of monthlyRows) {
-    row.balance = (row.daily_output || 0) - (row.total_expense || 0);
-    row.balance_ratio = row.daily_output > 0 ? row.balance / row.daily_output : 0;
+    row.balance_ratio = incomeVal(row) > 0 ? row.balance / incomeVal(row) : 0;
   }
 
   // 月度合计行
   const monthlyTotal = {};
   allFields.forEach(f => { monthlyTotal[f] = monthlyRows.reduce((sum, r) => sum + (Number(r[f]) || 0), 0); });
   monthlyTotal.total_expense = monthlyRows.reduce((sum, r) => sum + (Number(r.total_expense) || 0), 0);
-  monthlyTotal.balance = (monthlyTotal.daily_output || 0) - (monthlyTotal.total_expense || 0);
-  monthlyTotal.balance_ratio = monthlyTotal.daily_output > 0 ? monthlyTotal.balance / monthlyTotal.daily_output : 0;
+  monthlyTotal.balance = monthlyRows.reduce((sum, r) => sum + (Number(r.balance) || 0), 0);
+  monthlyTotal.balance_ratio = incomeVal(monthlyTotal) > 0 ? monthlyTotal.balance / incomeVal(monthlyTotal) : 0;
 
-  // 2. 每日明细（按日期+车间）
+  // 2. 每日明细（按日期+车间，仅清溪）
   const dailySQL = `
     SELECT r.record_date, w.name AS workshop_name,
       ${selectFields},
-      ${expenseSumExpr} AS total_expense
+      ${expenseSumExpr} AS total_expense,
+      COALESCE(r.balance, 0) AS balance
     FROM ${tableName} r
     JOIN workshops w ON r.workshop_id = w.id
-    WHERE r.record_date >= ? AND r.record_date < ?
+    WHERE w.region = '清溪' AND r.record_date >= ? AND r.record_date < ?
     ORDER BY r.record_date DESC, w.sort_order
   `;
   const dailyRows = await getAll(dailySQL, [startDate, endDate]);
@@ -484,8 +494,7 @@ router.get('/daily', authenticate, asyncHandler(async (req, res) => {
   // 按日期分组
   const dailyMap = {};
   for (const row of dailyRows) {
-    row.balance = (row.daily_output || 0) - (row.total_expense || 0);
-    row.balance_ratio = row.daily_output > 0 ? row.balance / row.daily_output : 0;
+    row.balance_ratio = incomeVal(row) > 0 ? row.balance / incomeVal(row) : 0;
 
     const dateStr = typeof row.record_date === 'string'
       ? row.record_date.slice(0, 10)
@@ -501,8 +510,8 @@ router.get('/daily', authenticate, asyncHandler(async (req, res) => {
     const total = {};
     allFields.forEach(f => { total[f] = workshops.reduce((sum, r) => sum + (Number(r[f]) || 0), 0); });
     total.total_expense = workshops.reduce((sum, r) => sum + (Number(r.total_expense) || 0), 0);
-    total.balance = (total.daily_output || 0) - (total.total_expense || 0);
-    total.balance_ratio = total.daily_output > 0 ? total.balance / total.daily_output : 0;
+    total.balance = workshops.reduce((sum, r) => sum + (Number(r.balance) || 0), 0);
+    total.balance_ratio = incomeVal(total) > 0 ? total.balance / incomeVal(total) : 0;
 
     const d = new Date(date + 'T00:00:00');
     return { date, weekday: weekdays[d.getDay()], workshops, total };
@@ -554,46 +563,57 @@ router.get('/monthly', authenticate, asyncHandler(async (req, res) => {
     // "其他费用" = 独有费用 + otherSharedFields中存在的
     const otherFields = [...otherSharedFields.filter(f => expenseFields.includes(f)), ...uniqueExpenseFields];
     const otherExpr = otherFields.length > 0
-      ? otherFields.map(f => `SUM(COALESCE(${f}, 0))`).join(' + ')
+      ? otherFields.map(f => `SUM(COALESCE(r.${f}, 0))`).join(' + ')
       : '0';
 
     const totalExpenseExpr = expenseFields.length > 0
-      ? expenseFields.map(f => `SUM(COALESCE(${f}, 0))`).join(' + ')
+      ? expenseFields.map(f => `SUM(COALESCE(r.${f}, 0))`).join(' + ')
       : '0';
+
+    // 装配部额外查 planned_wage_tax（清溪用计划总工资含税代替总产值）
+    const extraFields = dept === 'assembly' ? ', SUM(COALESCE(r.planned_wage_tax, 0)) AS planned_wage_tax' : '';
 
     const sql = `
       SELECT
-        SUM(COALESCE(daily_output, 0)) AS daily_output,
-        ${shownSharedFields.map(f => `SUM(COALESCE(${f}, 0)) AS ${f}`).join(', ')},
+        SUM(COALESCE(r.daily_output, 0)) AS daily_output,
+        ${shownSharedFields.map(f => `SUM(COALESCE(r.${f}, 0)) AS ${f}`).join(', ')},
         ${otherExpr} AS other_expense,
-        ${totalExpenseExpr} AS total_expense
+        ${totalExpenseExpr} AS total_expense,
+        SUM(COALESCE(r.balance, 0)) AS balance
+        ${extraFields}
       FROM ${tableName} r
       JOIN workshops w ON r.workshop_id = w.id
-      WHERE r.record_date >= ? AND r.record_date < ?
+      WHERE w.region = '清溪' AND r.record_date >= ? AND r.record_date < ?
     `;
 
     // 本月数据
     const [curr = {}] = await getAll(sql, [startDate, endDate]);
-    curr.balance = (curr.daily_output || 0) - (curr.total_expense || 0);
-    curr.balance_ratio = curr.daily_output > 0 ? curr.balance / curr.daily_output : 0;
+    // 装配部结余率分母用计划总工资含税，其他部门用总产值
+    const currIncome = dept === 'assembly' ? (curr.planned_wage_tax || 0) : (curr.daily_output || 0);
+    curr.balance_ratio = currIncome > 0 ? curr.balance / currIncome : 0;
     curr.dept = dept;
     curr.label = config.label;
     departments.push(curr);
 
     // 上月数据
     const [prev = {}] = await getAll(sql, [prevStart, prevEnd]);
-    prev.balance = (prev.daily_output || 0) - (prev.total_expense || 0);
-    prev.balance_ratio = prev.daily_output > 0 ? prev.balance / prev.daily_output : 0;
+    const prevIncome = dept === 'assembly' ? (prev.planned_wage_tax || 0) : (prev.daily_output || 0);
+    prev.balance_ratio = prevIncome > 0 ? prev.balance / prevIncome : 0;
     prev.dept = dept;
     prev.label = config.label;
     prevDepartments.push(prev);
   }
 
   // 计算合计行（三部门汇总）
+  // 装配部用 planned_wage_tax 代替 daily_output 参与合计
   const calcTotal = (depts) => {
     const t = { dept: 'total', label: '三工合计' };
     const numKeys = ['daily_output', ...shownSharedFields, 'other_expense', 'total_expense', 'balance'];
     numKeys.forEach(k => { t[k] = depts.reduce((sum, d) => sum + (Number(d[k]) || 0), 0); });
+    // daily_output 合计：装配部用 planned_wage_tax，其他用 daily_output
+    t.daily_output = depts.reduce((sum, d) => {
+      return sum + (d.dept === 'assembly' ? (Number(d.planned_wage_tax) || 0) : (Number(d.daily_output) || 0));
+    }, 0);
     t.balance_ratio = t.daily_output > 0 ? t.balance / t.daily_output : 0;
     return t;
   };
