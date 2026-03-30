@@ -103,9 +103,10 @@ CREATE TABLE IF NOT EXISTS formula_constants (
   label VARCHAR(100) NOT NULL,
   value NUMERIC(14,6) NOT NULL,
   effective_month VARCHAR(7) NOT NULL,
+  workshop_id INT REFERENCES workshops(id),  -- 固定费用按车间区分，NULL表示非固定费用的全局常量
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(module, name, effective_month)
+  UNIQUE(module, name, effective_month, workshop_id)
 );
 
 -- 汇率变更历史（每次修改 exchange_rate 时自动记录）
@@ -166,7 +167,7 @@ CREATE TABLE IF NOT EXISTS beer_records (
   remark TEXT DEFAULT '',
   -- 啤机独有字段
   total_machines INT DEFAULT 0,
-  running_machines INT DEFAULT 0,
+  running_machines NUMERIC(10,2) DEFAULT 0,
   machine_rate NUMERIC(8,4) DEFAULT 0,
   misc_workers INT DEFAULT 0,
   gate_workers INT DEFAULT 0,
@@ -531,7 +532,10 @@ INSERT INTO workshops (name, region, department, sort_order) VALUES
   ('登信', '清溪', 'electronic', 1),
   -- 扩展部门（暂不参与三工结余汇总）
   ('兴信A', '清溪', 'fixture', 1),
-  ('华登A', '清溪', 'roto_casting', 1)
+  ('华登A', '清溪', 'roto_casting', 1),
+  -- 车衣部
+  ('华登B-A', '清溪', 'clothing', 1),
+  ('华登B-B', '清溪', 'clothing', 2)
 ON CONFLICT DO NOTHING;
 
 -- 索引
@@ -553,3 +557,60 @@ CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_field_registry_module ON field_registry(module, department);
 CREATE INDEX IF NOT EXISTS idx_field_tags_module ON field_tags(module, department);
 CREATE INDEX IF NOT EXISTS idx_formula_configs_module ON formula_configs(module, department);
+
+-- 车衣部数据表
+CREATE TABLE IF NOT EXISTS clothing_records (
+  id SERIAL PRIMARY KEY,
+  record_date DATE NOT NULL,
+  workshop_id INT REFERENCES workshops(id),
+  -- 人数
+  supervisor_count INT DEFAULT 0,
+  misc_workers INT DEFAULT 0,
+  worker_count INT DEFAULT 0,
+  -- 产值
+  daily_output NUMERIC(14,2) DEFAULT 0,
+  -- 隐藏但保留
+  total_machines INT DEFAULT 0,
+  running_machines INT DEFAULT 0,
+  machine_rate NUMERIC(8,4) DEFAULT 0,
+  other_income NUMERIC(12,2) DEFAULT 0,
+  avg_output_per_machine NUMERIC(14,2) DEFAULT 0,
+  non_production_wage NUMERIC(12,2) DEFAULT 0,
+  -- 工资
+  worker_wage NUMERIC(12,2) DEFAULT 0,
+  hq_allocation_wage NUMERIC(12,2) DEFAULT 0,
+  supervisor_wage NUMERIC(12,2) DEFAULT 0,
+  wage_ratio NUMERIC(8,4) DEFAULT 0,
+  -- 费用
+  rent NUMERIC(12,2) DEFAULT 0,
+  utility_fee NUMERIC(12,2) DEFAULT 0,
+  raw_material_cost NUMERIC(12,2) DEFAULT 0,
+  tax_expense NUMERIC(12,2) DEFAULT 0,
+  general_expense NUMERIC(12,2) DEFAULT 0,
+  hk_daily_expense NUMERIC(12,2) DEFAULT 0,
+  social_insurance_fund NUMERIC(12,2) DEFAULT 0,
+  misc_fee NUMERIC(12,2) DEFAULT 0,
+  tool_investment NUMERIC(12,2) DEFAULT 0,
+  equipment NUMERIC(12,2) DEFAULT 0,
+  materials NUMERIC(12,2) DEFAULT 0,
+  raw_materials NUMERIC(12,2) DEFAULT 0,
+  repair_fee NUMERIC(12,2) DEFAULT 0,
+  renovation NUMERIC(12,2) DEFAULT 0,
+  outsource_processing NUMERIC(12,2) DEFAULT 0,
+  temp_worker_hours NUMERIC(12,2) DEFAULT 0,
+  shipping_fee NUMERIC(12,2) DEFAULT 0,
+  -- 结余
+  balance NUMERIC(14,2) DEFAULT 0,
+  balance_ratio NUMERIC(8,4) DEFAULT 0,
+  avg_balance_per_machine NUMERIC(14,2) DEFAULT 0,
+  -- 备注
+  remark TEXT DEFAULT '',
+  -- 元数据
+  created_by INT,
+  updated_by INT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_clothing_date ON clothing_records(record_date);
+CREATE INDEX IF NOT EXISTS idx_clothing_workshop ON clothing_records(workshop_id);
