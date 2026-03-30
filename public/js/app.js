@@ -276,6 +276,49 @@ const DEPT_CONFIG = {
     { field: 'outsource_actual_wage', label: '外发实际工资', shortLabel: '外发实际', editable: true, type: 'number' },
     { field: 'outsource_wage_balance', label: '外发人工结余', shortLabel: '外发结余', editable: false, type: 'number', calculated: true, formula: '外发计划工资 - 外发实际工资' },
     { field: 'outsource_balance_ratio', label: '外发结余比例', shortLabel: '外发比例', editable: false, type: 'ratio', calculated: true, formula: '外发人工结余 / 外发计划工资' },
+  ]},
+  clothing: { key: 'clothing', name: '车衣部', selfContained: true, uniqueFields: [
+    // 人数
+    { field: 'supervisor_count', label: '管工人数', shortLabel: '管工人数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
+    { field: 'misc_workers', label: '杂工人数', shortLabel: '杂工人数', editable: true, type: 'integer' },
+    { field: 'worker_count', label: '员工人数(含临时工)', shortLabel: '员工人数', editable: true, type: 'integer' },
+    // 产值
+    { field: 'daily_output', label: '总产值/天', shortLabel: '产值/天', editable: true, type: 'number' },
+    // 隐藏但保留（折叠组）
+    { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer', collapsible: '更多费用' },
+    { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', editable: true, type: 'integer', collapsible: '更多费用' },
+    { field: 'machine_rate', label: '开机率', shortLabel: '开机率', editable: false, type: 'ratio', calculated: true, formula: '开机台数 / 总台数', collapsible: '更多费用' },
+    { field: 'other_income', label: '其他收入', shortLabel: '其他收入', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'avg_output_per_machine', label: '每台机平均产值', shortLabel: '台均产值', editable: false, type: 'number', calculated: true, formula: '产值/天 / 开机台数', collapsible: '更多费用' },
+    { field: 'non_production_wage', label: '非生产工资', shortLabel: '非生产资', editable: true, type: 'number', collapsible: '更多费用' },
+    // 工资
+    { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
+    { field: 'hq_allocation_wage', label: '总部分摊工资', shortLabel: '总部分摊', editable: true, type: 'number', fixedExpense: true },
+    { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
+    { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(非生产工资+员工工资+管工工资) / 产值/天' },
+    // 费用（显示）
+    { field: 'raw_material_cost', label: '原料成本', shortLabel: '原料成本', editable: true, type: 'number' },
+    { field: 'tax_expense', label: '税费(产值3%)', shortLabel: '税费3%', editable: false, type: 'number', calculated: true, formula: '产值/天 × 3%' },
+    { field: 'general_expense', label: '总务费', shortLabel: '总务费', editable: true, type: 'number' },
+    { field: 'hk_daily_expense', label: '香港日常开支(产值1%)', shortLabel: '港日开支', editable: false, type: 'number', calculated: true, formula: '产值/天 × 1%' },
+    { field: 'social_insurance_fund', label: '社保基金', shortLabel: '社保基金', editable: true, type: 'number' },
+    { field: 'misc_fee', label: '杂费', shortLabel: '杂费', editable: true, type: 'number' },
+    { field: 'tool_investment', label: '工具投资', shortLabel: '工具投资', editable: true, type: 'number' },
+    { field: 'equipment', label: '设备', shortLabel: '设备', editable: true, type: 'number' },
+    { field: 'materials', label: '物料', shortLabel: '物料', editable: true, type: 'number' },
+    { field: 'raw_materials', label: '原材料', shortLabel: '原材料', editable: true, type: 'number' },
+    { field: 'repair_fee', label: '维修费', shortLabel: '维修费', editable: true, type: 'number' },
+    { field: 'renovation', label: '装修', shortLabel: '装修', editable: true, type: 'number' },
+    { field: 'outsource_processing', label: '外发加工', shortLabel: '外发加工', editable: true, type: 'number' },
+    { field: 'temp_worker_hours', label: '临时工工时', shortLabel: '临时工时', editable: true, type: 'number' },
+    { field: 'shipping_fee', label: '运费', shortLabel: '运费', editable: true, type: 'number' },
+    // 费用（折叠）
+    { field: 'rent', label: '房租', shortLabel: '房租', editable: true, type: 'number', fixedExpense: true, collapsible: '更多费用' },
+    { field: 'utility_fee', label: '水电费', shortLabel: '水电费', editable: true, type: 'number', fixedExpense: true, collapsible: '更多费用' },
+    // 结余
+    { field: 'balance', label: '结余金额', shortLabel: '结余金额', editable: false, type: 'number', calculated: true, formula: '产值 + 其他收入 - 全部费用' },
+    { field: 'balance_ratio', label: '结余%', shortLabel: '结余%', editable: false, type: 'ratio', calculated: true, formula: '结余金额 / 产值/天' },
+    { field: 'avg_balance_per_machine', label: '平均每台结余', shortLabel: '台均结余', editable: false, type: 'number', calculated: true, formula: '结余金额 / 开机台数', collapsible: '更多费用' },
   ]}
 };
 
@@ -289,7 +332,7 @@ const ALL_DEPARTMENTS = {
 // 三工结余模块的3个主部门
 const BALANCE_DEPARTMENTS = { beer: '啤机部', print: '印喷部', assembly: '装配部' };
 // 小部门
-const SMALL_DEPARTMENTS = { bags: '胶袋部', color: '配色部', blister: '吸塑部', electronic: '电子部' };
+const SMALL_DEPARTMENTS = { bags: '胶袋部', color: '配色部', blister: '吸塑部', electronic: '电子部', clothing: '车衣部' };
 // 所有参与结余计算的部门（三工 + 小部门，用于公式配置等）
 const ALL_BALANCE_DEPARTMENTS = { ...BALANCE_DEPARTMENTS, ...SMALL_DEPARTMENTS };
 
@@ -4846,6 +4889,7 @@ const BREADCRUMB_MAP = {
   '/color': '三工结余 / 配色部',
   '/blister': '三工结余 / 吸塑部',
   '/electronic': '三工结余 / 电子部',
+  '/clothing': '三工结余 / 车衣部',
   '/summary': '结余收支汇总 / 大车间汇总',
   '/small-summary': '结余收支汇总 / 小部门汇总',
   '/settings': '系统设置'
@@ -4897,6 +4941,10 @@ const app = Vue.createApp({
             <a class="menu-item" :class="{ active: currentRoute === '/electronic' }" @click="navigate('/electronic')">
               <span class="icon">💡</span>
               <span v-show="!sidebarCollapsed">电子部</span>
+            </a>
+            <a class="menu-item" :class="{ active: currentRoute === '/clothing' }" @click="navigate('/clothing')">
+              <span class="icon">👔</span>
+              <span v-show="!sidebarCollapsed">车衣部</span>
             </a>
             <div class="menu-group">
               <a class="menu-item" :class="{ active: currentRoute === '/summary' }" @click="summaryExpanded = !summaryExpanded">
@@ -4972,11 +5020,11 @@ const app = Vue.createApp({
   },
   computed: {
     isDeptPage() {
-      return ['/beer', '/print', '/assembly', '/bags', '/color', '/blister', '/electronic'].includes(this.currentRoute);
+      return ['/beer', '/print', '/assembly', '/bags', '/color', '/blister', '/electronic', '/clothing'].includes(this.currentRoute);
     },
     currentDept() {
       const deptMap = { '/beer': 'beer', '/print': 'print', '/assembly': 'assembly',
-        '/bags': 'bags', '/color': 'color', '/blister': 'blister', '/electronic': 'electronic' };
+        '/bags': 'bags', '/color': 'color', '/blister': 'blister', '/electronic': 'electronic', '/clothing': 'clothing' };
       return deptMap[this.currentRoute] || '';
     },
     breadcrumb() {
