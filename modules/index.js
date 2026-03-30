@@ -213,15 +213,24 @@ function validateConfig() {
       allExpense = [...SHARED_EXPENSE_FIELDS, ...config.uniqueExpenseFields];
     }
 
-    // 校验1：所有费用字段必须存在于输入字段中
-    const missingInInput = allExpense.filter(f => !allInput.has(f));
+    // 自动计算费用字段（calc+expense 同时为 true），由代码计算而非用户输入
+    // 这类字段跳过"必须在输入字段中"和"不能出现在计算字段中"两项校验
+    const autoCalcExpenseFields = new Set(
+      (rawDeptConf?.uniqueFields || [])
+        .filter(f => f.calc && f.expense)
+        .map(f => f.field)
+    );
+    const manualExpense = allExpense.filter(f => !autoCalcExpenseFields.has(f));
+
+    // 校验1：手工输入的费用字段必须存在于输入字段中
+    const missingInInput = manualExpense.filter(f => !allInput.has(f));
     if (missingInInput.length > 0) {
       throw new Error(`[配置校验失败] ${config.label}(${dept}): 费用字段 [${missingInInput.join(', ')}] 不在输入字段中，结余计算将出错`);
     }
 
-    // 校验2：费用字段不能出现在计算字段中
+    // 校验2：手工输入的费用字段不能出现在计算字段中（自动计算的费用字段允许同时在 calc 中）
     const calcSet = new Set(config.uniqueCalcFields);
-    const expenseInCalc = allExpense.filter(f => calcSet.has(f));
+    const expenseInCalc = manualExpense.filter(f => calcSet.has(f));
     if (expenseInCalc.length > 0) {
       throw new Error(`[配置校验失败] ${config.label}(${dept}): 费用字段 [${expenseInCalc.join(', ')}] 同时出现在计算字段中，这会导致循环依赖`);
     }

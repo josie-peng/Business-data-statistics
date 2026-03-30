@@ -5,7 +5,7 @@
 
 const { getAll } = require('../../db/postgres');
 const FormulaParser = require('../../shared/formula-parser');
-const { DEPT_CONFIG, SHARED_EXPENSE_FIELDS, getCurrencyFields, getFixedExpenseFields, getIncomeFields } = require('../index');
+const { DEPT_CONFIG, SHARED_EXPENSE_FIELDS, getCurrencyFields, getFixedExpenseFields, getIncomeFields, getExpenseFields } = require('../index');
 
 // 公式和标签缓存（每 5 分钟刷新一次，避免每次计算都查数据库）
 let formulaCache = {};   // { dept: [formulas] }
@@ -306,6 +306,33 @@ function calculateRecordHardcoded(dept, record) {
     const outsourceOutput = parseFloat(result.outsource_output) || 0;
     const outsourceProfit = parseFloat(result.outsource_profit) || 0;
     result.outsource_profit_ratio = outsourceOutput > 0 ? outsourceProfit / outsourceOutput : 0;
+  } else if (dept === 'clothing') {
+    // 自动计算费用（按产值系数）
+    result.tax_expense = dailyOutput * 0.03;         // 税费 = 产值 × 3%
+    result.hk_daily_expense = dailyOutput * 0.01;   // 香港日常开支 = 产值 × 1%
+
+    // 开机率和台均产值
+    const totalMachines = parseFloat(result.total_machines) || 0;
+    const runningMachines = parseFloat(result.running_machines) || 0;
+    result.machine_rate = totalMachines > 0 ? runningMachines / totalMachines : 0;
+    result.avg_output_per_machine = runningMachines > 0 ? dailyOutput / runningMachines : 0;
+
+    // 工资比率 = (非生产工资 + 员工工资 + 管工工资) / 产值
+    const nonProdWage = parseFloat(result.non_production_wage) || 0;
+    const workerWage = parseFloat(result.worker_wage) || 0;
+    const supervisorWage = parseFloat(result.supervisor_wage) || 0;
+    result.wage_ratio = dailyOutput > 0 ? (nonProdWage + workerWage + supervisorWage) / dailyOutput : 0;
+
+    // 重算结余（因为 tax_expense/hk_daily_expense 在通用公式执行时还是0，需要在此处重算）
+    const expenseFieldsCl = getExpenseFields('clothing');
+    const totalExpenseCl = expenseFieldsCl.reduce((sum, field) => sum + (parseFloat(result[field]) || 0), 0);
+    const incomeFieldsCl = getIncomeFields('clothing');
+    const totalIncomeCl = incomeFieldsCl.reduce((sum, field) => sum + (parseFloat(result[field]) || 0), 0);
+    result.balance = dailyOutput + totalIncomeCl - totalExpenseCl;
+    result.balance_ratio = dailyOutput > 0 ? result.balance / dailyOutput : 0;
+
+    // 台均结余
+    result.avg_balance_per_machine = runningMachines > 0 ? result.balance / runningMachines : 0;
   } else if (dept === 'electronic') {
     const outsourceOutput = parseFloat(result.outsource_output) || 0;
     const totalOutputAll = dailyOutput + outsourceOutput;
