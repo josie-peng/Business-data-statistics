@@ -740,11 +740,21 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .sortable-ghost { background: #F0E6F6 !important; opacity: 0.7; }
 
 /* ===== 明细表操作列 - 复制按钮（ENTRY-03） ===== */
-.el-table .el-button--link.el-button--primary {
-  color: var(--primary, #7F41C0);
+/* 操作列数据行单元格整格天青蓝底色 */
+.el-table__body .el-table-fixed-column--right {
+  background-color: #5B9BD5 !important;
 }
-.el-table .el-button--link.el-button--primary:hover {
-  color: var(--primary-dark, #6A35A3);
+.copy-row-btn {
+  background-color: transparent !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  padding: 0 !important;
+  font-weight: 600;
+}
+.copy-row-btn:hover {
+  background-color: transparent !important;
+  color: #FFFFFF !important;
+  opacity: 0.85;
 }
 
 /* ===== 车间管理 — 组织架构图 ===== */
@@ -1096,4 +1106,48 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .settlement-calendar .cal-in-range {
   background: #F0E6F6;
   color: #7F41C0;
+}
+
+/* === 折叠列触发器 === */
+.collapse-trigger-col {
+  padding: 0 !important;
+  cursor: pointer;
+  min-width: 30px !important;
+  max-width: 30px !important;
+}
+.collapse-trigger-col .cell {
+  padding: 0 !important;
+  line-height: 1.2;
+}
+.collapse-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+.collapse-trigger .collapse-icon {
+  color: #fff;
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+.collapse-trigger .collapse-label {
+  color: #fff;
+  font-size: 10px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+/* 表头中的折叠触发器背景色（橄榄绿，与明细表头一致） */
+.el-table th.collapse-trigger-col {
+  background-color: #3D8361 !important;
+}
+.el-table td.collapse-trigger-col {
+  background-color: #f5f5f5 !important;
+  padding: 0 !important;
 }

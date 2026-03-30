@@ -124,15 +124,15 @@ const DEPT_CONFIG = {
     { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
     { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
     // === 共有费用字段 ===
-    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
-    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
-    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
-    { field: 'equipment', label: '设备', editable: true, type: 'number' },
-    { field: 'renovation', label: '装修', editable: true, type: 'number' },
-    { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
-    { field: 'shipping_fee', label: '运费', editable: true, type: 'number' },
-    { field: 'social_insurance', label: '社保', editable: true, type: 'number' },
-    { field: 'tax', label: '税收', editable: true, type: 'number' },
+    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率', collapsible: '更多费用' },
+    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true, collapsible: '更多费用' },
+    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'equipment', label: '设备', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'renovation', label: '装修', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'shipping_fee', label: '运费', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'social_insurance', label: '社保', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'tax', label: '税收', editable: true, type: 'number', collapsible: '更多费用' },
     // === 部门独有字段 ===
     { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer' },
     { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', editable: true, type: 'integer' },
@@ -167,15 +167,15 @@ const DEPT_CONFIG = {
     { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
     { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
     // === 共有费用字段 ===
-    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
-    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
-    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
-    { field: 'equipment', label: '设备', editable: true, type: 'number' },
-    { field: 'renovation', label: '装修', editable: true, type: 'number' },
-    { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
-    { field: 'shipping_fee', label: '运费', editable: true, type: 'number' },
-    { field: 'social_insurance', label: '社保', editable: true, type: 'number' },
-    { field: 'tax', label: '税收', editable: true, type: 'number' },
+    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率', collapsible: '更多费用' },
+    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true, collapsible: '更多费用' },
+    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'equipment', label: '设备', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'renovation', label: '装修', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'shipping_fee', label: '运费', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'social_insurance', label: '社保', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'tax', label: '税收', editable: true, type: 'number', collapsible: '更多费用' },
     // === 部门独有字段 ===
     { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(员工工资+管工工资) / 产值/天' },
     { field: 'hq_allocation', label: '总部分摊', shortLabel: '总部分摊', editable: true, type: 'number' },
@@ -203,15 +203,15 @@ const DEPT_CONFIG = {
     { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
     { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
     // === 共有费用字段 ===
-    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
-    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
-    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
-    { field: 'equipment', label: '设备', editable: true, type: 'number' },
-    { field: 'renovation', label: '装修', editable: true, type: 'number' },
-    { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
-    { field: 'shipping_fee', label: '运费', editable: true, type: 'number' },
-    { field: 'social_insurance', label: '社保', editable: true, type: 'number' },
-    { field: 'tax', label: '税收', editable: true, type: 'number' },
+    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率', collapsible: '更多费用' },
+    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true, collapsible: '更多费用' },
+    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'equipment', label: '设备', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'renovation', label: '装修', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'shipping_fee', label: '运费', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'social_insurance', label: '社保', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'tax', label: '税收', editable: true, type: 'number', collapsible: '更多费用' },
     // === 部门独有字段 ===
     { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer' },
     { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', editable: true, type: 'integer' },
@@ -244,12 +244,12 @@ const DEPT_CONFIG = {
     { field: 'supervisor_count', label: '管工人数', shortLabel: '管工人数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
     { field: 'worker_count', label: '员工人数', shortLabel: '员工人数', editable: true, type: 'integer' },
     { field: 'daily_output', label: '总产值/天', shortLabel: '产值/天', editable: true, type: 'number' },
-    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
-    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
-    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
-    { field: 'equipment', label: '设备', editable: true, type: 'number' },
-    { field: 'renovation', label: '装修', editable: true, type: 'number' },
-    { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
+    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率', collapsible: '更多费用' },
+    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true, collapsible: '更多费用' },
+    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'equipment', label: '设备', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'renovation', label: '装修', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number', collapsible: '更多费用' },
     // === 部门独有字段 ===
     { field: 'bonding_balance', label: '帮定结余', shortLabel: '帮定结余', editable: true, type: 'number' },
     { field: 'smt_balance', label: '贴片结余', shortLabel: '贴片结余', editable: true, type: 'number' },
@@ -349,15 +349,15 @@ const SHARED_WAGE = [
   { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
 ];
 const SHARED_EXPENSE = [
-  { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
-  { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true, formula: '啤机：水电单价 × 开机台数 / 汇率 | 印喷装配：总水电费 / 上班天数 / 汇率' },
-  { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
-  { field: 'equipment', label: '设备', editable: true, type: 'number' },
-  { field: 'renovation', label: '装修', editable: true, type: 'number' },
-  { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
-  { field: 'shipping_fee', label: '运费', editable: true, type: 'number' },
-  { field: 'social_insurance', label: '社保', editable: true, type: 'number' },
-  { field: 'tax', label: '税收', editable: true, type: 'number' },
+  { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率', collapsible: '更多费用' },
+  { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true, formula: '啤机：水电单价 × 开机台数 / 汇率 | 印喷装配：总水电费 / 上班天数 / 汇率', collapsible: '更多费用' },
+  { field: 'tool_investment', label: '工具投资', editable: true, type: 'number', collapsible: '更多费用' },
+  { field: 'equipment', label: '设备', editable: true, type: 'number', collapsible: '更多费用' },
+  { field: 'renovation', label: '装修', editable: true, type: 'number', collapsible: '更多费用' },
+  { field: 'misc_fee', label: '杂费', editable: true, type: 'number', collapsible: '更多费用' },
+  { field: 'shipping_fee', label: '运费', editable: true, type: 'number', collapsible: '更多费用' },
+  { field: 'social_insurance', label: '社保', editable: true, type: 'number', collapsible: '更多费用' },
+  { field: 'tax', label: '税收', editable: true, type: 'number', collapsible: '更多费用' },
 ];
 const SHARED_BALANCE = [
   { field: 'balance', label: '结余金额', shortLabel: '结余金额', editable: false, type: 'number', calculated: true, formula: '产值/天 - 所有费用之和' },
@@ -451,6 +451,21 @@ const FIELD_GROUP_AFTER_BALANCE = new Set([
   'outsource_planned_wage', 'outsource_actual_wage', 'outsource_wage_balance', 'outsource_balance_ratio',
 ]);
 
+// 折叠列触发器插入：在每个 collapsible 分组的第一个字段前插入一个虚拟触发列
+function addCollapseTriggers(columns) {
+  const result = [];
+  const seenGroups = new Set();
+  for (const col of columns) {
+    if (col.collapsible && !seenGroups.has(col.collapsible)) {
+      seenGroups.add(col.collapsible);
+      // 插入虚拟触发列，type: 'collapse' 标识这是折叠触发器
+      result.push({ field: `_collapse_${col.collapsible}`, type: 'collapse', collapseGroup: col.collapsible, label: col.collapsible });
+    }
+    result.push(col);
+  }
+  return result;
+}
+
 function getDeptColumns(dept) {
   const config = DEPT_CONFIG[dept];
   if (!config) return [...SHARED_COLUMNS, REMARK_COLUMN];
@@ -472,11 +487,11 @@ function getDeptColumns(dept) {
       else if (FIELD_GROUP_AFTER_BALANCE.has(f.field)) groups.afterBalance.push(f);
       else groups.expense.push(f);
     }
-    return [
+    return addCollapseTriggers([
       ...groups.machines, ...groups.people, ...groups.time, ...groups.output,
       ...groups.wage, ...groups.expense, ...groups.balance, ...groups.afterBalance,
       REMARK_COLUMN
-    ];
+    ]);
   }
 
   // 部门可排除的共享字段（如电子部不使用 worker_wage 等）
@@ -495,7 +510,7 @@ function getDeptColumns(dept) {
     else groups.uniqueExpense.push(f);
   }
 
-  return [
+  return addCollapseTriggers([
     ...groups.machines,
     ...filterShared(SHARED_PEOPLE), ...groups.people,
     ...groups.time,
@@ -506,7 +521,7 @@ function getDeptColumns(dept) {
     ...filterShared(SHARED_BALANCE),
     ...groups.afterBalance,
     REMARK_COLUMN
-  ];
+  ]);
 }
 
 function getRoleName(role) {
@@ -684,37 +699,56 @@ const DeptRecordsPage = {
               >{{ row.workshop_name }}</span>
             </template>
           </el-table-column>
-          <el-table-column v-for="col in columns" :key="col.field" :prop="col.field"
-                           :label="col.shortLabel || col.label"
-                           :width="getColumnWidth(col)" :min-width="getColumnWidth(col)"
-                           :class-name="getColumnClass(col)">
-            <template #header>
-              <span @mouseenter="showHeaderNote($event, col)" @mouseleave="hideHeaderNote" style="cursor:pointer;">
-                {{ col.shortLabel || col.label }}
-              </span>
-            </template>
-            <template #default="{ row }">
-              <div v-if="isEditing(row.id, col.field) && col.editable" class="editing-cell-wrapper">
-                <input :value="row[col.field]" @blur="saveCell(row, col.field, $event)"
-                       @keyup.enter="$event.target.blur()"
-                       @keyup.escape="cancelEdit"
-                       @input="limitDecimals($event)"
-                       autofocus />
-              </div>
-              <div v-else @click="startEdit(row, col)"
-                   :class="getCellClasses(row, col)"
-                   :style="{ cursor: col.editable ? 'text' : 'default', padding: '0 4px' }">
-                <template v-if="col.field === 'balance'">
-                  <span :class="{ 'amount-positive': Number(row.balance) >= 0, 'amount-negative': Number(row.balance) < 0 }">
+          <!-- 折叠触发列：type==='collapse' 渲染竖排文字+箭头按钮；普通列正常渲染 -->
+          <template v-for="col in visibleColumns" :key="col.field">
+            <!-- 折叠触发器列：30px宽，点击展开/收起对应分组 -->
+            <el-table-column v-if="col.type === 'collapse'"
+              width="30" align="center" class-name="collapse-trigger-col"
+              :resizable="false">
+              <template #header>
+                <div class="collapse-trigger" @click.stop="toggleCollapse(col.collapseGroup)"
+                     :title="isCollapsed(col.collapseGroup) ? '展开' + col.collapseGroup : '收起' + col.collapseGroup">
+                  <span class="collapse-icon">{{ isCollapsed(col.collapseGroup) ? '▶' : '◀' }}</span>
+                  <span class="collapse-label">{{ col.collapseGroup }}</span>
+                </div>
+              </template>
+              <template #default>
+                <span></span>
+              </template>
+            </el-table-column>
+            <!-- 普通数据列 -->
+            <el-table-column v-else :prop="col.field"
+                             :label="col.shortLabel || col.label"
+                             :width="getColumnWidth(col)" :min-width="getColumnWidth(col)"
+                             :class-name="getColumnClass(col)">
+              <template #header>
+                <span @mouseenter="showHeaderNote($event, col)" @mouseleave="hideHeaderNote" style="cursor:pointer;">
+                  {{ col.shortLabel || col.label }}
+                </span>
+              </template>
+              <template #default="{ row }">
+                <div v-if="isEditing(row.id, col.field) && col.editable" class="editing-cell-wrapper">
+                  <input :value="row[col.field]" @blur="saveCell(row, col.field, $event)"
+                         @keyup.enter="$event.target.blur()"
+                         @keyup.escape="cancelEdit"
+                         @input="limitDecimals($event)"
+                         autofocus />
+                </div>
+                <div v-else @click="startEdit(row, col)"
+                     :class="getCellClasses(row, col)"
+                     :style="{ cursor: col.editable ? 'text' : 'default', padding: '0 4px' }">
+                  <template v-if="col.field === 'balance'">
+                    <span :class="{ 'amount-positive': Number(row.balance) >= 0, 'amount-negative': Number(row.balance) < 0 }">
+                      {{ formatCellValue(row[col.field], col.type) }}
+                    </span>
+                  </template>
+                  <template v-else>
                     {{ formatCellValue(row[col.field], col.type) }}
-                  </span>
-                </template>
-                <template v-else>
-                  {{ formatCellValue(row[col.field], col.type) }}
-                </template>
-              </div>
-            </template>
-          </el-table-column>
+                  </template>
+                </div>
+              </template>
+            </el-table-column>
+          </template>
           <!-- ENTRY-03: 操作列 - 复制行按钮 -->
           <el-table-column label="操作" width="60" fixed="right" align="center">
             <template #default="{ row }">
@@ -727,7 +761,7 @@ const DeptRecordsPage = {
           </el-table-column>
         </el-table>
 
-        <!-- 底部合计区（紧凑版） -->
+        <!-- 底部合计区（紧凑版）：使用 visibleColumns 与主表格列对齐，折叠触发列渲染空格 -->
         <div class="summary-footer" v-if="summaryData">
           <table style="width:100%; border-collapse:collapse;">
             <tr class="summary-header-row">
@@ -735,10 +769,10 @@ const DeptRecordsPage = {
               <td style="width:50px"></td>
               <td style="width:110px">合计</td>
               <td style="width:80px">车间</td>
-              <td v-for="col in columns" :key="'sh-'+col.field"
+              <td v-for="col in visibleColumns" :key="'sh-'+col.field"
                   :class="col.calculated ? 'sh-calc' : ''"
-                  :style="{ width: getColumnWidth(col) + 'px', textAlign: 'right' }">
-                {{ col.shortLabel || col.label }}
+                  :style="{ width: (col.type === 'collapse' ? 30 : getColumnWidth(col)) + 'px', textAlign: 'right' }">
+                {{ col.type === 'collapse' ? '' : (col.shortLabel || col.label) }}
               </td>
             </tr>
             <!-- 清溪车间行 -->
@@ -746,8 +780,8 @@ const DeptRecordsPage = {
               <tr class="workshop-row">
                 <td></td><td></td><td></td>
                 <td>{{ wsName }}</td>
-                <td v-for="col in columns" :key="'qxwd-'+wsName+'-'+col.field" style="text-align:right;">
-                  {{ formatSummaryCell(wsData, col) }}
+                <td v-for="col in visibleColumns" :key="'qxwd-'+wsName+'-'+col.field" style="text-align:right;">
+                  {{ col.type === 'collapse' ? '' : formatSummaryCell(wsData, col) }}
                 </td>
               </tr>
             </template>
@@ -755,8 +789,8 @@ const DeptRecordsPage = {
             <tr class="region-row" v-if="summaryData.regions">
               <td></td><td></td><td></td>
               <td>清溪合计</td>
-              <td v-for="col in columns" :key="'qx-'+col.field" style="text-align:right;">
-                {{ formatSummaryCell(summaryData.regions['清溪'], col) }}
+              <td v-for="col in visibleColumns" :key="'qx-'+col.field" style="text-align:right;">
+                {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.regions['清溪'], col) }}
               </td>
             </tr>
             <!-- 邵阳车间行 -->
@@ -764,8 +798,8 @@ const DeptRecordsPage = {
               <tr class="workshop-row">
                 <td></td><td></td><td></td>
                 <td>{{ wsName }}</td>
-                <td v-for="col in columns" :key="'hnwd-'+wsName+'-'+col.field" style="text-align:right;">
-                  {{ formatSummaryCell(wsData, col) }}
+                <td v-for="col in visibleColumns" :key="'hnwd-'+wsName+'-'+col.field" style="text-align:right;">
+                  {{ col.type === 'collapse' ? '' : formatSummaryCell(wsData, col) }}
                 </td>
               </tr>
             </template>
@@ -773,16 +807,16 @@ const DeptRecordsPage = {
             <tr class="region-row" v-if="summaryData.hasHunan && dept === 'assembly'">
               <td></td><td></td><td></td>
               <td>邵阳合计</td>
-              <td v-for="col in columns" :key="'hn-'+col.field" style="text-align:right;">
-                {{ formatSummaryCell(summaryData.regions['湖南'], col) }}
+              <td v-for="col in visibleColumns" :key="'hn-'+col.field" style="text-align:right;">
+                {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.regions['湖南'], col) }}
               </td>
             </tr>
             <!-- 总合计（装配部不显示） -->
             <tr class="total-row" v-if="dept !== 'assembly'">
               <td></td><td></td><td></td>
               <td>总合计</td>
-              <td v-for="col in columns" :key="'tt-'+col.field" style="text-align:right;">
-                {{ formatSummaryCell(summaryData.total, col) }}
+              <td v-for="col in visibleColumns" :key="'tt-'+col.field" style="text-align:right;">
+                {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.total, col) }}
               </td>
             </tr>
           </table>
@@ -1041,7 +1075,9 @@ const DeptRecordsPage = {
       // 导出弹窗
       exportDialogVisible: false,
       exportDateRange: null,
-      exportWorkshopId: ''
+      exportWorkshopId: '',
+      // 折叠列状态（key: 分组名, value: true=收起 false=展开）
+      collapseState: {}
     };
   },
   computed: {
@@ -1050,6 +1086,14 @@ const DeptRecordsPage = {
     },
     editableColumns() {
       return this.columns.filter(c => c.editable);
+    },
+    // 根据折叠状态过滤可见列（折叠触发列始终可见，收起的分组列隐藏）
+    visibleColumns() {
+      return this.columns.filter(col => {
+        if (col.type === 'collapse') return true;
+        if (col.collapsible) return !this.isCollapsed(col.collapsible);
+        return true;
+      });
     },
     currentDept() {
       return this.dept;
@@ -1081,12 +1125,36 @@ const DeptRecordsPage = {
         this.resetState();
         this.loadWorkshops();
         this.loadData();
+        this.initCollapseState();
       },
       immediate: true
     }
   },
+  created() {
+    this.initCollapseState();
+  },
   methods: {
     formatCellValue,
+    // 初始化折叠状态：从 localStorage 恢复，默认全部收起
+    initCollapseState() {
+      const stored = localStorage.getItem(`collapse_${this.dept}`);
+      let state = {};
+      if (stored) {
+        try { state = JSON.parse(stored); } catch(e) { state = {}; }
+      }
+      // 扫描当前部门所有列，找出分组名，默认收起
+      const groups = new Set();
+      for (const col of this.columns) {
+        if (col.collapsible) groups.add(col.collapsible);
+        if (col.collapseGroup) groups.add(col.collapseGroup);
+      }
+      for (const g of groups) {
+        if (state[g] === undefined) {
+          state[g] = true; // true = 收起
+        }
+      }
+      this.collapseState = state;
+    },
     resetState() {
       this.tableData = [];
       this.selectedRows = [];
@@ -1096,6 +1164,17 @@ const DeptRecordsPage = {
       this.workshopFilter = '';
       this.summaryData = null;
       this.workshopList = [];
+    },
+    // 切换折叠分组的展开/收起状态，并持久化到 localStorage
+    toggleCollapse(groupName) {
+      this.collapseState[groupName] = !this.collapseState[groupName];
+      // 触发 Vue 响应式更新
+      this.collapseState = { ...this.collapseState };
+      localStorage.setItem(`collapse_${this.dept}`, JSON.stringify(this.collapseState));
+    },
+    // 判断某分组是否处于收起状态（默认 true = 收起）
+    isCollapsed(groupName) {
+      return this.collapseState[groupName] !== false;
     },
     // 三级排序：日期升序 → 车间 sort_order 升序 → id 升序（创建先后）
     sortRecords(records) {
