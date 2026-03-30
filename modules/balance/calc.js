@@ -132,6 +132,33 @@ function applyFixedExpenses(dept, record, fixedConfig, exchangeRate) {
   const result = { ...record };
   const workDays = fixedConfig.work_days || 0;
 
+  // 车衣部固定费用特殊处理（房租/水电配置的是日值，不除以天数）
+  if (dept === 'clothing') {
+    // 管工人数：直接代入，不受汇率影响
+    if (fixedConfig.supervisor_count) {
+      result.supervisor_count = fixedConfig.supervisor_count;
+    }
+    // 房租：日值 / 汇率（配置值已是每日金额，无需除以上班天数）
+    if (fixedConfig.rent_daily && exchangeRate > 0) {
+      result.rent = fixedConfig.rent_daily / exchangeRate;
+    }
+    // 水电费：日值 / 汇率（配置值已是每日金额，无需除以上班天数）
+    if (fixedConfig.utility_daily && exchangeRate > 0) {
+      result.utility_fee = fixedConfig.utility_daily / exchangeRate;
+    }
+    // 总部分摊工资 = 月总额 / 上班天数 / 汇率
+    if (fixedConfig.hq_allocation_wage_total && workDays > 0 && exchangeRate > 0) {
+      result.hq_allocation_wage = fixedConfig.hq_allocation_wage_total / workDays / exchangeRate;
+    }
+    // 管工工资 = (底薪 + 奖金) / 上班天数 / 汇率
+    const baseSalary = fixedConfig.gw_base_salary || 0;
+    const bonus = fixedConfig.gw_bonus || 0;
+    if ((baseSalary + bonus) > 0 && workDays > 0 && exchangeRate > 0) {
+      result.supervisor_wage = (baseSalary + bonus) / workDays / exchangeRate;
+    }
+    return result;
+  }
+
   // 总台数（啤机，半永久，直接代入）
   if (dept === 'beer' && fixedConfig.total_machines) {
     result.total_machines = fixedConfig.total_machines;
