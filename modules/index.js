@@ -52,12 +52,26 @@ function getExcludeSet(dept) {
 }
 
 function getAllInputFields(dept) {
+  const deptConf = balanceConfig.departments[dept];
+  // 自包含部门：共享字段已嵌入 uniqueFields，不再注入 sharedFields
+  if (deptConf?.selfContained) {
+    return [...DEPT_CONFIG[dept].uniqueInputFields, 'remark'];
+  }
   const exclude = getExcludeSet(dept);
   const shared = SHARED_INPUT_FIELDS.filter(f => !exclude.has(f));
   return [...shared, ...DEPT_CONFIG[dept].uniqueInputFields, 'remark'];
 }
 
 function getAllFields(dept) {
+  const deptConf = balanceConfig.departments[dept];
+  // 自包含部门：共享字段已嵌入 uniqueFields，不再注入 SHARED_INPUT_FIELDS / SHARED_CALC_FIELDS
+  if (deptConf?.selfContained) {
+    return [
+      ...DEPT_CONFIG[dept].uniqueInputFields,
+      ...DEPT_CONFIG[dept].uniqueCalcFields,
+      'remark'
+    ];
+  }
   const exclude = getExcludeSet(dept);
   const sharedInput = SHARED_INPUT_FIELDS.filter(f => !exclude.has(f));
   return [
@@ -69,6 +83,11 @@ function getAllFields(dept) {
 }
 
 function getExpenseFields(dept) {
+  const deptConf = balanceConfig.departments[dept];
+  // 自包含部门：费用字段已嵌入 uniqueFields，不再注入 SHARED_EXPENSE_FIELDS
+  if (deptConf?.selfContained) {
+    return [...DEPT_CONFIG[dept].uniqueExpenseFields];
+  }
   const exclude = getExcludeSet(dept);
   const sharedExpense = SHARED_EXPENSE_FIELDS.filter(f => !exclude.has(f));
   return [...sharedExpense, ...DEPT_CONFIG[dept].uniqueExpenseFields];
@@ -183,8 +202,16 @@ function getExportLabelMap(moduleKey) {
 
 function validateConfig() {
   for (const [dept, config] of Object.entries(DEPT_CONFIG)) {
-    const allInput = new Set([...SHARED_INPUT_FIELDS, ...config.uniqueInputFields]);
-    const allExpense = [...SHARED_EXPENSE_FIELDS, ...config.uniqueExpenseFields];
+    const rawDeptConf = balanceConfig.departments[dept];
+    // 自包含部门：共享字段已嵌入 uniqueFields，只检查自身字段
+    let allInput, allExpense;
+    if (rawDeptConf?.selfContained) {
+      allInput = new Set(config.uniqueInputFields);
+      allExpense = [...config.uniqueExpenseFields];
+    } else {
+      allInput = new Set([...SHARED_INPUT_FIELDS, ...config.uniqueInputFields]);
+      allExpense = [...SHARED_EXPENSE_FIELDS, ...config.uniqueExpenseFields];
+    }
 
     // 校验1：所有费用字段必须存在于输入字段中
     const missingInInput = allExpense.filter(f => !allInput.has(f));
@@ -204,15 +231,25 @@ function validateConfig() {
 
 // 获取需要汇率转换的字段列表
 function getCurrencyFields(dept) {
+  const deptConf = balanceConfig.departments[dept];
+  // 自包含部门：所有字段（包括曾是共享的）都在 uniqueFields 中
+  if (deptConf?.selfContained) {
+    return deptConf.uniqueFields.filter(f => f.currency).map(f => f.field);
+  }
   const shared = balanceConfig.sharedFields.filter(f => f.currency).map(f => f.field);
-  const unique = balanceConfig.departments[dept]?.uniqueFields.filter(f => f.currency).map(f => f.field) || [];
+  const unique = deptConf?.uniqueFields.filter(f => f.currency).map(f => f.field) || [];
   return [...shared, ...unique];
 }
 
 // 获取固定费用字段列表
 function getFixedExpenseFields(dept) {
+  const deptConf = balanceConfig.departments[dept];
+  // 自包含部门：所有字段（包括曾是共享的）都在 uniqueFields 中
+  if (deptConf?.selfContained) {
+    return deptConf.uniqueFields.filter(f => f.fixedExpense).map(f => f.field);
+  }
   const shared = balanceConfig.sharedFields.filter(f => f.fixedExpense).map(f => f.field);
-  const unique = balanceConfig.departments[dept]?.uniqueFields.filter(f => f.fixedExpense).map(f => f.field) || [];
+  const unique = deptConf?.uniqueFields.filter(f => f.fixedExpense).map(f => f.field) || [];
   return [...shared, ...unique];
 }
 
