@@ -114,7 +114,26 @@ const DEPT_CONFIG = {
     { field: 'borrowed_worker_wage', label: '外借人员工资', shortLabel: '外借工资', editable: true, type: 'number' },
     { field: 'borrowed_wage_ratio', label: '外借人员工资占计划工资%', shortLabel: '外借占比', editable: false, type: 'ratio', calculated: true, formula: '外借人员工资 / 计划总工资' },
   ]},
-  bags: { key: 'bags', name: '胶袋部', uniqueFields: [
+  bags: { key: 'bags', name: '胶袋部', selfContained: true, uniqueFields: [
+    // === 共有人数字段 ===
+    { field: 'supervisor_count', label: '管工人数', shortLabel: '管工人数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
+    { field: 'worker_count', label: '员工人数', shortLabel: '员工人数', editable: true, type: 'integer' },
+    // === 共有产值字段 ===
+    { field: 'daily_output', label: '总产值/天', shortLabel: '产值/天', editable: true, type: 'number' },
+    // === 共有工资字段 ===
+    { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
+    { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
+    // === 共有费用字段 ===
+    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
+    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
+    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
+    { field: 'equipment', label: '设备', editable: true, type: 'number' },
+    { field: 'renovation', label: '装修', editable: true, type: 'number' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
+    { field: 'shipping_fee', label: '运费', editable: true, type: 'number' },
+    { field: 'social_insurance', label: '社保', editable: true, type: 'number' },
+    { field: 'tax', label: '税收', editable: true, type: 'number' },
+    // === 部门独有字段 ===
     { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer' },
     { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', editable: true, type: 'integer' },
     { field: 'machine_rate', label: '开机率', shortLabel: '开机率', editable: false, type: 'ratio', calculated: true, formula: '开机台数 / 总台数' },
@@ -129,17 +148,44 @@ const DEPT_CONFIG = {
     { field: 'machine_repair', label: '机器维修', shortLabel: '机器维修', editable: true, type: 'number' },
     { field: 'material_supplement', label: '原料补料/损耗', shortLabel: '原料补料', editable: true, type: 'number' },
     { field: 'gate_processing_fee', label: '批水口加工费', shortLabel: '水口加工', editable: true, type: 'number' },
+    // === 结余字段 ===
+    { field: 'balance', label: '结余金额', shortLabel: '结余金额', editable: false, type: 'number', calculated: true, formula: '产值/天 - 所有费用之和' },
+    { field: 'balance_ratio', label: '结余%', shortLabel: '结余%', editable: false, type: 'ratio', calculated: true, formula: '结余金额 / 产值/天' },
+    // === 结余后字段 ===
     { field: 'avg_balance_per_machine', label: '平均每台结余', shortLabel: '台均结余', editable: false, type: 'number', calculated: true, formula: '结余金额 / 开机台数' },
     { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
     { field: 'outsource_profit', label: '利润', shortLabel: '利润', editable: true, type: 'number' },
     { field: 'outsource_profit_ratio', label: '占比率', shortLabel: '占比率', editable: false, type: 'ratio', calculated: true, formula: '利润 / 外发产值' },
   ]},
-  color: { key: 'color', name: '配色部', uniqueFields: [
+  color: { key: 'color', name: '配色部', selfContained: true, uniqueFields: [
+    // === 共有人数字段 ===
+    { field: 'supervisor_count', label: '管工人数', shortLabel: '管工人数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
+    { field: 'worker_count', label: '员工人数', shortLabel: '员工人数', editable: true, type: 'integer' },
+    // === 共有产值字段 ===
+    { field: 'daily_output', label: '总产值/天', shortLabel: '产值/天', editable: true, type: 'number' },
+    // === 共有工资字段 ===
+    { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
+    { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
+    // === 共有费用字段 ===
+    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
+    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
+    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
+    { field: 'equipment', label: '设备', editable: true, type: 'number' },
+    { field: 'renovation', label: '装修', editable: true, type: 'number' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
+    { field: 'shipping_fee', label: '运费', editable: true, type: 'number' },
+    { field: 'social_insurance', label: '社保', editable: true, type: 'number' },
+    { field: 'tax', label: '税收', editable: true, type: 'number' },
+    // === 部门独有字段 ===
     { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(员工工资+管工工资) / 产值/天' },
     { field: 'hq_allocation', label: '总部分摊', shortLabel: '总部分摊', editable: true, type: 'number' },
     { field: 'raw_material_cost', label: '原料成本', shortLabel: '原料成本', editable: true, type: 'number' },
     { field: 'color_powder', label: '色粉', shortLabel: '色粉', editable: true, type: 'number' },
     { field: 'hk_expense', label: '税收/香港开支', shortLabel: '港支出', editable: true, type: 'number' },
+    // === 结余字段 ===
+    { field: 'balance', label: '结余金额', shortLabel: '结余金额', editable: false, type: 'number', calculated: true, formula: '产值/天 - 所有费用之和' },
+    { field: 'balance_ratio', label: '结余%', shortLabel: '结余%', editable: false, type: 'ratio', calculated: true, formula: '结余金额 / 产值/天' },
+    // === 结余后字段 ===
     { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
     { field: 'outsource_tax', label: '税收(外发)', shortLabel: '外发税', editable: true, type: 'number' },
     { field: 'outsource_profit', label: '利润', shortLabel: '利润', editable: true, type: 'number' },
@@ -147,7 +193,26 @@ const DEPT_CONFIG = {
     { field: 'profit_ratio_ex_tax', label: '不含税比润', shortLabel: '不含税%', editable: false, type: 'ratio', calculated: true },
     { field: 'profit_ratio_inc_tax', label: '含税总比润', shortLabel: '含税%', editable: false, type: 'ratio', calculated: true },
   ]},
-  blister: { key: 'blister', name: '吸塑部', uniqueFields: [
+  blister: { key: 'blister', name: '吸塑部', selfContained: true, uniqueFields: [
+    // === 共有人数字段 ===
+    { field: 'supervisor_count', label: '管工人数', shortLabel: '管工人数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
+    { field: 'worker_count', label: '员工人数', shortLabel: '员工人数', editable: true, type: 'integer' },
+    // === 共有产值字段 ===
+    { field: 'daily_output', label: '总产值/天', shortLabel: '产值/天', editable: true, type: 'number' },
+    // === 共有工资字段 ===
+    { field: 'supervisor_wage', label: '管工工资/天', shortLabel: '管工工资', editable: true, type: 'number', fixedExpense: true, formula: '(管工底薪 + 管工奖金) / 上班天数 / 汇率' },
+    { field: 'worker_wage', label: '员工工资/天', shortLabel: '员工工资', editable: true, type: 'number' },
+    // === 共有费用字段 ===
+    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
+    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
+    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
+    { field: 'equipment', label: '设备', editable: true, type: 'number' },
+    { field: 'renovation', label: '装修', editable: true, type: 'number' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
+    { field: 'shipping_fee', label: '运费', editable: true, type: 'number' },
+    { field: 'social_insurance', label: '社保', editable: true, type: 'number' },
+    { field: 'tax', label: '税收', editable: true, type: 'number' },
+    // === 部门独有字段 ===
     { field: 'total_machines', label: '总台数', shortLabel: '总台数', editable: true, type: 'integer' },
     { field: 'running_machines', label: '开机台数', shortLabel: '开机台数', editable: true, type: 'integer' },
     { field: 'machine_rate', label: '开机率', shortLabel: '开机率', editable: false, type: 'ratio', calculated: true, formula: '开机台数 / 总台数' },
@@ -165,15 +230,27 @@ const DEPT_CONFIG = {
     { field: 'cartons', label: '纸箱', shortLabel: '纸箱', editable: true, type: 'number' },
     { field: 'plastic_bags', label: '胶袋', shortLabel: '胶袋', editable: true, type: 'number' },
     { field: 'scrap_income', label: '边角料(收入)', shortLabel: '边角料', editable: true, type: 'number' },
+    // === 结余字段 ===
+    { field: 'balance', label: '结余金额', shortLabel: '结余金额', editable: false, type: 'number', calculated: true, formula: '产值/天 - 所有费用之和' },
+    { field: 'balance_ratio', label: '结余%', shortLabel: '结余%', editable: false, type: 'ratio', calculated: true, formula: '结余金额 / 产值/天' },
+    // === 结余后字段 ===
     { field: 'avg_balance_per_machine', label: '平均每台结余', shortLabel: '台均结余', editable: false, type: 'number', calculated: true, formula: '结余金额 / 开机台数' },
     { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
     { field: 'outsource_profit', label: '外发利润', shortLabel: '外发利润', editable: true, type: 'number' },
     { field: 'outsource_profit_ratio', label: '外发利润率%', shortLabel: '外发利%', editable: false, type: 'ratio', calculated: true, formula: '外发利润 / 外发产值' },
   ]},
-  electronic: { key: 'electronic', name: '电子部',
-    // 电子部不使用这些共享字段
-    excludeSharedFields: ['worker_wage', 'supervisor_wage', 'social_insurance', 'tax', 'shipping_fee'],
-    uniqueFields: [
+  electronic: { key: 'electronic', name: '电子部', selfContained: true, uniqueFields: [
+    // === 共有字段（电子部仅使用9个共有字段，不含 worker_wage/supervisor_wage/social_insurance/tax/shipping_fee） ===
+    { field: 'supervisor_count', label: '管工人数', shortLabel: '管工人数', editable: true, type: 'integer', fixedExpense: true, formula: '固定配置值，直接代入' },
+    { field: 'worker_count', label: '员工人数', shortLabel: '员工人数', editable: true, type: 'integer' },
+    { field: 'daily_output', label: '总产值/天', shortLabel: '产值/天', editable: true, type: 'number' },
+    { field: 'rent', label: '房租', editable: true, type: 'number', fixedExpense: true, formula: '总房租 / 上班天数 / 汇率' },
+    { field: 'utility_fee', label: '水电费', editable: true, type: 'number', fixedExpense: true },
+    { field: 'tool_investment', label: '工具投资', editable: true, type: 'number' },
+    { field: 'equipment', label: '设备', editable: true, type: 'number' },
+    { field: 'renovation', label: '装修', editable: true, type: 'number' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number' },
+    // === 部门独有字段 ===
     { field: 'bonding_balance', label: '帮定结余', shortLabel: '帮定结余', editable: true, type: 'number' },
     { field: 'smt_balance', label: '贴片结余', shortLabel: '贴片结余', editable: true, type: 'number' },
     { field: 'plugin_balance', label: '插件结余', shortLabel: '插件结余', editable: true, type: 'number' },
@@ -190,6 +267,10 @@ const DEPT_CONFIG = {
     { field: 'payable_tax', label: '应缴税收', shortLabel: '应缴税', editable: true, type: 'number', fixedExpense: true, formula: '总额 / 汇率 / 上班天数' },
     { field: 'hq_allocation', label: '总部支出', shortLabel: '总部支出', editable: false, type: 'number', calculated: true, formula: '(总产值 + 外发产值) × 0.0029' },
     { field: 'estimated_tax', label: '预计税金', shortLabel: '预计税金', editable: false, type: 'number', calculated: true, formula: '(总产值 + 外发产值) × 0.03' },
+    // === 结余字段 ===
+    { field: 'balance', label: '结余金额', shortLabel: '结余金额', editable: false, type: 'number', calculated: true, formula: '产值/天 - 所有费用之和' },
+    { field: 'balance_ratio', label: '结余%', shortLabel: '结余%', editable: false, type: 'ratio', calculated: true, formula: '结余金额 / 产值/天' },
+    // === 结余后字段 ===
     { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
     { field: 'outsource_planned_wage', label: '外发计划工资(含1.13)', shortLabel: '外发计划', editable: true, type: 'number' },
     { field: 'outsource_actual_wage', label: '外发实际工资', shortLabel: '外发实际', editable: true, type: 'number' },
@@ -332,6 +413,29 @@ function getDeptColumns(dept) {
   if (!config) return [...SHARED_COLUMNS, REMARK_COLUMN];
 
   const unique = config.uniqueFields || [];
+
+  // selfContained 部门：所有字段都在 uniqueFields 中自描述，不混入 SHARED_* 数组
+  // 只需按逻辑分组后按固定顺序输出即可
+  if (config.selfContained) {
+    const groups = { machines: [], people: [], time: [], output: [], wage: [],
+      expense: [], balance: [], afterBalance: [] };
+    for (const f of unique) {
+      if (f.field === 'balance' || f.field === 'balance_ratio') groups.balance.push(f);
+      else if (FIELD_GROUP_MACHINE.includes(f.field)) groups.machines.push(f);
+      else if (FIELD_GROUP_PEOPLE.includes(f.field)) groups.people.push(f);
+      else if (FIELD_GROUP_TIME.includes(f.field)) groups.time.push(f);
+      else if (FIELD_GROUP_OUTPUT.includes(f.field)) groups.output.push(f);
+      else if (FIELD_GROUP_WAGE.includes(f.field)) groups.wage.push(f);
+      else if (FIELD_GROUP_AFTER_BALANCE.has(f.field)) groups.afterBalance.push(f);
+      else groups.expense.push(f);
+    }
+    return [
+      ...groups.machines, ...groups.people, ...groups.time, ...groups.output,
+      ...groups.wage, ...groups.expense, ...groups.balance, ...groups.afterBalance,
+      REMARK_COLUMN
+    ];
+  }
+
   // 部门可排除的共享字段（如电子部不使用 worker_wage 等）
   const excludeSet = new Set(config.excludeSharedFields || []);
   const filterShared = (arr) => excludeSet.size > 0 ? arr.filter(f => !excludeSet.has(f.field)) : arr;
