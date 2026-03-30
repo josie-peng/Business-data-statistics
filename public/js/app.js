@@ -143,7 +143,7 @@ const DEPT_CONFIG = {
     { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
     { field: 'outsource_tax', label: '税收(外发)', shortLabel: '外发税', editable: true, type: 'number' },
     { field: 'outsource_profit', label: '利润', shortLabel: '利润', editable: true, type: 'number' },
-    { field: 'total_profit', label: '总利润', shortLabel: '总利润', editable: true, type: 'number' },
+    { field: 'total_profit', label: '总利润', shortLabel: '总利润', editable: false, type: 'number', calculated: true, formula: '税收(外发) + 利润' },
     { field: 'profit_ratio_ex_tax', label: '不含税比润', shortLabel: '不含税%', editable: false, type: 'ratio', calculated: true },
     { field: 'profit_ratio_inc_tax', label: '含税总比润', shortLabel: '含税%', editable: false, type: 'ratio', calculated: true },
   ]},
@@ -443,7 +443,7 @@ const DeptRecordsPage = {
         <el-button type="success" size="small" @click="showExportDialog">导出Excel</el-button>
         <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</el-button>
         <button class="fixed-expense-btn" @click="showFixedExpenseDialog" v-if="currentDept">&#9881; 固定费用配置</button>
-        <button class="settlement-btn" @click="showSettlementDialog" v-if="user && currentDept">&#128197; 月底结算</button>
+        <button class="settlement-btn" @click="showSettlementDialog" v-if="currentDept">&#128197; 月底结算</button>
       </div>
 
       <!-- 导入弹窗 -->
@@ -663,6 +663,13 @@ const DeptRecordsPage = {
 
       <!-- 固定费用配置弹窗 -->
       <el-dialog v-model="fixedExpenseVisible" title="固定费用配置" width="680px" destroy-on-close>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:13px;color:#666;">车间：</span>
+          <el-select v-model="fixedExpenseWorkshopId" placeholder="请选择车间" size="small" style="width:160px"
+                     @change="loadFixedExpenses">
+            <el-option v-for="w in workshopList" :key="w.id" :label="w.name" :value="w.id" />
+          </el-select>
+        </div>
         <div style="margin-bottom:12px;">
           <span style="font-size:13px;color:#666;margin-right:8px;">快捷标签：</span>
           <el-tag v-for="tag in fixedExpenseTags" :key="tag.name"
@@ -693,7 +700,7 @@ const DeptRecordsPage = {
         </div>
         <el-table :data="fixedExpenseList" border stripe size="small" v-loading="fixedExpenseLoading" max-height="280">
           <el-table-column prop="label" label="名称" width="120" />
-          <el-table-column prop="name" label="标识" width="140" />
+          <el-table-column prop="name" label="标识" width="120" />
           <el-table-column prop="effective_month" label="生效月份" width="100" align="center">
             <template #default="{ row }">{{ row.effective_month === '0000-00' ? '永久' : row.effective_month }}</template>
           </el-table-column>
@@ -862,6 +869,7 @@ const DeptRecordsPage = {
       editingWorkshopRowId: null,
       // 固定费用配置
       fixedExpenseVisible: false,
+      fixedExpenseWorkshopId: '',
       fixedExpenseList: [],
       fixedExpenseForm: { name: '', label: '', effective_month: '', value: '', isPermanent: false },
       gwForm: { baseSalary: '', bonus: '', month: '' },
@@ -1418,19 +1426,24 @@ const DeptRecordsPage = {
     // === 固定费用配置 ===
     async showFixedExpenseDialog() {
       this.fixedExpenseVisible = true;
+      this.fixedExpenseWorkshopId = '';
       this.fixedExpenseForm = { name: '', label: '', effective_month: '', value: '', isPermanent: false };
       this.gwForm = { baseSalary: '', bonus: '', month: '' };
       this.activeFixedTag = '';
-      await this.loadFixedExpenses();
+      this.fixedExpenseList = [];
     },
     // 永久复选框切换：勾选时清空月份，取消勾选时恢复
     onPermanentChange(val) {
       if (val) this.fixedExpenseForm.effective_month = '';
     },
     async loadFixedExpenses() {
+      if (!this.fixedExpenseWorkshopId) {
+        this.fixedExpenseList = [];
+        return;
+      }
       this.fixedExpenseLoading = true;
       try {
-        const res = await API.getFixedExpenses(this.dept);
+        const res = await API.getFixedExpenses(this.dept, { workshop_id: this.fixedExpenseWorkshopId });
         this.fixedExpenseList = res.data || [];
       } catch (err) {
         ElementPlus.ElMessage.error('加载固定费用配置失败');
@@ -1439,12 +1452,15 @@ const DeptRecordsPage = {
       }
     },
     async handleSaveFixedExpense() {
+      if (!this.fixedExpenseWorkshopId) {
+        ElementPlus.ElMessage.warning('请先选择车间');
+        return;
+      }
       const f = this.fixedExpenseForm;
       if (!f.name || !f.label || f.value === '') {
         ElementPlus.ElMessage.warning('请填写完整信息');
         return;
       }
-      // 非永久时必须选择月份
       if (!f.isPermanent && !f.effective_month) {
         ElementPlus.ElMessage.warning('请选择月份或勾选"永久"');
         return;
@@ -1455,7 +1471,8 @@ const DeptRecordsPage = {
           name: f.name,
           label: f.label,
           value: f.value,
-          effective_month: f.isPermanent ? '0000-00' : f.effective_month
+          effective_month: f.isPermanent ? '0000-00' : f.effective_month,
+          workshop_id: this.fixedExpenseWorkshopId
         });
         ElementPlus.ElMessage.success('保存成功');
         f.value = '';
@@ -1468,6 +1485,10 @@ const DeptRecordsPage = {
       }
     },
     async handleSaveGwForm() {
+      if (!this.fixedExpenseWorkshopId) {
+        ElementPlus.ElMessage.warning('请先选择车间');
+        return;
+      }
       const g = this.gwForm;
       if (!g.month) {
         ElementPlus.ElMessage.warning('请填写月份');
@@ -1482,13 +1503,15 @@ const DeptRecordsPage = {
         // 保存底薪（半永久，仅当有值时更新）
         if (g.baseSalary) {
           await API.saveFixedExpense(this.dept, {
-            name: 'gw_base_salary', label: '管工底薪', value: g.baseSalary, effective_month: '0000-00'
+            name: 'gw_base_salary', label: '管工底薪', value: g.baseSalary, effective_month: '0000-00',
+            workshop_id: this.fixedExpenseWorkshopId
           });
         }
         // 保存奖金（每月）
         if (g.bonus) {
           await API.saveFixedExpense(this.dept, {
-            name: 'gw_bonus', label: '管工奖金', value: g.bonus, effective_month: g.month
+            name: 'gw_bonus', label: '管工奖金', value: g.bonus, effective_month: g.month,
+            workshop_id: this.fixedExpenseWorkshopId
           });
         }
         ElementPlus.ElMessage.success('管工工资配置保存成功');
@@ -1844,7 +1867,7 @@ const SummaryPage = {
             <div class="kpi-value">{{ fmtWan(dashData.cards.total_output) }}</div>
             <div class="kpi-change" v-if="dashData.cards.output_change !== null && dashData.cards.output_change !== undefined">
               <span :class="dashData.cards.output_change >= 0 ? 'change-up' : 'change-down'">
-                {{ dashData.cards.output_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.output_change * 100).toFixed(1) }}%
+                {{ dashData.cards.output_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.output_change * 100).toFixed(0) }}%
               </span>
               <span class="change-label">较{{ dashData.cards.prev_label }}</span>
             </div>
@@ -1854,7 +1877,7 @@ const SummaryPage = {
             <div class="kpi-value">{{ fmtWan(dashData.cards.total_expense) }}</div>
             <div class="kpi-change" v-if="dashData.cards.expense_change !== null && dashData.cards.expense_change !== undefined">
               <span :class="dashData.cards.expense_change <= 0 ? 'change-up' : 'change-down'">
-                {{ dashData.cards.expense_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.expense_change * 100).toFixed(1) }}%
+                {{ dashData.cards.expense_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.expense_change * 100).toFixed(0) }}%
               </span>
               <span class="change-label">较{{ dashData.cards.prev_label }}</span>
             </div>
@@ -1864,17 +1887,17 @@ const SummaryPage = {
             <div class="kpi-value">{{ fmtWan(dashData.cards.total_balance) }}</div>
             <div class="kpi-change" v-if="dashData.cards.balance_change !== null && dashData.cards.balance_change !== undefined">
               <span :class="dashData.cards.balance_change >= 0 ? 'change-up' : 'change-down'">
-                {{ dashData.cards.balance_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.balance_change * 100).toFixed(1) }}%
+                {{ dashData.cards.balance_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.balance_change * 100).toFixed(0) }}%
               </span>
               <span class="change-label">较{{ dashData.cards.prev_label }}</span>
             </div>
           </div>
           <div class="kpi-card card-ratio">
             <div class="kpi-label">平均结余率</div>
-            <div class="kpi-value">{{ (dashData.cards.avg_ratio * 100).toFixed(1) }}%</div>
+            <div class="kpi-value">{{ (dashData.cards.avg_ratio * 100).toFixed(0) }}%</div>
             <div class="kpi-change" v-if="dashData.cards.ratio_change !== null && dashData.cards.ratio_change !== undefined">
               <span :class="dashData.cards.ratio_change >= 0 ? 'change-up' : 'change-down'">
-                {{ dashData.cards.ratio_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.ratio_change * 100).toFixed(1) }}%
+                {{ dashData.cards.ratio_change >= 0 ? '▲' : '▼' }} {{ Math.abs(dashData.cards.ratio_change * 100).toFixed(0) }}%
               </span>
               <span class="change-label">较{{ dashData.cards.prev_label }}</span>
             </div>
@@ -1934,7 +1957,7 @@ const SummaryPage = {
                 <span style="margin:0 10px;">|</span>
                 总结余：<span class="val">{{ fmtVal(dailyData.monthly.total.balance) }}</span>
                 <span style="margin:0 10px;">|</span>
-                结余率：<span class="val">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(1) }}%</span>
+                结余率：<span class="val">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(0) }}%</span>
               </div>
             </div>
             <div class="card-table-wrap">
@@ -1952,13 +1975,13 @@ const SummaryPage = {
                     <td class="sticky-col">{{ ws.workshop_name }}</td>
                     <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
                     <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
-                    <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
+                    <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(0) }}%</td>
                   </tr>
                   <tr class="total-row">
                     <td class="sticky-col">合计</td>
                     <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(dailyData.monthly.total[col.field]) }}</td>
                     <td :class="dailyData.monthly.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(dailyData.monthly.total.balance) }}</td>
-                    <td :class="dailyData.monthly.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(1) }}%</td>
+                    <td :class="dailyData.monthly.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(0) }}%</td>
                   </tr>
                 </tbody>
               </table>
@@ -1996,13 +2019,13 @@ const SummaryPage = {
                     <td class="sticky-col">{{ ws.workshop_name }}</td>
                     <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
                     <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
-                    <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
+                    <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(0) }}%</td>
                   </tr>
                   <tr class="total-row">
                     <td class="sticky-col">合计</td>
                     <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(card.total[col.field]) }}</td>
                     <td :class="card.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(card.total.balance) }}</td>
-                    <td :class="card.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (card.total.balance_ratio * 100).toFixed(1) }}%</td>
+                    <td :class="card.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (card.total.balance_ratio * 100).toFixed(0) }}%</td>
                   </tr>
                 </tbody>
               </table>
@@ -2043,7 +2066,7 @@ const SummaryPage = {
                   <td>{{ fmtVal(d.tax) }}</td>
                   <td style="color:#999;">{{ fmtVal(d.other_expense) }}</td>
                   <td :class="d.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(d.balance) }}</td>
-                  <td :class="d.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (d.balance_ratio * 100).toFixed(1) }}%</td>
+                  <td :class="d.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (d.balance_ratio * 100).toFixed(0) }}%</td>
                 </tr>
                 <tr class="grand-total-primary">
                   <td>{{ monthlyData.current.total.label }}</td>
@@ -2056,7 +2079,7 @@ const SummaryPage = {
                   <td>{{ fmtVal(monthlyData.current.total.tax) }}</td>
                   <td style="color:#999;">{{ fmtVal(monthlyData.current.total.other_expense) }}</td>
                   <td :class="monthlyData.current.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(monthlyData.current.total.balance) }}</td>
-                  <td :class="monthlyData.current.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (monthlyData.current.total.balance_ratio * 100).toFixed(1) }}%</td>
+                  <td :class="monthlyData.current.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (monthlyData.current.total.balance_ratio * 100).toFixed(0) }}%</td>
                 </tr>
               </tbody>
             </table>
@@ -2077,7 +2100,7 @@ const SummaryPage = {
                   <td>{{ c.label }}</td>
                   <td :class="changeClass(c.output_change, false)">{{ fmtChange(c.output_change, c.output_change_pct) }}</td>
                   <td :class="changeClass(c.balance_change, false)">{{ fmtChange(c.balance_change, c.balance_change_pct) }}</td>
-                  <td :class="changeClass(c.ratio_change, false)">{{ c.ratio_change != null ? (c.ratio_change >= 0 ? '↑' : '↓') + ' ' + Math.abs(c.ratio_change * 100).toFixed(1) + '%' : '—' }}</td>
+                  <td :class="changeClass(c.ratio_change, false)">{{ c.ratio_change != null ? (c.ratio_change >= 0 ? '↑' : '↓') + ' ' + Math.abs(c.ratio_change * 100).toFixed(0) + '%' : '—' }}</td>
                   <td style="color:#999;">{{ fmtVal(c.prev_balance) }}</td>
                   <td style="font-weight:600;">{{ fmtVal(c.curr_balance) }}</td>
                 </tr>
@@ -2197,13 +2220,15 @@ const SummaryPage = {
     // 金额格式化为"万"单位
     fmtWan(val) {
       if (!val || val === 0) return '0';
-      if (Math.abs(val) >= 10000) return (val / 10000).toFixed(1) + '万';
+      if (Math.abs(val) >= 10000) return (val / 10000).toFixed(0) + '万';
       return val.toFixed(0);
     },
     fmtVal(val) {
       if (val === null || val === undefined) return '—';
-      if (typeof val !== 'number') return val;
-      return val.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      // 后端 NUMERIC 类型可能返回字符串，先转数字再格式化
+      const num = typeof val === 'number' ? val : parseFloat(val);
+      if (isNaN(num)) return val;
+      return num.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     },
     // ===== 主Tab切换 =====
     switchMainTab(tab) {
@@ -2240,8 +2265,8 @@ const SummaryPage = {
       const d = this.dashData;
       if (!d || !d.departments) return;
 
-      // 金额Y轴格式化：0时显示"0万"，否则保留2位小数（避免浮点精度显示问题）
-      const wanFmt = v => v === 0 ? '0万' : parseFloat((v / 10000).toFixed(2)) + '万';
+      // 金额Y轴格式化：0时显示"0万"，否则取整
+      const wanFmt = v => v === 0 ? '0万' : Math.round(v / 10000) + '万';
 
       // === 柱状图：部门对比 ===
       if (this.$refs.barChart) {
@@ -2251,7 +2276,7 @@ const SummaryPage = {
         const barYMax = barMaxVal > 0 ? undefined : 100000; // 无数据时默认最大值10万
         this.barChartInstance.setOption({
           color: ['#7F41C0', '#E88EA0', '#57B894'],
-          tooltip: { trigger: 'axis', valueFormatter: v => '¥' + (v / 10000).toFixed(1) + '万' },
+          tooltip: { trigger: 'axis', valueFormatter: v => '¥' + (v / 10000).toFixed(0) + '万' },
           legend: { data: ['产值', '费用', '结余'] },
           grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
           xAxis: { type: 'category', data: d.departments.map(dp => dp.label) },
@@ -2273,7 +2298,7 @@ const SummaryPage = {
         const lineYMax = lineMaxVal > 0 ? undefined : 1; // 无数据时默认最大值100%
         this.lineChartInstance.setOption({
           color: ['#7F41C0', '#5B9BD5', '#57B894'],
-          tooltip: { trigger: 'axis', valueFormatter: v => (v * 100).toFixed(1) + '%' },
+          tooltip: { trigger: 'axis', valueFormatter: v => (v * 100).toFixed(0) + '%' },
           legend: { data: ['啤机部', '印喷部', '装配部'] },
           grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
           xAxis: { type: 'category', data: months },
@@ -2300,7 +2325,7 @@ const SummaryPage = {
         const stackMaxVal = Math.max(0, ...d.expense_breakdown.map(m => Object.keys(catNames).reduce((s, cat) => s + (m[cat] || 0), 0)));
         const stackYMax = stackMaxVal > 0 ? undefined : 100000; // 无数据时默认最大值10万
         this.stackChartInstance.setOption({
-          tooltip: { trigger: 'axis', valueFormatter: v => '¥' + (v / 10000).toFixed(1) + '万' },
+          tooltip: { trigger: 'axis', valueFormatter: v => '¥' + (v / 10000).toFixed(0) + '万' },
           legend: { data: Object.values(catNames) },
           grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
           xAxis: { type: 'category', data: months },
@@ -2367,8 +2392,8 @@ const SummaryPage = {
     fmtChange(val, pct) {
       if (val === null || val === undefined) return '—';
       const arrow = val >= 0 ? '↑' : '↓';
-      const absVal = Math.abs(val).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
-      const pctStr = pct !== null && pct !== undefined ? ` (${pct >= 0 ? '+' : ''}${(pct * 100).toFixed(1)}%)` : '';
+      const absVal = Math.abs(val).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      const pctStr = pct !== null && pct !== undefined ? ` (${pct >= 0 ? '+' : ''}${(pct * 100).toFixed(0)}%)` : '';
       return `${arrow} ${absVal}${pctStr}`;
     },
 
@@ -2441,7 +2466,7 @@ const SummaryPage = {
         const row = { '类型': '月度合计', '日期': params.month, '车间': ws.workshop_name };
         cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
         row['结余'] = ws.balance ?? '';
-        row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
+        row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(0) + '%' : '';
         rows.push(row);
       }
       // 每日明细（按弹窗日期范围过滤）
@@ -2455,7 +2480,7 @@ const SummaryPage = {
           const row = { '类型': '每日', '日期': card.date, '车间': ws.workshop_name };
           cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
           row['结余'] = ws.balance ?? '';
-          row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
+          row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(0) + '%' : '';
           rows.push(row);
         }
       }
@@ -2501,7 +2526,7 @@ const SummaryPage = {
             '社保': d.social_insurance, '税收': d.tax,
             '其他费用': d.other_expense,
             '结余': d.balance,
-            '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(1) + '%' : ''
+            '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(0) + '%' : ''
           });
         }
         const wsSheet = XLSX.utils.json_to_sheet(rows);
@@ -4397,7 +4422,7 @@ const SmallSummaryPage = {
               <span style="margin:0 10px;">|</span>
               总结余：<span class="val">{{ fmtVal(dailyData.monthly.total.balance) }}</span>
               <span style="margin:0 10px;">|</span>
-              结余率：<span class="val">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(1) }}%</span>
+              结余率：<span class="val">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(0) }}%</span>
             </div>
           </div>
           <div class="card-table-wrap">
@@ -4415,13 +4440,13 @@ const SmallSummaryPage = {
                   <td class="sticky-col">{{ ws.workshop_name }}</td>
                   <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
                   <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
-                  <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
+                  <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(0) }}%</td>
                 </tr>
                 <tr class="total-row">
                   <td class="sticky-col">合计</td>
                   <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(dailyData.monthly.total[col.field]) }}</td>
                   <td :class="dailyData.monthly.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(dailyData.monthly.total.balance) }}</td>
-                  <td :class="dailyData.monthly.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(1) }}%</td>
+                  <td :class="dailyData.monthly.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (dailyData.monthly.total.balance_ratio * 100).toFixed(0) }}%</td>
                 </tr>
               </tbody>
             </table>
@@ -4457,13 +4482,13 @@ const SmallSummaryPage = {
                   <td class="sticky-col">{{ ws.workshop_name }}</td>
                   <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(ws[col.field]) }}</td>
                   <td :class="ws.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(ws.balance) }}</td>
-                  <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(1) }}%</td>
+                  <td :class="ws.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (ws.balance_ratio * 100).toFixed(0) }}%</td>
                 </tr>
                 <tr class="total-row">
                   <td class="sticky-col">合计</td>
                   <td v-for="col in dailyColumns" :key="col.field">{{ fmtVal(card.total[col.field]) }}</td>
                   <td :class="card.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(card.total.balance) }}</td>
-                  <td :class="card.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (card.total.balance_ratio * 100).toFixed(1) }}%</td>
+                  <td :class="card.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (card.total.balance_ratio * 100).toFixed(0) }}%</td>
                 </tr>
               </tbody>
             </table>
@@ -4503,7 +4528,7 @@ const SmallSummaryPage = {
                 <td>{{ fmtVal(d.tax) }}</td>
                 <td style="color:#999;">{{ fmtVal(d.other_expense) }}</td>
                 <td :class="d.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(d.balance) }}</td>
-                <td :class="d.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (d.balance_ratio * 100).toFixed(1) }}%</td>
+                <td :class="d.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (d.balance_ratio * 100).toFixed(0) }}%</td>
               </tr>
               <tr class="grand-total-primary">
                 <td>{{ monthlyData.current.total.label }}</td>
@@ -4516,7 +4541,7 @@ const SmallSummaryPage = {
                 <td>{{ fmtVal(monthlyData.current.total.tax) }}</td>
                 <td style="color:#999;">{{ fmtVal(monthlyData.current.total.other_expense) }}</td>
                 <td :class="monthlyData.current.total.balance >= 0 ? 'val-positive' : 'val-negative'">{{ fmtVal(monthlyData.current.total.balance) }}</td>
-                <td :class="monthlyData.current.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (monthlyData.current.total.balance_ratio * 100).toFixed(1) }}%</td>
+                <td :class="monthlyData.current.total.balance_ratio >= 0 ? 'val-positive' : 'val-negative'">{{ (monthlyData.current.total.balance_ratio * 100).toFixed(0) }}%</td>
               </tr>
             </tbody>
           </table>
@@ -4536,7 +4561,7 @@ const SmallSummaryPage = {
                 <td>{{ c.label }}</td>
                 <td :class="changeClass(c.output_change, false)">{{ fmtChange(c.output_change, c.output_change_pct) }}</td>
                 <td :class="changeClass(c.balance_change, false)">{{ fmtChange(c.balance_change, c.balance_change_pct) }}</td>
-                <td :class="changeClass(c.ratio_change, false)">{{ c.ratio_change != null ? (c.ratio_change >= 0 ? '↑' : '↓') + ' ' + Math.abs(c.ratio_change * 100).toFixed(1) + '%' : '—' }}</td>
+                <td :class="changeClass(c.ratio_change, false)">{{ c.ratio_change != null ? (c.ratio_change >= 0 ? '↑' : '↓') + ' ' + Math.abs(c.ratio_change * 100).toFixed(0) + '%' : '—' }}</td>
                 <td style="color:#999;">{{ fmtVal(c.prev_balance) }}</td>
                 <td style="font-weight:600;">{{ fmtVal(c.curr_balance) }}</td>
               </tr>
@@ -4594,8 +4619,9 @@ const SmallSummaryPage = {
     formatRatio,
     fmtVal(val) {
       if (val === null || val === undefined) return '—';
-      if (typeof val !== 'number') return val;
-      return val.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      const num = typeof val === 'number' ? val : parseFloat(val);
+      if (isNaN(num)) return val;
+      return num.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     },
     switchTableView(view) {
       this.tableView = view;
@@ -4634,8 +4660,8 @@ const SmallSummaryPage = {
     fmtChange(val, pct) {
       if (val === null || val === undefined) return '—';
       const arrow = val >= 0 ? '↑' : '↓';
-      const absVal = Math.abs(val).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
-      const pctStr = pct !== null && pct !== undefined ? ` (${pct >= 0 ? '+' : ''}${(pct * 100).toFixed(1)}%)` : '';
+      const absVal = Math.abs(val).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      const pctStr = pct !== null && pct !== undefined ? ` (${pct >= 0 ? '+' : ''}${(pct * 100).toFixed(0)}%)` : '';
       return `${arrow} ${absVal}${pctStr}`;
     },
     changeClass(val, inverse) {
@@ -4663,7 +4689,7 @@ const SmallSummaryPage = {
         const row = { '类型': '月度合计', '日期': this.dailyMonth, '车间': ws.workshop_name };
         cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
         row['结余'] = ws.balance ?? '';
-        row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
+        row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(0) + '%' : '';
         rows.push(row);
       }
       for (const card of data.daily) {
@@ -4671,7 +4697,7 @@ const SmallSummaryPage = {
           const row = { '类型': '每日', '日期': card.date, '车间': ws.workshop_name };
           cols.forEach(c => { row[c.label] = ws[c.field] ?? ''; });
           row['结余'] = ws.balance ?? '';
-          row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(1) + '%' : '';
+          row['结余率'] = ws.balance_ratio != null ? (ws.balance_ratio * 100).toFixed(0) + '%' : '';
           rows.push(row);
         }
       }
@@ -4695,7 +4721,7 @@ const SmallSummaryPage = {
           '社保': d.social_insurance, '税收': d.tax,
           '其他费用': d.other_expense,
           '结余': d.balance,
-          '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(1) + '%' : ''
+          '结余率': d.balance_ratio != null ? (d.balance_ratio * 100).toFixed(0) + '%' : ''
         });
       }
       const wsSheet = XLSX.utils.json_to_sheet(rows);

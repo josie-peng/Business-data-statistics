@@ -83,8 +83,8 @@ async function loadConstants(recordDate) {
   }
 }
 
-// 加载某部门当月生效的固定费用配置
-async function loadFixedExpenses(dept, recordDate) {
+// 加载某部门某车间当月生效的固定费用配置
+async function loadFixedExpenses(dept, recordDate, workshopId) {
   try {
     const dateStr = recordDate instanceof Date
       ? recordDate.toISOString().substring(0, 7)
@@ -92,11 +92,16 @@ async function loadFixedExpenses(dept, recordDate) {
     if (!dateStr || dateStr.length < 7) return {};
 
     const moduleName = `balance_fixed_${dept}`;
-    const rows = await getAll(
-      `SELECT DISTINCT ON (name) name, value FROM formula_constants
-       WHERE module = ? AND effective_month <= ? ORDER BY name, effective_month DESC`,
-      [moduleName, dateStr]
-    );
+    // 按车间查询固定费用，每个配置项取生效月份最新的值
+    let sql = `SELECT DISTINCT ON (name) name, value FROM formula_constants
+       WHERE module = ? AND effective_month <= ?`;
+    const params = [moduleName, dateStr];
+    if (workshopId) {
+      sql += ' AND workshop_id = ?';
+      params.push(workshopId);
+    }
+    sql += ' ORDER BY name, effective_month DESC';
+    const rows = await getAll(sql, params);
     const map = {};
     for (const r of rows) { map[r.name] = parseFloat(r.value); }
     return map;
@@ -283,9 +288,13 @@ function calculateRecordHardcoded(dept, record) {
     result.outsource_profit_ratio = outsourceOutput > 0 ? outsourceProfit / outsourceOutput : 0;
   } else if (dept === 'color') {
     result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0)) / dailyOutput : 0;
-    // profit_ratio_ex_tax / profit_ratio_inc_tax 待用户提供详细规则
-    result.profit_ratio_ex_tax = 0;
-    result.profit_ratio_inc_tax = 0;
+    // 外发总利润 = 税收(外发) + 利润
+    result.total_profit = (parseFloat(result.outsource_tax) || 0) + (parseFloat(result.outsource_profit) || 0);
+    // 不含税利润率 = 利润 / 外发产值
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    result.profit_ratio_ex_tax = outsourceOutput > 0 ? (parseFloat(result.outsource_profit) || 0) / outsourceOutput : 0;
+    // 含税总利润率 = 总利润 / 外发产值
+    result.profit_ratio_inc_tax = outsourceOutput > 0 ? result.total_profit / outsourceOutput : 0;
   } else if (dept === 'blister') {
     const running = parseFloat(result.running_machines) || 0;
     const total = parseFloat(result.total_machines) || 0;

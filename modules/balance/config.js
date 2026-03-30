@@ -213,7 +213,7 @@ module.exports = {
         { field: 'balance_tape_ratio', label: '减胶纸后结余占计划工资%', type: 'ratio', calc: true,
           skipAliases: ['减胶纸后结余占计划工资%'] },
         // 独有-可回收
-        { field: 'recoverable_electricity', label: '可回收电费', type: 'number', input: true, expense: false, currency: true },
+        { field: 'recoverable_electricity', label: '可回收电费', type: 'number', input: true, expense: false, income: true, currency: true },
         // 独有-工具投资
         { field: 'workshop_tool_investment', label: '车间工具投资', type: 'number', input: true, expense: true, currency: true },
         { field: 'fixture_tool_investment', label: '夹具部工具投资', type: 'number', input: true, expense: true, currency: true },
@@ -292,7 +292,8 @@ module.exports = {
         { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true },
         { field: 'outsource_tax', label: '税收(外发)', type: 'number', input: true, expense: false, currency: true },
         { field: 'outsource_profit', label: '利润', type: 'number', input: true, expense: false, currency: true },
-        { field: 'total_profit', label: '总利润', type: 'number', input: true, expense: false, currency: true },
+        { field: 'total_profit', label: '总利润', type: 'number', calc: true, expense: false,
+          skipAliases: ['总利润', '外发总利润'] },
         { field: 'profit_ratio_ex_tax', label: '不含税比润', type: 'ratio', calc: true,
           skipAliases: ['不含税比润'] },
         { field: 'profit_ratio_inc_tax', label: '含税总比润', type: 'ratio', calc: true,
