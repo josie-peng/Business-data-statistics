@@ -24,7 +24,7 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: var(--neutral-bg); color: var(--text-primary); overflow-x: hidden; }
+body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: var(--neutral-bg); color: var(--text-primary); }
 
 /* ===== 全局布局 ===== */
 .app-container { display: flex; min-height: 100vh; }
@@ -104,7 +104,8 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   margin-left: 180px;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   transition: margin-left 0.3s;
 }
 .sidebar.collapsed + .main-content,
