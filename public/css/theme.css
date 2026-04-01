@@ -24,7 +24,7 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: var(--neutral-bg); color: var(--text-primary); }
+body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: var(--neutral-bg); color: var(--text-primary); overflow-x: hidden; }
 
 /* ===== 全局布局 ===== */
 .app-container { display: flex; min-height: 100vh; }
@@ -138,7 +138,7 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .top-nav .logout-btn:hover { background: rgba(255,255,255,0.25); }
 
 /* ===== 页面内容 ===== */
-.page-content { flex: 1; padding: 20px; overflow-y: auto; }
+.page-content { flex: 1; padding: 20px; overflow-y: auto; overflow-x: hidden; }
 
 /* ===== 工具栏 ===== */
 .toolbar {
@@ -246,6 +246,24 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   overflow: hidden;
 }
 
+
+/* 左侧固定列背景色（防止各类 !important 背景把固定列透明化） */
+.el-table td.el-table__cell.el-table-fixed-column--left {
+  background-color: #fff !important;
+}
+/* 斑马纹行的固定列保持斑马纹色 */
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell.el-table-fixed-column--left {
+  background-color: #F9F9F9 !important;
+}
+/* 悬停行的固定列保持悬停色 */
+.el-table .el-table__body tr:hover > td.el-table__cell.el-table-fixed-column--left {
+  background-color: rgba(112, 48, 160, 0.06) !important;
+}
+/* 固定列表头背景 */
+.el-table th.el-table__cell.el-table-fixed-column--left {
+  background: var(--detail-header) !important;
+}
+
 /* Element Plus 表格主题覆盖 */
 .el-table th.el-table__cell {
   background: var(--detail-header) !important;
@@ -345,41 +363,41 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .header-note-bubble .note-type-input { color: #B8860B; }
 .header-note-bubble .note-formula { color: #555; margin-top: 2px; font-size: 11px; }
 
-/* ===== 底部固定合计区（紧凑版） ===== */
-.summary-footer {
-  position: sticky;
-  bottom: 0;
-  background: #fff;
+/* ===== append slot 合计区 ===== */
+.summary-append {
   border-top: 3px solid var(--detail-header);
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
-  z-index: 50;
-  max-height: 280px;
-  overflow-y: auto;
 }
-.summary-footer .summary-header-row {
+.summary-append .sa-header-row {
   background: var(--detail-header);
   color: #fff;
   font-weight: 600;
   font-size: 11px;
 }
-/* 合计栏计算列紫色表头 */
-.summary-footer .summary-header-row td.sh-calc {
-  background: #6A35A3;
+.summary-append .sa-header-row td { padding: 0 4px; height: 26px; line-height: 26px; }
+/* 计算列表头紫色 */
+.summary-append .sa-calc { background: #6A35A3; }
+/* 车间行 */
+.summary-append .sa-workshop-row td { padding: 0 4px; font-size: 11px; height: 25px; line-height: 25px; text-align: right; }
+/* 区域合计行 */
+.summary-append .sa-region-row { background: var(--summary-bg); font-weight: 600; }
+.summary-append .sa-region-row td { font-size: 11px; height: 25px; line-height: 25px; padding: 0 4px; text-align: right; }
+/* 总合计行 */
+.summary-append .sa-total-row { background: var(--detail-header); color: #fff; font-weight: 700; font-size: 12px; }
+.summary-append .sa-total-row td { padding: 0 4px; height: 27px; line-height: 27px; text-align: right; }
+/* 冻结列：sticky 定位，与 el-table 的固定列视觉对齐 */
+.summary-append .sa-fixed-col {
+  position: sticky;
+  z-index: 2;
+  background: inherit;
+  text-align: left !important;
 }
-.summary-footer .summary-header-row td { padding: 0 4px; height: 25px; line-height: 25px; }
-.summary-footer .workshop-row td { padding: 0 4px; font-size: 11px; height: 25px; line-height: 25px; }
-.summary-footer .region-row {
-  background: var(--summary-bg);
-  font-weight: 600;
-}
-.summary-footer .region-row td { font-size: 11px; height: 25px; line-height: 25px; padding: 0 4px; }
-.summary-footer .total-row {
-  background: var(--detail-header);
-  color: #fff;
-  font-weight: 700;
-  font-size: 12px;
-}
-.summary-footer .total-row td { padding: 0 4px; height: 27px; line-height: 27px; }
+/* 车间名称列左对齐 */
+.summary-append .sa-ws-name { text-align: left !important; }
+/* 各行冻结列背景色跟随行背景 */
+.summary-append .sa-header-row .sa-fixed-col { background: var(--detail-header); }
+.summary-append .sa-total-row .sa-fixed-col { background: var(--detail-header); }
+.summary-append .sa-region-row .sa-fixed-col { background: var(--summary-bg); }
+.summary-append .sa-workshop-row .sa-fixed-col { background: #fff; }
 
 /* ===== 大车间汇总看板 ===== */
 .dashboard-cards { display: flex; gap: 12px; margin-bottom: 16px; }
@@ -804,6 +822,11 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
   border: 1px solid #E0E0E0; cursor: context-menu; transition: box-shadow 0.15s;
 }
 .org-node.workshop:hover { box-shadow: 0 0 0 2px #D391DD; }
+/* 二级车间（子车间）样式：用虚线边框区分 */
+.org-node.sub-workshop {
+  border-style: dashed; font-size: 11px; padding: 3px 10px;
+  background: #FAFAFA;
+}
 /* 未分配占位 */
 .org-node.empty { background: #f5f5f5; color: #999; border-color: #ddd; font-size: 12px; font-weight: 400; }
 
