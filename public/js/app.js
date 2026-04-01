@@ -2088,6 +2088,27 @@ const DeptRecordsPage = {
       } finally {
         this.settlementSubmitting = false;
       }
+    },
+    // 绑定 el-table 横向 scroll → 同步合计区横向位置
+    _bindSummaryScroll() {
+      const tableEl = this.$refs.dataTable?.$el;
+      if (!tableEl) return;
+      const scrollWrap = tableEl.querySelector('.el-scrollbar__wrap');
+      if (!scrollWrap) return;
+      this.__scrollHandler = () => {
+        const summaryScroll = this.$refs.summaryScroll;
+        if (summaryScroll) summaryScroll.scrollLeft = scrollWrap.scrollLeft;
+      };
+      scrollWrap.addEventListener('scroll', this.__scrollHandler, { passive: true });
+    },
+    // 解绑 scroll 监听，防止内存泄漏
+    _unbindSummaryScroll() {
+      const tableEl = this.$refs.dataTable?.$el;
+      if (!tableEl) return;
+      const scrollWrap = tableEl.querySelector('.el-scrollbar__wrap');
+      if (scrollWrap && this.__scrollHandler) {
+        scrollWrap.removeEventListener('scroll', this.__scrollHandler);
+      }
     }
   }
 };
