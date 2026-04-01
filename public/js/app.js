@@ -69,10 +69,10 @@ const DEPT_CONFIG = {
     { field: 'total_hours', label: '总工时', shortLabel: '总工时', calculated: true, type: 'number', formula: '员工人数 × 员工工时' },
     { field: 'avg_output_per_worker', label: '员工人均产值', shortLabel: '人均产值', editable: false, type: 'number', calculated: true, formula: '产值/天 / 员工人数' },
     { field: 'wage_ratio', label: '总工资占产值%', shortLabel: '工资占比', editable: false, type: 'ratio', calculated: true, formula: '(员工工资+管工工资) / 产值/天' },
-    { field: 'subsidy', label: '补贴', shortLabel: '补贴', editable: true, type: 'number' },
     { field: 'repair_fee', label: '维修费', shortLabel: '维修费', editable: true, type: 'number' },
     { field: 'materials', label: '物料（原子灰、胶头、油墨、喷码溶剂）', shortLabel: '物料', editable: true, type: 'number' },
     { field: 'oil_water_amount', label: '油水金额', shortLabel: '油水金额', editable: true, type: 'number' },
+    { field: 'subsidy', label: '补贴', shortLabel: '补贴', editable: true, type: 'number' },
     { field: 'actual_material', label: '实际用料', shortLabel: '实际用料', editable: true, type: 'number' },
     { field: 'no_output_wage', label: '无产值工资', shortLabel: '无产值资', editable: true, type: 'number' },
     { field: 'assembly_wage_paid', label: '付装配工资', shortLabel: '付装配资', editable: true, type: 'number' },
@@ -98,7 +98,6 @@ const DEPT_CONFIG = {
     { field: 'actual_wage', label: '实际总工资', shortLabel: '实际工资', editable: true, type: 'number' },
     { field: 'hunan_social_insurance', label: '湖南社保', shortLabel: '湖南社保', editable: true, type: 'number' },
     { field: 'hunan_tax', label: '湖南税收', shortLabel: '湖南税收', editable: true, type: 'number' },
-    { field: 'housing_subsidy', label: '外宿补贴', shortLabel: '外宿补贴', editable: true, type: 'number' },
     { field: 'workshop_repair', label: '车间维修费', shortLabel: '车间维修', editable: true, type: 'number' },
     { field: 'electrical_repair', label: '机电部维修费', shortLabel: '机电维修', editable: true, type: 'number' },
     { field: 'workshop_materials', label: '车间物料费', shortLabel: '车间物料', editable: true, type: 'number' },
@@ -110,6 +109,7 @@ const DEPT_CONFIG = {
     { field: 'workshop_tool_investment', label: '车间工具投资', shortLabel: '车间工投', editable: true, type: 'number' },
     { field: 'fixture_tool_investment', label: '夹具部工具投资', shortLabel: '夹具工投', editable: true, type: 'number' },
     { field: 'tool_invest_ratio', label: '工具投资占计划工资%', shortLabel: '工投占比', editable: false, type: 'ratio', calculated: true, formula: '(车间工具投资+夹具部工具投资) / 计划总工资' },
+    { field: 'housing_subsidy', label: '外宿补贴', shortLabel: '外宿补贴', editable: true, type: 'number' },
     { field: 'supplement', label: '补料', shortLabel: '补料', editable: true, type: 'number' },
     { field: 'borrowed_worker_wage', label: '外借人员工资', shortLabel: '外借工资', editable: true, type: 'number' },
     { field: 'borrowed_wage_ratio', label: '外借人员工资占计划工资%', shortLabel: '外借占比', editable: false, type: 'ratio', calculated: true, formula: '外借人员工资 / 计划总工资' },
@@ -249,7 +249,7 @@ const DEPT_CONFIG = {
     { field: 'tool_investment', label: '工具投资', editable: true, type: 'number', collapsible: '更多费用' },
     { field: 'equipment', label: '设备', editable: true, type: 'number', collapsible: '更多费用' },
     { field: 'renovation', label: '装修', editable: true, type: 'number', collapsible: '更多费用' },
-    { field: 'misc_fee', label: '杂费(含差旅/招待/应酬/车支出)', shortLabel: '杂费', editable: true, type: 'number', collapsible: '更多费用' },
+    { field: 'misc_fee', label: '杂费', editable: true, type: 'number', collapsible: '更多费用' },
     // === 部门独有字段 ===
     { field: 'bonding_balance', label: '帮定结余', shortLabel: '帮定结余', editable: true, type: 'number' },
     { field: 'smt_balance', label: '贴片结余', shortLabel: '贴片结余', editable: true, type: 'number' },
@@ -274,7 +274,7 @@ const DEPT_CONFIG = {
     { field: 'outsource_output', label: '外发产值', shortLabel: '外发产值', editable: true, type: 'number' },
     { field: 'outsource_planned_wage', label: '外发计划工资(含1.13)', shortLabel: '外发计划', editable: true, type: 'number' },
     { field: 'outsource_actual_wage', label: '外发实际工资', shortLabel: '外发实际', editable: true, type: 'number' },
-    { field: 'outsource_wage_balance', label: '外发人工结余/汇率', shortLabel: '外发结余', editable: true, type: 'number' },
+    { field: 'outsource_wage_balance', label: '外发人工结余', shortLabel: '外发结余', editable: false, type: 'number', calculated: true, formula: '外发计划工资 - 外发实际工资' },
     { field: 'outsource_balance_ratio', label: '外发结余比例', shortLabel: '外发比例', editable: false, type: 'ratio', calculated: true, formula: '外发人工结余 / 外发计划工资' },
   ]},
   clothing: { key: 'clothing', name: '车衣部', selfContained: true, uniqueFields: [
@@ -654,7 +654,7 @@ const DeptRecordsPage = {
 
       <!-- 数据表格 -->
       <div class="data-table-wrapper">
-        <el-table :data="tableData" border stripe height="100%" style="width:100%"
+        <el-table :data="tableData" border stripe height="500" style="width:100%"
                   @selection-change="handleSelectionChange" :row-key="row => row.id"
                   :header-cell-class-name="headerCellClass"
                   :row-class-name="getRowClass"
@@ -736,7 +736,7 @@ const DeptRecordsPage = {
                 </div>
                 <div v-else @click="startEdit(row, col)"
                      :class="getCellClasses(row, col)"
-                     :style="{ cursor: col.editable ? 'text' : 'default', padding: '0 4px', minHeight: '23px' }">
+                     :style="{ cursor: col.editable ? 'text' : 'default', padding: '0 4px' }">
                   <template v-if="col.field === 'balance'">
                     <span :class="{ 'amount-positive': Number(row.balance) >= 0, 'amount-negative': Number(row.balance) < 0 }">
                       {{ formatCellValue(row[col.field], col.type) }}
@@ -760,83 +760,66 @@ const DeptRecordsPage = {
             </template>
           </el-table-column>
         </el-table>
-        <!-- 合计区：固定在表格底部，横向滚动由 JS 同步 el-table scroll -->
-        <div v-if="summaryData" class="summary-fixed" ref="summaryFixed">
-          <div class="summary-fixed-scroll" ref="summaryScroll">
-            <table style="border-collapse:collapse; table-layout:fixed; min-width:100%;">
-                <!-- 合计表头行 -->
-                <tr class="sa-header-row">
-                  <td class="sa-fixed-col" style="width:40px; left:0;"></td>
-                  <td class="sa-fixed-col" style="width:120px; left:40px;">合计</td>
-                  <td class="sa-fixed-col" style="width:95px; left:160px;">车间</td>
-                  <td v-for="col in visibleColumns" :key="'sah-'+col.field"
-                      :class="col.calculated ? 'sa-calc' : ''"
-                      :style="{ width: (col.type === 'collapse' ? 30 : getColumnWidth(col)) + 'px' }">
-                    {{ col.type === 'collapse' ? '' : (col.shortLabel || col.label) }}
-                  </td>
-                  <td style="width:60px;"></td>
-                </tr>
-                <!-- 清溪车间行 -->
-                <template v-for="(wsData, wsName) in summaryData.qingxiWorkshops" :key="'saw-qx-'+wsName">
-                  <tr class="sa-workshop-row">
-                    <td class="sa-fixed-col" style="width:40px; left:0;"></td>
-                    <td class="sa-fixed-col" style="width:120px; left:40px;"></td>
-                    <td class="sa-fixed-col sa-ws-name" style="width:95px; left:160px;">{{ wsName }}</td>
-                    <td v-for="col in visibleColumns" :key="'sawd-qx-'+wsName+'-'+col.field"
-                        :style="{ width: (col.type === 'collapse' ? 30 : getColumnWidth(col)) + 'px', textAlign: 'right' }">
-                      {{ col.type === 'collapse' ? '' : formatSummaryCell(wsData, col) }}
-                    </td>
-                    <td style="width:60px;"></td>
-                  </tr>
-                </template>
-                <!-- 清溪合计 -->
-                <tr class="sa-region-row" v-if="summaryData.regions">
-                  <td class="sa-fixed-col" style="width:40px; left:0;"></td>
-                  <td class="sa-fixed-col" style="width:120px; left:40px;"></td>
-                  <td class="sa-fixed-col sa-ws-name" style="width:95px; left:160px;">清溪合计</td>
-                  <td v-for="col in visibleColumns" :key="'sar-qx-'+col.field"
-                      :style="{ width: (col.type === 'collapse' ? 30 : getColumnWidth(col)) + 'px', textAlign: 'right' }">
-                    {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.regions['清溪'], col) }}
-                  </td>
-                  <td style="width:60px;"></td>
-                </tr>
-                <!-- 邵阳车间行 -->
-                <template v-if="summaryData.hasHunan" v-for="(wsData, wsName) in summaryData.hunanWorkshops" :key="'saw-hn-'+wsName">
-                  <tr class="sa-workshop-row">
-                    <td class="sa-fixed-col" style="width:40px; left:0;"></td>
-                    <td class="sa-fixed-col" style="width:120px; left:40px;"></td>
-                    <td class="sa-fixed-col sa-ws-name" style="width:95px; left:160px;">{{ wsName }}</td>
-                    <td v-for="col in visibleColumns" :key="'sawd-hn-'+wsName+'-'+col.field"
-                        :style="{ width: (col.type === 'collapse' ? 30 : getColumnWidth(col)) + 'px', textAlign: 'right' }">
-                      {{ col.type === 'collapse' ? '' : formatSummaryCell(wsData, col) }}
-                    </td>
-                    <td style="width:60px;"></td>
-                  </tr>
-                </template>
-                <!-- 邵阳合计（仅装配部显示） -->
-                <tr class="sa-region-row" v-if="summaryData.hasHunan && dept === 'assembly'">
-                  <td class="sa-fixed-col" style="width:40px; left:0;"></td>
-                  <td class="sa-fixed-col" style="width:120px; left:40px;"></td>
-                  <td class="sa-fixed-col sa-ws-name" style="width:95px; left:160px;">邵阳合计</td>
-                  <td v-for="col in visibleColumns" :key="'sar-hn-'+col.field"
-                      :style="{ width: (col.type === 'collapse' ? 30 : getColumnWidth(col)) + 'px', textAlign: 'right' }">
-                    {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.regions['湖南'], col) }}
-                  </td>
-                  <td style="width:60px;"></td>
-                </tr>
-                <!-- 总合计（装配部不显示） -->
-                <tr class="sa-total-row" v-if="dept !== 'assembly'">
-                  <td class="sa-fixed-col" style="width:40px; left:0;"></td>
-                  <td class="sa-fixed-col" style="width:120px; left:40px;"></td>
-                  <td class="sa-fixed-col sa-ws-name" style="width:95px; left:160px;">总合计</td>
-                  <td v-for="col in visibleColumns" :key="'sat-'+col.field"
-                      :style="{ width: (col.type === 'collapse' ? 30 : getColumnWidth(col)) + 'px', textAlign: 'right' }">
-                    {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.total, col) }}
-                  </td>
-                  <td style="width:60px;"></td>
-                </tr>
-              </table>
-          </div>
+
+        <!-- 底部合计区（紧凑版）：使用 visibleColumns 与主表格列对齐，折叠触发列渲染空格 -->
+        <div class="summary-footer" v-if="summaryData">
+          <table style="width:100%; border-collapse:collapse;">
+            <tr class="summary-header-row">
+              <td style="width:40px"></td>
+              <td style="width:50px"></td>
+              <td style="width:110px">合计</td>
+              <td style="width:80px">车间</td>
+              <td v-for="col in visibleColumns" :key="'sh-'+col.field"
+                  :class="col.calculated ? 'sh-calc' : ''"
+                  :style="{ width: (col.type === 'collapse' ? 30 : getColumnWidth(col)) + 'px', textAlign: 'right' }">
+                {{ col.type === 'collapse' ? '' : (col.shortLabel || col.label) }}
+              </td>
+            </tr>
+            <!-- 清溪车间行 -->
+            <template v-for="(wsData, wsName) in summaryData.qingxiWorkshops" :key="'qxws-'+wsName">
+              <tr class="workshop-row">
+                <td></td><td></td><td></td>
+                <td>{{ wsName }}</td>
+                <td v-for="col in visibleColumns" :key="'qxwd-'+wsName+'-'+col.field" style="text-align:right;">
+                  {{ col.type === 'collapse' ? '' : formatSummaryCell(wsData, col) }}
+                </td>
+              </tr>
+            </template>
+            <!-- 清溪合计 -->
+            <tr class="region-row" v-if="summaryData.regions">
+              <td></td><td></td><td></td>
+              <td>清溪合计</td>
+              <td v-for="col in visibleColumns" :key="'qx-'+col.field" style="text-align:right;">
+                {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.regions['清溪'], col) }}
+              </td>
+            </tr>
+            <!-- 邵阳车间行 -->
+            <template v-if="summaryData.hasHunan" v-for="(wsData, wsName) in summaryData.hunanWorkshops" :key="'hnws-'+wsName">
+              <tr class="workshop-row">
+                <td></td><td></td><td></td>
+                <td>{{ wsName }}</td>
+                <td v-for="col in visibleColumns" :key="'hnwd-'+wsName+'-'+col.field" style="text-align:right;">
+                  {{ col.type === 'collapse' ? '' : formatSummaryCell(wsData, col) }}
+                </td>
+              </tr>
+            </template>
+            <!-- 邵阳合计（仅装配部显示） -->
+            <tr class="region-row" v-if="summaryData.hasHunan && dept === 'assembly'">
+              <td></td><td></td><td></td>
+              <td>邵阳合计</td>
+              <td v-for="col in visibleColumns" :key="'hn-'+col.field" style="text-align:right;">
+                {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.regions['湖南'], col) }}
+              </td>
+            </tr>
+            <!-- 总合计（装配部不显示） -->
+            <tr class="total-row" v-if="dept !== 'assembly'">
+              <td></td><td></td><td></td>
+              <td>总合计</td>
+              <td v-for="col in visibleColumns" :key="'tt-'+col.field" style="text-align:right;">
+                {{ col.type === 'collapse' ? '' : formatSummaryCell(summaryData.total, col) }}
+              </td>
+            </tr>
+          </table>
         </div>
       </div>
 
@@ -1150,14 +1133,6 @@ const DeptRecordsPage = {
   created() {
     this.initCollapseState();
   },
-  mounted() {
-    this.$nextTick(() => {
-      this._bindSummaryScroll();
-    });
-  },
-  beforeUnmount() {
-    this._unbindSummaryScroll();
-  },
   methods: {
     formatCellValue,
     // 初始化折叠状态：从 localStorage 恢复，默认全部收起
@@ -1291,8 +1266,6 @@ const DeptRecordsPage = {
       try {
         const res = await API.get('/workshops', { department: this.dept });
         this.workshopList = (res.data || res || [])
-          // 过滤掉有子车间的父车间（父车间不能录入数据，只做汇总锚点）
-          .filter(w => !w.has_children)
           .map(w => ({ id: w.id, name: w.name, region: w.region, company: w.company, sort_order: w.sort_order }));
       } catch (err) { console.error('Failed to load workshops', err); }
     },
@@ -2088,27 +2061,6 @@ const DeptRecordsPage = {
       } finally {
         this.settlementSubmitting = false;
       }
-    },
-    // 绑定 el-table 横向 scroll → 同步合计区横向位置
-    _bindSummaryScroll() {
-      const tableEl = this.$refs.dataTable?.$el;
-      if (!tableEl) return;
-      const scrollWrap = tableEl.querySelector('.el-scrollbar__wrap');
-      if (!scrollWrap) return;
-      this.__scrollHandler = () => {
-        const summaryScroll = this.$refs.summaryScroll;
-        if (summaryScroll) summaryScroll.scrollLeft = scrollWrap.scrollLeft;
-      };
-      scrollWrap.addEventListener('scroll', this.__scrollHandler, { passive: true });
-    },
-    // 解绑 scroll 监听，防止内存泄漏
-    _unbindSummaryScroll() {
-      const tableEl = this.$refs.dataTable?.$el;
-      if (!tableEl) return;
-      const scrollWrap = tableEl.querySelector('.el-scrollbar__wrap');
-      if (scrollWrap && this.__scrollHandler) {
-        scrollWrap.removeEventListener('scroll', this.__scrollHandler);
-      }
     }
   }
 };
@@ -2854,6 +2806,7 @@ const UserManagementPage = {
               <th>角色</th>
               <th>部门</th>
               <th>状态</th>
+              <th>批量权限</th>
               <th v-if="!readonly" style="width:240px;">操作</th>
             </tr>
           </thead>
@@ -2874,6 +2827,11 @@ const UserManagementPage = {
                 <span v-else style="color:#ccc;">—</span>
               </td>
               <td><span class="pill-badge" :class="row.status === 'active' ? 'green' : 'pink'">{{ row.status === 'active' ? '启用' : '禁用' }}</span></td>
+              <td>
+                <span v-if="row.role === 'stats'" class="pill-badge purple">全部权限</span>
+                <span v-else-if="row.role === 'management'" class="pill-badge orange">查看/编辑</span>
+                <span v-else class="pill-badge" :class="row.batch_permission ? 'green' : 'gray'">{{ row.batch_permission ? '是' : '否' }}</span>
+              </td>
               <td v-if="!readonly">
                 <button class="btn-pill ghost sm" @click="showEditUserDialog(row)">编辑</button>
                 <button class="btn-pill sm" style="background:transparent; color:#F0A868; border:1.5px solid #F0A868;" @click="showResetPasswordDialog(row)">重置密码</button>
@@ -2976,7 +2934,6 @@ const UserManagementPage = {
             <el-checkbox label="color">配色部</el-checkbox>
             <el-checkbox label="blister">吸塑部</el-checkbox>
             <el-checkbox label="electronic">电子部</el-checkbox>
-            <el-checkbox label="clothing">车衣部</el-checkbox>
             <el-checkbox label="summary">三工汇总</el-checkbox>
             <el-checkbox label="small-summary">小部门汇总</el-checkbox>
           </div>
@@ -3217,9 +3174,6 @@ const FormulaConfig = {
                   <el-tag size="small" :type="f.display_format === 'percent' ? 'warning' : (f.display_format === 'currency' ? 'success' : '')">
                     {{ {number:'数字', percent:'百分比', currency:'金额'}[f.display_format] || f.display_format }}
                   </el-tag>
-                  <el-tag v-if="f.condition_field" size="small" style="background:#fff8e1; border-color:#ffe082; color:#f57f17;">
-                    条件：{{ f.condition_field === 'region' ? '厂区' : f.condition_field }} = {{ f.condition_value }}
-                  </el-tag>
                   <el-tag v-if="!f.enabled" size="small" type="danger">已禁用</el-tag>
                 </div>
                 <!-- 可视化公式展示 -->
@@ -3291,24 +3245,6 @@ const FormulaConfig = {
               </el-form-item>
             </el-col>
           </el-row>
-
-          <!-- 条件执行（可选） -->
-          <el-form-item label="执行条件" style="margin-bottom:12px;">
-            <div style="display:flex; gap:8px; align-items:center;">
-              <el-select v-model="form.condition_field" style="width:160px" clearable placeholder="无条件（始终执行）" @change="onConditionFieldChange">
-                <el-option label="按厂区（region）" value="region" />
-              </el-select>
-              <template v-if="form.condition_field === 'region'">
-                <span style="color:#999;">=</span>
-                <el-select v-model="form.condition_value" style="width:140px" placeholder="选择厂区">
-                  <el-option label="清溪" value="清溪" />
-                  <el-option label="湖南" value="湖南" />
-                  <el-option label="河源" value="河源" />
-                </el-select>
-              </template>
-              <span v-if="form.condition_field" style="font-size:12px; color:#999;">仅当记录的{{ form.condition_field === 'region' ? '厂区' : form.condition_field }} = {{ form.condition_value || '?' }} 时才执行此公式</span>
-            </div>
-          </el-form-item>
 
           <!-- 模式切换 -->
           <div style="margin-bottom:12px; display:flex; gap:8px;">
@@ -3545,7 +3481,7 @@ const FormulaConfig = {
       editVisible: false,
       isEdit: false,
       editMode: 'visual',
-      form: { field_key: '', field_label: '', formula_text: '', display_format: 'number', decimal_places: 2, condition_field: '', condition_value: '' },
+      form: { field_key: '', field_label: '', formula_text: '', display_format: 'number', decimal_places: 2 },
       formulaTokens: [],     // 可视化模式的 token 数组
       fieldSearch: '',
       validateResult: null,
@@ -3808,18 +3744,15 @@ const FormulaConfig = {
     },
     showAddDialog() {
       this.isEdit = false;
-      this.form = { field_key: '', field_label: '', formula_text: '', display_format: 'number', decimal_places: 2, condition_field: '', condition_value: '' };
+      this.form = { field_key: '', field_label: '', formula_text: '', display_format: 'number', decimal_places: 2 };
       this.formulaTokens = [];
       this.editMode = 'visual';
       this.validateResult = null;
       this.editVisible = true;
     },
-    onConditionFieldChange(val) {
-      if (!val) this.form.condition_value = '';
-    },
     showEditDialog(f) {
       this.isEdit = true;
-      this.form = { ...f, condition_field: f.condition_field || '', condition_value: f.condition_value || '' };
+      this.form = { ...f };
       this.formulaTokens = this.textToTokens(f.formula_text);
       this.editMode = 'visual';
       this.validateResult = null;
@@ -4005,24 +3938,8 @@ const WorkshopSettings = {
                     @contextmenu.prevent="!readonly && showCtxMenu($event, 'wsGroup', wsGroup)">
                     {{ wsGroup.name }}
                   </div>
-                  <!-- 第3级：子车间 → 第4级：部门（三层结构） -->
-                  <template v-if="wsGroup.children && wsGroup.children.length">
-                    <div class="org-vline short"></div>
-                    <div class="org-children" style="gap:12px;">
-                      <div class="org-sub" v-for="child in wsGroup.children" :key="child.id">
-                        <div class="org-node workshop sub-workshop"
-                          @contextmenu.prevent="!readonly && showCtxMenu($event, 'dept', { key: child.department, label: child.name, record: child })">
-                          {{ child.name }}
-                        </div>
-                        <template v-if="child.department">
-                          <div class="org-vline short"></div>
-                          <div class="org-node dept">{{ ALL_DEPARTMENTS[child.department] || '' }}</div>
-                        </template>
-                      </div>
-                    </div>
-                  </template>
-                  <!-- 第3级：部门标签（没有子车间时显示） -->
-                  <template v-else-if="wsGroup.departments.length">
+                  <!-- 第3级：该车间下挂的部门标签 -->
+                  <template v-if="wsGroup.departments.length">
                     <div class="org-vline short"></div>
                     <div class="org-children" style="gap:4px;" v-if="wsGroup.departments.length > 1">
                       <div class="org-node dept" v-for="d in wsGroup.departments" :key="d.key"
@@ -4075,20 +3992,6 @@ const WorkshopSettings = {
               <el-option v-for="(label, key) in ALL_DEPARTMENTS" :key="key" :label="label" :value="key" />
             </el-select>
           </el-form-item>
-          <el-form-item label="上级车间">
-            <el-select v-model="form.parent_id" style="width:100%" clearable placeholder="无（一级车间）"
-              :disabled="hasChildWorkshops">
-              <el-option v-for="pw in parentCandidates" :key="pw.id"
-                :label="pw.name + '（' + pw.region + '）'"
-                :value="pw.id" />
-            </el-select>
-            <div v-if="hasChildWorkshops" style="color:#999; font-size:12px; margin-top:4px;">
-              该车间已有子车间，不能设为二级车间
-            </div>
-            <div v-else-if="form.parent_id && parentName" style="color:#999; font-size:12px; margin-top:4px;">
-              当前上级：{{ parentName }}
-            </div>
-          </el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="dialogVisible = false">取消</el-button>
@@ -4104,7 +4007,7 @@ const WorkshopSettings = {
       saving: false,
       dialogVisible: false,
       isEdit: false,
-      form: { name: '', company: '', region: '', department: '', sort_order: 0, parent_id: null },
+      form: { name: '', company: '', region: '', department: '', sort_order: 0 },
       activeRegion: 'qx',            // 当前选中的厂区Tab
       ctxMenu: { visible: false, x: 0, y: 0, type: '', target: null },  // 右键菜单状态
       ALL_DEPARTMENTS,
@@ -4115,24 +4018,6 @@ const WorkshopSettings = {
     };
   },
   computed: {
-    // 上级车间候选列表：排除自己和自己的子车间（防止循环引用），只显示没有 parent_id 的一级车间
-    parentCandidates() {
-      return this.workshops.filter(w =>
-        !w.parent_id &&                         // 只能选一级车间做父车间
-        w.id !== this.form.id                    // 不能选自己
-      );
-    },
-    // 当前编辑的车间是否已有子车间（有子车间的不能再设为别人的子车间）
-    hasChildWorkshops() {
-      if (!this.isEdit || !this.form.id) return false;
-      return this.workshops.some(w => w.parent_id === this.form.id);
-    },
-    // 当前选中的上级车间名称（用于备注显示）
-    parentName() {
-      if (!this.form.parent_id) return '';
-      const p = this.workshops.find(w => w.id === this.form.parent_id);
-      return p ? p.name : '';
-    },
     // 厂区Tab列表（含车间数量统计）
     regionList() {
       const counts = {};
@@ -4146,22 +4031,10 @@ const WorkshopSettings = {
         { key: 'hy', label: '河源', count: counts.hy || 0 }
       ];
     },
-    // 当前厂区的树形数据：按公司 → 车间名 → 部门/子车间 分组（带自定义排序）
+    // 当前厂区的树形数据：按公司 → 车间名 → 部门分组（带自定义排序）
     currentTree() {
       const regionName = this.regionLabelMap[this.activeRegion];
       const filtered = this.workshops.filter(w => w.region === regionName);
-
-      // 构建父子关系映射：parent_id → [子车间列表]
-      const childrenMap = {};
-      for (const w of this.workshops) {
-        if (w.parent_id) {
-          if (!childrenMap[w.parent_id]) childrenMap[w.parent_id] = [];
-          childrenMap[w.parent_id].push(w);
-        }
-      }
-
-      // 过滤掉子车间（子车间会嵌套在父车间下面显示）
-      const topLevel = filtered.filter(w => !w.parent_id);
 
       // 车间名排序表（按厂区）
       const wsOrder = {
@@ -4176,7 +4049,7 @@ const WorkshopSettings = {
 
       // 按公司分组（用车间名排序表推导公司顺序）
       const companyMap = {};
-      for (const w of topLevel) {
+      for (const w of filtered) {
         const compName = w.company || '未知公司';
         if (!companyMap[compName]) companyMap[compName] = [];
         companyMap[compName].push(w);
@@ -4198,14 +4071,7 @@ const WorkshopSettings = {
             label: ALL_DEPARTMENTS[r.department] || r.department,
             record: r
           })).sort((a, b) => indexOf(deptOrder, a.key) - indexOf(deptOrder, b.key));
-          // 子车间列表（按 sort_order 排序）
-          const children = [];
-          for (const r of records) {
-            const subs = childrenMap[r.id] || [];
-            for (const sub of subs) children.push(sub);
-          }
-          children.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-          return { name, records, departments, children, noDeptRecords: records.filter(r => !r.department) };
+          return { name, records, departments, noDeptRecords: records.filter(r => !r.department) };
         });
         // 车间名按指定顺序排序
         workshopGroups.sort((a, b) => indexOf(order, a.name) - indexOf(order, b.name));
@@ -4312,12 +4178,12 @@ const WorkshopSettings = {
       this.isEdit = false;
       // 默认厂区为当前选中的Tab对应厂区
       const defaultRegion = this.regionLabelMap[this.activeRegion] || '清溪';
-      this.form = { name: '', company: '', region: defaultRegion, department: '', sort_order: 0, parent_id: null };
+      this.form = { name: '', company: '', region: defaultRegion, department: '', sort_order: 0 };
       this.dialogVisible = true;
     },
     showEditDialog(row) {
       this.isEdit = true;
-      this.form = { id: row.id, name: row.name, company: row.company || '', region: row.region || '', department: row.department || '', sort_order: row.sort_order || 0, parent_id: row.parent_id ? Number(row.parent_id) : null };
+      this.form = { id: row.id, name: row.name, company: row.company || '', region: row.region || '', department: row.department || '', sort_order: row.sort_order || 0 };
       this.dialogVisible = true;
     },
     async handleSave() {
@@ -5186,6 +5052,16 @@ const app = Vue.createApp({
               </a>
             </template>
 
+            <!-- 未来模块 -->
+            <div class="menu-group-title" v-show="!sidebarCollapsed">更多模块</div>
+            <a class="menu-item disabled" v-show="!sidebarCollapsed">
+              <span class="icon">📈</span>
+              <span>预计产值</span>
+            </a>
+            <a class="menu-item disabled" v-show="!sidebarCollapsed">
+              <span class="icon">📉</span>
+              <span>实际产值</span>
+            </a>
           </div>
         </div>
 
