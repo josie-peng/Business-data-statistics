@@ -759,10 +759,11 @@ const DeptRecordsPage = {
               </el-tooltip>
             </template>
           </el-table-column>
-          <!-- 合计区：放在 #append slot 内，与主表格列宽/滚动/冻结完全同步 -->
-          <template #append>
-            <div v-if="summaryData" class="summary-append">
-              <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+        </el-table>
+        <!-- 合计区：固定在表格底部，横向滚动由 JS 同步 el-table scroll -->
+        <div v-if="summaryData" class="summary-fixed" ref="summaryFixed">
+          <div class="summary-fixed-scroll" ref="summaryScroll">
+            <table style="border-collapse:collapse; table-layout:fixed; min-width:100%;">
                 <!-- 合计表头行 -->
                 <tr class="sa-header-row">
                   <td class="sa-fixed-col" style="width:40px; left:0;"></td>
@@ -835,9 +836,8 @@ const DeptRecordsPage = {
                   <td style="width:60px;"></td>
                 </tr>
               </table>
-            </div>
-          </template>
-        </el-table>
+          </div>
+        </div>
       </div>
 
       <!-- 新增记录迷你弹窗（只填日期和车间，创建后行内编辑） -->

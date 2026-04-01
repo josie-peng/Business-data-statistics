@@ -420,6 +420,44 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 .summary-append .sa-region-row .sa-fixed-col { background: var(--summary-bg); }
 .summary-append .sa-workshop-row .sa-fixed-col { background: #fff; }
 
+/* ===== 固定底部合计区（替代 #append slot）===== */
+.summary-fixed {
+  flex-shrink: 0;
+  border-top: 2px solid var(--detail-header);
+  border-radius: 0 0 6px 6px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.summary-fixed-scroll {
+  overflow: hidden;
+  width: 100%;
+}
+.summary-fixed .sa-header-row {
+  background: var(--detail-header);
+  color: #fff;
+  font-weight: 600;
+  font-size: 11px;
+}
+.summary-fixed .sa-header-row td { padding: 0 4px; height: 26px; line-height: 26px; }
+.summary-fixed .sa-calc { background: #6A35A3; }
+.summary-fixed .sa-workshop-row td { padding: 0 4px; font-size: 11px; height: 25px; line-height: 25px; text-align: right; }
+.summary-fixed .sa-region-row { background: var(--summary-bg); font-weight: 600; }
+.summary-fixed .sa-region-row td { font-size: 11px; height: 25px; line-height: 25px; padding: 0 4px; text-align: right; }
+.summary-fixed .sa-total-row { background: var(--detail-header); color: #fff; font-weight: 700; font-size: 12px; }
+.summary-fixed .sa-total-row td { padding: 0 4px; height: 27px; line-height: 27px; text-align: right; }
+.summary-fixed .sa-fixed-col {
+  position: sticky;
+  z-index: 2;
+  background: inherit;
+  text-align: left !important;
+}
+.summary-fixed .sa-ws-name { text-align: left !important; }
+.summary-fixed .sa-header-row .sa-fixed-col { background: var(--detail-header); }
+.summary-fixed .sa-total-row .sa-fixed-col { background: var(--detail-header); }
+.summary-fixed .sa-region-row .sa-fixed-col { background: var(--summary-bg); }
+.summary-fixed .sa-workshop-row .sa-fixed-col { background: #fff; }
+
 /* ===== 大车间汇总看板 ===== */
 .dashboard-cards { display: flex; gap: 12px; margin-bottom: 16px; }
 .kpi-card {
