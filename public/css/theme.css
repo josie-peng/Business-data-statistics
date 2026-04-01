@@ -257,10 +257,14 @@ body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: va
 
 /* ===== 数据表格 ===== */
 .data-table-wrapper {
+  flex: 1;
+  min-height: 0;
   background: #fff;
-  border-radius: 8px;
+  border-radius: 6px 6px 0 0;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 

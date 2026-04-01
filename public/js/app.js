@@ -654,7 +654,7 @@ const DeptRecordsPage = {
 
       <!-- 数据表格 -->
       <div class="data-table-wrapper">
-        <el-table :data="tableData" border stripe :height="tableHeight" style="width:100%"
+        <el-table :data="tableData" border stripe height="100%" style="width:100%"
                   @selection-change="handleSelectionChange" :row-key="row => row.id"
                   :header-cell-class-name="headerCellClass"
                   :row-class-name="getRowClass"
@@ -1094,9 +1094,7 @@ const DeptRecordsPage = {
       exportDateRange: null,
       exportWorkshopId: '',
       // 折叠列状态（key: 分组名, value: true=收起 false=展开）
-      collapseState: {},
-      // 表格动态高度（由 calcTableHeight 计算）
-      tableHeight: 500
+      collapseState: {}
     };
   },
   computed: {
@@ -1153,12 +1151,12 @@ const DeptRecordsPage = {
     this.initCollapseState();
   },
   mounted() {
-    this.calcTableHeight();
-    this._tableResizeHandler = () => this.calcTableHeight();
-    window.addEventListener('resize', this._tableResizeHandler);
+    this.$nextTick(() => {
+      this._bindSummaryScroll();
+    });
   },
   beforeUnmount() {
-    window.removeEventListener('resize', this._tableResizeHandler);
+    this._unbindSummaryScroll();
   },
   methods: {
     formatCellValue,
@@ -2090,16 +2088,6 @@ const DeptRecordsPage = {
       } finally {
         this.settlementSubmitting = false;
       }
-    },
-    // 计算 el-table 动态高度：工具栏底部到视口底部的距离
-    calcTableHeight() {
-      this.$nextTick(() => {
-        const toolbar = this.$el ? this.$el.querySelector('.toolbar') : null;
-        if (toolbar) {
-          const bottom = toolbar.getBoundingClientRect().bottom;
-          this.tableHeight = window.innerHeight - bottom - 8;
-        }
-      });
     }
   }
 };
