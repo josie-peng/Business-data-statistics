@@ -9,7 +9,7 @@ describe('calculateRecord', () => {
       shipping_fee: 0, social_insurance: 263, tax: 809,
       misc_worker_wage: 3960, machine_repair: 1500, mold_repair: 1500,
       gate_processing_fee: 2750, assembly_gate_parts_fee: 0,
-      recoverable_gate_fee: 0, material_supplement: 0,
+      material_supplement: 0,
       total_machines: 42, run_hours: 720
     });
     expect(r.balance).toBeCloseTo(50000 - 6000 - 2000 - 900 - 7000 - 263 - 809 - 3960 - 1500 - 1500 - 2750, 1);
@@ -49,5 +49,27 @@ describe('calculateRecord', () => {
     expect(r.pad_machine_rate).toBeCloseTo(15 / 20, 4);
     expect(r.spray_machine_rate).toBeCloseTo(8 / 10, 4);
     expect(r.avg_output_per_worker).toBeCloseTo(80000 / 50, 1);
+  });
+});
+
+describe('config.js 电子部字段标记', () => {
+  const { getIncomeFields, getExpenseFields } = require('../modules/index');
+
+  test('getIncomeFields(electronic) 应包含6个收入字段', () => {
+    const fields = getIncomeFields('electronic');
+    expect(fields).toContain('bonding_balance');
+    expect(fields).toContain('smt_balance');
+    expect(fields).toContain('plugin_balance');
+    expect(fields).toContain('production_wage_balance');
+    expect(fields).toContain('production_wage_balance_tax');
+    expect(fields).toContain('estimated_workshop_profit');
+    expect(fields.length).toBe(6);
+  });
+
+  test('getExpenseFields(electronic) 应包含 hk_expense、transport_packing_fee、hq_allocation', () => {
+    const fields = getExpenseFields('electronic');
+    expect(fields).toContain('hk_expense');
+    expect(fields).toContain('transport_packing_fee');
+    expect(fields).toContain('hq_allocation');
   });
 });
