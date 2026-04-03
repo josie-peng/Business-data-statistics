@@ -3498,40 +3498,75 @@ const FormulaConfig = {
     };
   },
   computed: {
-    // 结余费用字段：所有参与结余计算的费用字段（共享工资+费用 + 部门独有 expense 字段，按 field 去重）
-    filteredBalanceExpenseFields() {
+    // 分类一：结余费用字段（expense:true，含 calc+expense；装配部 planned_wage_tax 例外）
+    filteredExpenseFields() {
       const search = this.fieldSearch.toLowerCase();
-      const deptConfig = DEPT_CONFIG[this.currentDept];
-      const sharedExpense = [...SHARED_WAGE, ...SHARED_EXPENSE];
-      const sharedKeys = new Set(sharedExpense.map(f => f.field));
-      // 部门独有的 expense 字段（排除与共享重名的）
-      const deptExpense = deptConfig
-        ? deptConfig.uniqueFields.filter(f => f.expense && f.editable && !f.calculated && !sharedKeys.has(f.field))
-        : [];
-      return [...sharedExpense, ...deptExpense].filter(f =>
-        !search || (f.label || '').includes(search) || f.field.includes(search)
+      const dept = this.currentDept;
+      const deptConfig = DEPT_CONFIG[dept];
+      let fields;
+      if (deptConfig?.selfContained) {
+        // selfContained：所有字段均在 uniqueFields，直接按 expense 过滤
+        fields = (deptConfig.uniqueFields || []).filter(f => f.expense);
+      } else {
+        // 非 selfContained：共享费用字段 + 部门独有 expense 字段
+        const shared = [...SHARED_WAGE, ...SHARED_EXPENSE];
+        const sharedKeys = new Set(shared.map(f => f.field));
+        const unique = (deptConfig?.uniqueFields || []).filter(f => f.expense && !sharedKeys.has(f.field));
+        // 装配部例外：planned_wage_tax 参与清溪结余公式（被减数），归入本分类
+        const extra = (dept === 'assembly')
+          ? (deptConfig.uniqueFields || []).filter(f => f.field === 'planned_wage_tax')
+          : [];
+        fields = [...shared, ...unique, ...extra];
+      }
+      return fields.filter(f =>
+        !search || (f.shortLabel || f.label || '').toLowerCase().includes(search) || f.field.includes(search)
       );
     },
-    // 非结余费用字段：所有不参与结余计算的输入字段（共享人员/产值 + 部门独有非费用输入字段，按 field 去重）
-    filteredNonBalanceExpenseFields() {
+    // 分类二：不参与结余公式非计算字段（editable, 无 expense, 无 income, 非 calculated）
+    filteredNonExpenseInputFields() {
       const search = this.fieldSearch.toLowerCase();
-      const deptConfig = DEPT_CONFIG[this.currentDept];
-      const sharedInput = [...SHARED_PEOPLE, ...SHARED_OUTPUT];
-      const sharedKeys = new Set(sharedInput.map(f => f.field));
-      // 部门独有的非费用、可编辑、非计算字段（排除与共享重名的）
-      const deptInput = deptConfig
-        ? deptConfig.uniqueFields.filter(f => !f.expense && f.editable && !f.calculated && !sharedKeys.has(f.field))
-        : [];
-      return [...sharedInput, ...deptInput].filter(f =>
-        !search || (f.label || '').includes(search) || f.field.includes(search)
+      const dept = this.currentDept;
+      const deptConfig = DEPT_CONFIG[dept];
+      let fields;
+      if (deptConfig?.selfContained) {
+        fields = (deptConfig.uniqueFields || []).filter(f => f.editable && !f.expense && !f.income && !f.calculated);
+      } else {
+        const shared = [...SHARED_PEOPLE, ...SHARED_OUTPUT];
+        const sharedKeys = new Set(shared.map(f => f.field));
+        const unique = (deptConfig?.uniqueFields || []).filter(f =>
+          f.editable && !f.expense && !f.income && !f.calculated &&
+          !sharedKeys.has(f.field) &&
+          !(dept === 'assembly' && f.field === 'planned_wage_tax')
+        );
+        fields = [...shared, ...unique];
+      }
+      return fields.filter(f =>
+        !search || (f.shortLabel || f.label || '').toLowerCase().includes(search) || f.field.includes(search)
       );
     },
-    // 可引用的计算字段（其他公式的结果）
+    // 分类三：不参与结余公式计算字段（calculated, 无 expense, 无 income）+ 用户保存的公式
     filteredCalcFields() {
       const search = this.fieldSearch.toLowerCase();
-      return this.formulas.filter(f =>
-        f.field_key !== this.form.field_key &&
-        (!search || f.field_label.includes(search) || f.field_key.includes(search))
+      const deptConfig = DEPT_CONFIG[this.currentDept];
+      // 排除 balance/balance_ratio（结果字段，不应作为构建公式的引用来源）
+      const configCalc = (deptConfig?.uniqueFields || []).filter(f =>
+        f.calculated && !f.expense && !f.income &&
+        f.field !== 'balance' && f.field !== 'balance_ratio'
+      );
+      const userFormulas = this.formulas
+        .filter(f => f.field_key !== this.form.field_key)
+        .map(f => ({ field: f.field_key, label: f.field_label, shortLabel: f.field_label }));
+      return [...configCalc, ...userFormulas].filter(f =>
+        !search || (f.shortLabel || f.label || '').toLowerCase().includes(search) || f.field.includes(search)
+      );
+    },
+    // 分类四：收入字段（income:true，参与结余公式正向加项）
+    filteredIncomeFields() {
+      const search = this.fieldSearch.toLowerCase();
+      const deptConfig = DEPT_CONFIG[this.currentDept];
+      const fields = (deptConfig?.uniqueFields || []).filter(f => f.income);
+      return fields.filter(f =>
+        !search || (f.shortLabel || f.label || '').toLowerCase().includes(search) || f.field.includes(search)
       );
     },
     // 所有可选字段，按类型分组（计算字段、输入字段、费用字段）
