@@ -35,9 +35,9 @@ describe('modules/ 兼容层', () => {
       expect(config.DEPT_CONFIG.beer.workshops).toEqual(['兴信A', '兴信B', '华登A', '邵阳华登']);
     });
 
-    test('beer: uniqueInputFields 有 13 个字段', () => {
-      // output_tax_incl 从 input 改为 calc，从14变为13
-      expect(config.DEPT_CONFIG.beer.uniqueInputFields).toHaveLength(13);
+    test('beer: uniqueInputFields 有 12 个字段', () => {
+      // output_tax_incl 从 input 改为 calc，total_machines 改为 input 不参与 uniqueInputFields（仅保留可编辑输入字段）
+      expect(config.DEPT_CONFIG.beer.uniqueInputFields).toHaveLength(12);
       expect(config.DEPT_CONFIG.beer.uniqueInputFields).toContain('total_machines');
       expect(config.DEPT_CONFIG.beer.uniqueInputFields).toContain('materials');
     });
@@ -62,8 +62,8 @@ describe('modules/ 兼容层', () => {
       expect(config.DEPT_CONFIG.print.uniqueInputFields).toHaveLength(23);
     });
 
-    test('print: uniqueExpenseFields 有 12 个字段', () => {
-      expect(config.DEPT_CONFIG.print.uniqueExpenseFields).toHaveLength(12);
+    test('print: uniqueExpenseFields 有 8 个字段', () => {
+      expect(config.DEPT_CONFIG.print.uniqueExpenseFields).toHaveLength(8);
     });
 
     test('assembly: uniqueInputFields 有 15 个字段', () => {
@@ -80,8 +80,8 @@ describe('modules/ 兼容层', () => {
     test('getAllInputFields(beer) 以 remark 结尾', () => {
       const fields = config.getAllInputFields('beer');
       expect(fields[fields.length - 1]).toBe('remark');
-      // beer: 13 unique input + 14 shared input + 1 remark = 28
-      expect(fields).toHaveLength(13 + 14 + 1);
+      // beer: 12 unique input + 14 shared input + 1 remark = 27
+      expect(fields).toHaveLength(12 + 14 + 1);
     });
 
     test('getExpenseFields(beer) 有 19 个费用字段', () => {

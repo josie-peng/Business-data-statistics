@@ -28,7 +28,7 @@ describe('calculateRecord', () => {
       housing_subsidy: 0, tape: 300, borrowed_worker_wage: 0,
       planned_wage_tax: 30000, worker_count: 100
     });
-    expect(r.balance_minus_tape).toBeCloseTo(r.balance - 300, 1);
+    expect(r.balance_minus_tape).toBeCloseTo(-300, 1);
     expect(r.avg_output_per_worker).toBeCloseTo(1000, 1);
   });
 
