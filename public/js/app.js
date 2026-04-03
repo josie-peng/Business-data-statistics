@@ -3300,43 +3300,55 @@ const FormulaConfig = {
               <div style="padding:8px;">
                 <el-input v-model="fieldSearch" placeholder="搜索字段..." size="small" clearable prefix-icon="Search" />
               </div>
-              <!-- 结余费用字段：所有参与结余公式的费用字段 -->
+              <!-- 分类一：结余费用字段 -->
               <div>
                 <div style="padding:6px 12px; background:#fdf0f0; border-bottom:1px solid #f0d4d4; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
                   <span>结余费用字段</span>
-                  <span style="color:#999;">{{ filteredBalanceExpenseFields.length }}</span>
+                  <span style="color:#999;">{{ filteredExpenseFields.length }}</span>
                 </div>
                 <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
-                  <span v-for="f in filteredBalanceExpenseFields" :key="f.field"
+                  <span v-for="f in filteredExpenseFields" :key="f.field"
                         style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#fff3e0; border:1px solid #ffe0b2; color:#e65100;"
-                        @click="addFieldToken(f.field)">{{ f.label || f.shortLabel }}</span>
+                        @click="addFieldToken(f.field)">{{ f.shortLabel || f.label }}</span>
                 </div>
               </div>
-              <!-- 非结余费用字段：所有不参与结余公式的输入字段 -->
-              <div v-if="filteredNonBalanceExpenseFields.length > 0">
-                <div style="padding:6px 12px; background:#fef9ec; border-bottom:1px solid #f0e0b0; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
-                  <span>非结余费用字段</span>
-                  <span style="color:#999;">{{ filteredNonBalanceExpenseFields.length }}</span>
+              <!-- 分类四：收入字段 -->
+              <div v-if="filteredIncomeFields.length > 0">
+                <div style="padding:6px 12px; background:#f0faf5; border-bottom:1px solid #b2dfdb; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
+                  <span>收入字段</span>
+                  <span style="color:#999;">{{ filteredIncomeFields.length }}</span>
                 </div>
                 <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
-                  <span v-for="f in filteredNonBalanceExpenseFields" :key="f.field"
-                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#fef3cd; border:1px solid #fbd96a; color:#8a6200;"
-                        @click="addFieldToken(f.field)">{{ f.label || f.shortLabel }}</span>
+                  <span v-for="f in filteredIncomeFields" :key="f.field"
+                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#e0f7f4; border:1px solid #80cbc4; color:#00695c;"
+                        @click="addFieldToken(f.field)">{{ f.shortLabel || f.label }}</span>
                 </div>
               </div>
-              <!-- 计算字段（可引用） -->
-              <div>
-                <div style="padding:6px 12px; background:#f0faf5; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
-                  <span>计算字段（可引用）</span>
+              <!-- 分类二：不参与结余公式非计算字段 -->
+              <div v-if="filteredNonExpenseInputFields.length > 0">
+                <div style="padding:6px 12px; background:#fef9ec; border-bottom:1px solid #f0e0b0; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
+                  <span>不参与结余公式非计算字段</span>
+                  <span style="color:#999;">{{ filteredNonExpenseInputFields.length }}</span>
+                </div>
+                <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
+                  <span v-for="f in filteredNonExpenseInputFields" :key="f.field"
+                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#fef3cd; border:1px solid #fbd96a; color:#8a6200;"
+                        @click="addFieldToken(f.field)">{{ f.shortLabel || f.label }}</span>
+                </div>
+              </div>
+              <!-- 分类三：不参与结余公式计算字段 -->
+              <div v-if="filteredCalcFields.length > 0">
+                <div style="padding:6px 12px; background:#f0f4ff; border-bottom:1px solid #c5cae9; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
+                  <span>不参与结余公式计算字段</span>
                   <span style="color:#999;">{{ filteredCalcFields.length }}</span>
                 </div>
                 <div style="padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px;">
                   <span v-for="f in filteredCalcFields" :key="f.field_key || f.field"
-                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#e3f2fd; border:1px solid #90caf9; color:#0d47a1;"
-                        @click="addFieldToken(f.field_key || f.field)">{{ f.field_label || f.label }}</span>
+                        style="display:inline-block; padding:3px 10px; border-radius:14px; cursor:pointer; font-size:12px; background:#e8eaf6; border:1px solid #9fa8da; color:#283593;"
+                        @click="addFieldToken(f.field_key || f.field)">{{ f.shortLabel || f.label }}</span>
                 </div>
               </div>
-              <!-- 常量 -->
+              <!-- 分类五：常量（按月生效）-->
               <div v-if="constantNames.length > 0">
                 <div style="padding:6px 12px; background:#fff8e1; border-bottom:1px solid #ffe082; font-weight:600; font-size:13px; display:flex; justify-content:space-between;">
                   <span>常量（按月生效）</span>
