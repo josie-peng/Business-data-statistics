@@ -5,7 +5,7 @@
 
 const { getAll } = require('../../db/postgres');
 const FormulaParser = require('../../shared/formula-parser');
-const { DEPT_CONFIG, SHARED_EXPENSE_FIELDS } = require('../index');
+const { DEPT_CONFIG, SHARED_EXPENSE_FIELDS, getCurrencyFields, getFixedExpenseFields, getIncomeFields, getExpenseFields } = require('../index');
 
 // 公式和标签缓存（每 5 分钟刷新一次，避免每次计算都查数据库）
 let formulaCache = {};   // { dept: [formulas] }
@@ -83,6 +83,125 @@ async function loadConstants(recordDate) {
   }
 }
 
+// 加载某部门某车间当月生效的固定费用配置
+async function loadFixedExpenses(dept, recordDate, workshopId) {
+  try {
+    const dateStr = recordDate instanceof Date
+      ? recordDate.toISOString().substring(0, 7)
+      : String(recordDate).substring(0, 7);
+    if (!dateStr || dateStr.length < 7) return {};
+
+    const moduleName = `balance_fixed_${dept}`;
+    // 按车间查询固定费用，每个配置项取生效月份最新的值
+    let sql = `SELECT DISTINCT ON (name) name, value FROM formula_constants
+       WHERE module = ? AND effective_month <= ?`;
+    const params = [moduleName, dateStr];
+    if (workshopId) {
+      sql += ' AND workshop_id = ?';
+      params.push(workshopId);
+    }
+    sql += ' ORDER BY name, effective_month DESC';
+    const rows = await getAll(sql, params);
+    const map = {};
+    for (const r of rows) { map[r.name] = parseFloat(r.value); }
+    return map;
+  } catch (err) {
+    console.warn('[calc] 加载固定费用失败:', err.message);
+    return {};
+  }
+}
+
+// 对所有金额字段执行人民币→港币转换
+// skipFields: 已被其他步骤转换过的字段，跳过避免重复转换
+function applyExchangeRate(dept, record, exchangeRate, skipFields = []) {
+  if (!exchangeRate || exchangeRate === 0) return record;
+  const result = { ...record };
+  const currencyFields = getCurrencyFields(dept);
+  const skipSet = new Set(skipFields);
+  for (const field of currencyFields) {
+    if (skipSet.has(field)) continue;
+    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
+      result[field] = parseFloat(result[field]) / exchangeRate;
+    }
+  }
+  return result;
+}
+
+// 计算并代入固定费用到记录中
+function applyFixedExpenses(dept, record, fixedConfig, exchangeRate) {
+  const result = { ...record };
+  const workDays = fixedConfig.work_days || 0;
+
+  // 车衣部固定费用特殊处理（房租/水电配置的是日值，不除以天数）
+  if (dept === 'clothing') {
+    // 管工人数：直接代入，不受汇率影响
+    if (fixedConfig.supervisor_count) {
+      result.supervisor_count = fixedConfig.supervisor_count;
+    }
+    // 房租：日值 / 汇率（配置值已是每日金额，无需除以上班天数）
+    if (fixedConfig.rent_daily && exchangeRate > 0) {
+      result.rent = fixedConfig.rent_daily / exchangeRate;
+    }
+    // 水电费：日值 / 汇率（配置值已是每日金额，无需除以上班天数）
+    if (fixedConfig.utility_daily && exchangeRate > 0) {
+      result.utility_fee = fixedConfig.utility_daily / exchangeRate;
+    }
+    // 总部分摊工资 = 月总额 / 上班天数 / 汇率
+    if (fixedConfig.hq_allocation_wage_total && workDays > 0 && exchangeRate > 0) {
+      result.hq_allocation_wage = fixedConfig.hq_allocation_wage_total / workDays / exchangeRate;
+    }
+    // 管工工资 = (底薪 + 奖金) / 上班天数 / 汇率
+    const baseSalary = fixedConfig.gw_base_salary || 0;
+    const bonus = fixedConfig.gw_bonus || 0;
+    if ((baseSalary + bonus) > 0 && workDays > 0 && exchangeRate > 0) {
+      result.supervisor_wage = (baseSalary + bonus) / workDays / exchangeRate;
+    }
+    return result;
+  }
+
+  // 总台数（啤机，半永久，直接代入）
+  if (dept === 'beer' && fixedConfig.total_machines) {
+    result.total_machines = fixedConfig.total_machines;
+  }
+
+  // 管工人数（半永久，直接代入，不受汇率影响）
+  if (fixedConfig.supervisor_count) {
+    result.supervisor_count = fixedConfig.supervisor_count;
+  }
+
+  // 房租 = 总房租 / 上班天数 / 汇率
+  if (fixedConfig.rent && workDays > 0 && exchangeRate > 0) {
+    result.rent = fixedConfig.rent / workDays / exchangeRate;
+  }
+
+  // 管工工资 = (底薪 + 奖金) / 上班天数 / 汇率
+  const baseSalary = fixedConfig.gw_base_salary || 0;
+  const bonus = fixedConfig.gw_bonus || 0;
+  if ((baseSalary + bonus) > 0 && workDays > 0 && exchangeRate > 0) {
+    result.supervisor_wage = (baseSalary + bonus) / workDays / exchangeRate;
+  }
+
+  // 水电费
+  if (exchangeRate > 0) {
+    if (dept === 'beer') {
+      // 啤机：单价 × 开机台数 / 汇率
+      const utilityUnit = fixedConfig.utility_unit || 0;
+      const runningMachines = parseFloat(result.running_machines) || 0;
+      if (utilityUnit > 0 && runningMachines > 0) {
+        result.utility_fee = utilityUnit * runningMachines / exchangeRate;
+      }
+    } else {
+      // 印喷/装配：总水电费 / 上班天数 / 汇率
+      const utilityTotal = fixedConfig.utility_total || 0;
+      if (utilityTotal > 0 && workDays > 0) {
+        result.utility_fee = utilityTotal / workDays / exchangeRate;
+      }
+    }
+  }
+
+  return result;
+}
+
 // 基于数据库公式的计算
 async function calculateRecordFromDB(dept, record) {
   const { formulas, tags } = await loadFormulasAndTags(dept);
@@ -116,21 +235,36 @@ function calculateRecordHardcoded(dept, record) {
   const expenseFields = [...SHARED_EXPENSE_FIELDS, ...config.uniqueExpenseFields];
   const totalExpense = expenseFields.reduce((sum, field) => sum + (parseFloat(result[field]) || 0), 0);
   const dailyOutput = parseFloat(result.daily_output) || 0;
+  // 收入字段（如边角料），结余 = 产值 + 收入 - 费用
+  const incomeFields = getIncomeFields(dept);
+  const totalIncome = incomeFields.reduce((sum, field) => sum + (parseFloat(result[field]) || 0), 0);
 
-  result.balance = dailyOutput - totalExpense;
+  result.balance = dailyOutput + totalIncome - totalExpense;
   result.balance_ratio = dailyOutput > 0 ? result.balance / dailyOutput : 0;
 
   if (dept === 'beer') {
+    // 开机台数 = 开机时间 / 24（计算字段）
+    const runHours = parseFloat(result.run_hours) || 0;
+    result.running_machines = runHours > 0 ? runHours / 24 : 0;
+
     const total = parseFloat(result.total_machines) || 0;
     const running = parseFloat(result.running_machines) || 0;
     result.machine_rate = total > 0 ? running / total : 0;
     result.avg_output_per_machine = running > 0 ? dailyOutput / running : 0;
     result.output_tax_incl = dailyOutput / 1.13;
+
+    // 人均产值（新增）
+    const workerCount = parseFloat(result.worker_count) || 0;
+    result.per_capita_output = workerCount > 0 ? dailyOutput / workerCount : 0;
+
     result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0) + (parseFloat(result.misc_worker_wage) || 0)) / dailyOutput : 0;
     result.mold_cost_ratio = dailyOutput > 0 ? (parseFloat(result.mold_repair) || 0) / dailyOutput : 0;
     result.gate_cost_ratio = dailyOutput > 0 ? (parseFloat(result.gate_processing_fee) || 0) / dailyOutput : 0;
     result.avg_balance_per_machine = running > 0 ? result.balance / running : 0;
   } else if (dept === 'print') {
+    // 总工时 = 员工人数 × 员工工时（计算字段）
+    result.total_hours = (parseFloat(result.worker_count) || 0) * (parseFloat(result.work_hours) || 0);
+
     const padTotal = parseFloat(result.pad_total_machines) || 0;
     const padRunning = parseFloat(result.pad_running_machines) || 0;
     const sprayTotal = parseFloat(result.spray_total_machines) || 0;
@@ -147,11 +281,128 @@ function calculateRecordHardcoded(dept, record) {
   } else if (dept === 'assembly') {
     const workerCount = parseFloat(result.worker_count) || 0;
     const plannedWage = parseFloat(result.planned_wage_tax) || 0;
+    const shippingFee = parseFloat(result.shipping_fee) || 0;
+
+    // 装配部按区域使用不同结余公式
+    const region = result.region || '';
+    if (region === '湖南') {
+      // 邵阳：总产值 - 费用(含运费) + 可回收电费
+      // 通用公式已算好 balance = dailyOutput + totalIncome - totalExpense
+      // totalIncome 包含 recoverable_electricity，totalExpense 包含 shipping_fee
+      // 所以通用公式结果已正确，无需调整
+    } else {
+      // 清溪：计划总工资含*1.13 - 费用(不含运费、不含可回收电费)
+      result.balance = plannedWage - (totalExpense - shippingFee);
+    }
+
+    result.balance_ratio = dailyOutput > 0 ? result.balance / dailyOutput : 0;
     result.avg_output_per_worker = workerCount > 0 ? dailyOutput / workerCount : 0;
     result.balance_minus_tape = result.balance - (parseFloat(result.tape) || 0);
     result.balance_tape_ratio = plannedWage > 0 ? result.balance_minus_tape / plannedWage : 0;
     result.tool_invest_ratio = plannedWage > 0 ? ((parseFloat(result.workshop_tool_investment) || 0) + (parseFloat(result.fixture_tool_investment) || 0)) / plannedWage : 0;
     result.borrowed_wage_ratio = plannedWage > 0 ? (parseFloat(result.borrowed_worker_wage) || 0) / plannedWage : 0;
+  } else if (dept === 'bags') {
+    const running = parseFloat(result.running_machines) || 0;
+    const total = parseFloat(result.total_machines) || 0;
+    const workerCount = parseFloat(result.worker_count) || 0;
+    result.machine_rate = total > 0 ? running / total : 0;
+    result.per_capita_output = workerCount > 0 ? dailyOutput / workerCount : 0;
+    result.avg_output_per_machine = running > 0 ? dailyOutput / running : 0;
+    result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0) + (parseFloat(result.misc_worker_wage) || 0)) / dailyOutput : 0;
+    result.avg_balance_per_machine = running > 0 ? result.balance / running : 0;
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    const outsourceProfit = parseFloat(result.outsource_profit) || 0;
+    result.outsource_profit_ratio = outsourceOutput > 0 ? outsourceProfit / outsourceOutput : 0;
+  } else if (dept === 'color') {
+    result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0)) / dailyOutput : 0;
+    // 外发总利润 = 税收(外发) + 利润
+    result.total_profit = (parseFloat(result.outsource_tax) || 0) + (parseFloat(result.outsource_profit) || 0);
+    // 不含税利润率 = 利润 / 外发产值
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    result.profit_ratio_ex_tax = outsourceOutput > 0 ? (parseFloat(result.outsource_profit) || 0) / outsourceOutput : 0;
+    // 含税总利润率 = 总利润 / 外发产值
+    result.profit_ratio_inc_tax = outsourceOutput > 0 ? result.total_profit / outsourceOutput : 0;
+  } else if (dept === 'blister') {
+    const running = parseFloat(result.running_machines) || 0;
+    const total = parseFloat(result.total_machines) || 0;
+    result.machine_rate = total > 0 ? running / total : 0;
+    result.avg_output_per_machine = running > 0 ? dailyOutput / running : 0;
+    result.wage_ratio = dailyOutput > 0 ? ((parseFloat(result.worker_wage) || 0) + (parseFloat(result.supervisor_wage) || 0) + (parseFloat(result.misc_worker_wage) || 0)) / dailyOutput : 0;
+    result.raw_material_ratio = dailyOutput > 0 ? (parseFloat(result.raw_material) || 0) / dailyOutput : 0;
+    result.avg_balance_per_machine = running > 0 ? result.balance / running : 0;
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    const outsourceProfit = parseFloat(result.outsource_profit) || 0;
+    result.outsource_profit_ratio = outsourceOutput > 0 ? outsourceProfit / outsourceOutput : 0;
+  } else if (dept === 'clothing') {
+    // 自动计算费用（按产值系数）
+    result.tax_expense = dailyOutput * 0.03;         // 税费 = 产值 × 3%
+    result.hk_daily_expense = dailyOutput * 0.01;   // 香港日常开支 = 产值 × 1%
+
+    // 开机率和台均产值
+    const totalMachines = parseFloat(result.total_machines) || 0;
+    const runningMachines = parseFloat(result.running_machines) || 0;
+    result.machine_rate = totalMachines > 0 ? runningMachines / totalMachines : 0;
+    result.avg_output_per_machine = runningMachines > 0 ? dailyOutput / runningMachines : 0;
+
+    // 工资比率 = (非生产工资 + 员工工资 + 管工工资) / 产值
+    const nonProdWage = parseFloat(result.non_production_wage) || 0;
+    const workerWage = parseFloat(result.worker_wage) || 0;
+    const supervisorWage = parseFloat(result.supervisor_wage) || 0;
+    result.wage_ratio = dailyOutput > 0 ? (nonProdWage + workerWage + supervisorWage) / dailyOutput : 0;
+
+    // 重算结余（因为 tax_expense/hk_daily_expense 在通用公式执行时还是0，需要在此处重算）
+    const expenseFieldsCl = getExpenseFields('clothing');
+    const totalExpenseCl = expenseFieldsCl.reduce((sum, field) => sum + (parseFloat(result[field]) || 0), 0);
+    const incomeFieldsCl = getIncomeFields('clothing');
+    const totalIncomeCl = incomeFieldsCl.reduce((sum, field) => sum + (parseFloat(result[field]) || 0), 0);
+    result.balance = dailyOutput + totalIncomeCl - totalExpenseCl;
+    result.balance_ratio = dailyOutput > 0 ? result.balance / dailyOutput : 0;
+
+    // 台均结余
+    result.avg_balance_per_machine = runningMachines > 0 ? result.balance / runningMachines : 0;
+  } else if (dept === 'electronic') {
+    const outsourceOutput = parseFloat(result.outsource_output) || 0;
+    const totalOutputAll = dailyOutput + outsourceOutput;
+
+    // 自动计算字段（按系数）
+    result.estimated_workshop_profit = dailyOutput * 0.05;
+    result.hk_expense = totalOutputAll * 0.01;
+    result.transport_packing_fee = totalOutputAll * 0.004;
+    result.hq_allocation = totalOutputAll * 0.0029;
+    result.estimated_tax = totalOutputAll * 0.03;
+
+    // 外发人工结余
+    const outsourcePlanned = parseFloat(result.outsource_planned_wage) || 0;
+    const outsourceActual = parseFloat(result.outsource_actual_wage) || 0;
+    result.outsource_wage_balance = outsourcePlanned - outsourceActual;
+    result.outsource_balance_ratio = outsourcePlanned > 0 ? result.outsource_wage_balance / outsourcePlanned : 0;
+
+    // 电子部专属结余公式（与标准公式完全不同）
+    // 收入：帮定结余 + 贴片结余 + 插件结余 + 生产工资结余 + 生产工资结余含税 + 预估车间利润
+    const incomeSum = (parseFloat(result.bonding_balance) || 0)
+      + (parseFloat(result.smt_balance) || 0)
+      + (parseFloat(result.plugin_balance) || 0)
+      + (parseFloat(result.production_wage_balance) || 0)
+      + (parseFloat(result.production_wage_balance_tax) || 0)
+      + result.estimated_workshop_profit;
+    // 支出：管工×3 + 厂租 + 水电 + 香港支出 + 杂费 + 离职补贴 + 工具 + 设备 + 装修 + 运输包装 + 应缴税收 + 总部支出
+    const expenseSum = (parseFloat(result.production_supervisor_wage) || 0)
+      + (parseFloat(result.office_supervisor_wage) || 0)
+      + (parseFloat(result.shared_staff_wage) || 0)
+      + (parseFloat(result.rent) || 0)
+      + (parseFloat(result.utility_fee) || 0)
+      + result.hk_expense
+      + (parseFloat(result.misc_fee) || 0)
+      + (parseFloat(result.severance_fee) || 0)
+      + (parseFloat(result.tool_investment) || 0)
+      + (parseFloat(result.equipment) || 0)
+      + (parseFloat(result.renovation) || 0)
+      + result.transport_packing_fee
+      + (parseFloat(result.payable_tax) || 0)
+      + result.hq_allocation;
+    // 覆盖标准结余计算
+    result.balance = incomeSum - expenseSum;
+    result.balance_ratio = totalOutputAll > 0 ? result.balance / totalOutputAll : 0;
   }
 
   return result;
@@ -162,4 +413,4 @@ async function calculateRecord(dept, record) {
   return calculateRecordFromDB(dept, record);
 }
 
-module.exports = { calculateRecord, clearCache };
+module.exports = { calculateRecord, clearCache, loadConstants, loadFixedExpenses, applyExchangeRate, applyFixedExpenses };

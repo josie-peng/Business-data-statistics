@@ -4,10 +4,11 @@ const XLSX = require('xlsx');
 const router = express.Router();
 const { getAll, query } = require('../db/postgres');
 const { authenticate, checkDataLock, modulePermission } = require('../middleware/auth');
-const { DEPT_CONFIG, getAllInputFields, getColumnMap, getExportLabelMap } = require('../modules');
-const { calculateRecord } = require('../modules/balance/calc');
+const { DEPT_CONFIG, getAllInputFields, getColumnMap, getExportLabelMap, getFixedExpenseFields } = require('../modules');
+const { calculateRecord, loadConstants, loadFixedExpenses, applyExchangeRate, applyFixedExpenses } = require('../modules/balance/calc');
 const { logAction } = require('../middleware/audit');
 const asyncHandler = require('../utils/async-handler');
+const { buildExport } = require('../utils/excel-export');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -63,9 +64,40 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
 
     // 不使用 cellDates:true，避免时区偏差导致日期差一天
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+
+    // 步骤1：填充合并单元格（新模版导出时日期列合并，导入需展开）
+    function fillMergedCells(ws) {
+      if (!ws['!merges']) return;
+      for (const merge of ws['!merges']) {
+        const topLeft = XLSX.utils.encode_cell(merge.s);
+        const value = ws[topLeft] ? ws[topLeft].v : undefined;
+        for (let r = merge.s.r; r <= merge.e.r; r++) {
+          for (let c = merge.s.c; c <= merge.e.c; c++) {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            if (addr === topLeft) continue;
+            if (value !== undefined) {
+              ws[addr] = ws[addr] || { t: typeof value === 'number' ? 'n' : 's' };
+              ws[addr].v = value;
+            }
+          }
+        }
+      }
+    }
+    for (const sheetName of workbook.SheetNames) {
+      fillMergedCells(workbook.Sheets[sheetName]);
+    }
+
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    // 步骤2：检测格式（新模版第3行为表头，含"日期"；旧格式第1行为表头）
+    // 检查第3行（row index=2）A列是否含"日期"字样
+    const thirdRowHeader = sheet['A3'] ? String(sheet['A3'].v || '') : '';
+    const isNewFormat = thirdRowHeader.includes('日期');
+    const jsonRange = isNewFormat ? 2 : 0;   // range=2 → 从第3行起读表头；range=0 → 从第1行起
+    console.log(`[Import] 格式检测: ${isNewFormat ? '新模版(range=2)' : '旧格式(range=0)'}, A3="${thirdRowHeader}"`);
+
     // defval: null ensures empty cells are included; blankrows:false skips empty rows
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, blankrows: false });
+    const rows = XLSX.utils.sheet_to_json(sheet, { range: jsonRange, defval: null, blankrows: false });
 
     console.log(`[Import] ${dept}: ${rows.length} raw rows, first row keys:`, rows.length > 0 ? Object.keys(rows[0]) : '(empty)');
 
@@ -79,6 +111,11 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
                        'record_date', 'workshop_id', 'created_by', 'updated_by'];
     const inserted = [];
     const errors = [];
+
+    // 导入时也需要汇率转换和固定费用代入（与 records.js POST 逻辑一致）
+    // 取第一条有效记录的日期来加载配置
+    let importExchangeRate = null;
+    let importFixedConfig = {};
 
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i];
@@ -98,9 +135,9 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
         console.log(`[Import] 第1行未匹配的列:`, unmapped);
       }
 
-      // Skip summary/total rows (合计行)
+      // 跳过合计行和空车间名：含"合计"、"总计"、空值
       const wsName = record.workshop_name;
-      if (!wsName || String(wsName).includes('合计')) {
+      if (!wsName || String(wsName).includes('合计') || String(wsName).includes('总计')) {
         continue;
       }
 
@@ -129,7 +166,45 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
         continue;
       }
 
-      const calculated = await calculateRecord(dept, record);
+      // 首次遇到有效记录时加载汇率和固定费用配置
+      if (importExchangeRate === null && record.record_date) {
+        const constants = await loadConstants(record.record_date);
+        importExchangeRate = constants.exchange_rate || 0;
+        if (!importExchangeRate) {
+          return res.status(400).json({ success: false, message: '请先在系统设置中配置当月汇率（exchange_rate）' });
+        }
+        importFixedConfig = await loadFixedExpenses(dept, record.record_date);
+      }
+
+      // 汇率转换和固定费用代入（与 records.js POST 一致的5步流程）
+      let processed = { ...record };
+
+      // 第一步：计算依赖字段
+      if (dept === 'beer') {
+        const runHours = parseFloat(processed.run_hours) || 0;
+        processed.running_machines = runHours > 0 ? runHours / 24 : 0;
+      }
+      if (dept === 'print') {
+        processed.total_hours = (parseFloat(processed.worker_count) || 0) * (parseFloat(processed.work_hours) || 0);
+      }
+
+      // 第二步：代入固定费用
+      processed = applyFixedExpenses(dept, processed, importFixedConfig, importExchangeRate);
+
+      // 第三步：装配部 planned_wage_tax 特殊处理
+      if (dept === 'assembly' && processed.planned_wage_tax) {
+        processed.planned_wage_tax = parseFloat(processed.planned_wage_tax) * 1.13 / importExchangeRate;
+      }
+
+      // 第四步：汇率转换
+      const skipFields = [
+        ...getFixedExpenseFields(dept),
+        ...(dept === 'assembly' ? ['planned_wage_tax'] : []),
+      ];
+      processed = applyExchangeRate(dept, processed, importExchangeRate, skipFields);
+
+      // 第五步：计算结余等衍生字段
+      const calculated = await calculateRecord(dept, processed);
       calculated.created_by = req.user.id;
       calculated.updated_by = req.user.id;
 
@@ -160,7 +235,7 @@ router.post('/:dept/import', authenticate, modulePermission('balance'), upload.s
   }
 });
 
-// GET /api/:dept/export
+// GET /api/:dept/export — 样式化 Excel 导出（exceljs）
 router.get('/:dept/export', authenticate, asyncHandler(async (req, res) => {
   const { dept } = req.params;
   const config = DEPT_CONFIG[dept];
@@ -168,34 +243,23 @@ router.get('/:dept/export', authenticate, asyncHandler(async (req, res) => {
   const { start_date, end_date, workshop_id } = req.query;
 
   let sql = `SELECT r.*, w.name as workshop_name FROM ${config.tableName} r
-             LEFT JOIN workshops w ON r.workshop_id = w.id WHERE 1=1`;
+             JOIN workshops w ON r.workshop_id = w.id WHERE 1=1`;
   const params = [];
-  if (start_date) { sql += ` AND r.record_date >= ?`; params.push(start_date); }
-  if (end_date) { sql += ` AND r.record_date <= ?`; params.push(end_date); }
-  if (workshop_id) { sql += ` AND r.workshop_id = ?`; params.push(workshop_id); }
-  sql += ' ORDER BY r.record_date DESC, w.sort_order ASC';
+  if (start_date)  { sql += ' AND r.record_date >= ?'; params.push(start_date); }
+  if (end_date)    { sql += ' AND r.record_date <= ?'; params.push(end_date); }
+  if (workshop_id) { sql += ' AND r.workshop_id = ?';  params.push(workshop_id); }
+  sql += ' ORDER BY r.record_date ASC, w.sort_order ASC';
 
   const records = await getAll(sql, params);
+  const buffer  = await buildExport(dept, records, start_date, end_date, workshop_id);
 
-  const exportData = records.map(r => {
-    const row = {};
-    Object.keys(r).forEach(key => {
-      const label = REVERSE_COLUMN_MAP[key] || key;
-      if (!['id', 'workshop_id', 'created_by', 'updated_by', 'created_at', 'updated_at'].includes(key)) {
-        row[label] = r[key];
-      }
-    });
-    return row;
-  });
-
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(exportData);
-  XLSX.utils.book_append_sheet(wb, ws, config.label);
-  const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const deptNames = { beer: '啤机部', print: '印喷部', assembly: '装配部' };
+  const deptName  = deptNames[dept] || dept;
+  const filename  = encodeURIComponent(`${deptName}收支表_${start_date || '全部'}.xlsx`);
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(config.label)}.xlsx`);
-  res.send(Buffer.from(buffer));
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`);
+  res.send(buffer);
 }));
 
 module.exports = router;

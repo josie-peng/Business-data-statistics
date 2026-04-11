@@ -15,24 +15,24 @@ module.exports = {
 
   // 所有部门共享的输入字段
   sharedFields: [
-    { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false },
+    { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false, fixedExpense: true },
     { field: 'worker_count', label: '员工人数', type: 'integer', input: true, expense: false,
       aliases: ['员工人数(不包杂工)'] },
-    { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false,
+    { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false, currency: true,
       aliases: ['产值'] },
-    { field: 'worker_wage', label: '员工工资/天', type: 'number', input: true, expense: true,
+    { field: 'worker_wage', label: '员工工资/天', type: 'number', input: true, expense: true, currency: true,
       aliases: ['员工工资'] },
-    { field: 'supervisor_wage', label: '管工工资/天', type: 'number', input: true, expense: true,
+    { field: 'supervisor_wage', label: '管工工资/天', type: 'number', input: true, expense: true, currency: true, fixedExpense: true,
       aliases: ['生产管工工资'] },
-    { field: 'rent', label: '房租', type: 'number', input: true, expense: true },
-    { field: 'utility_fee', label: '水电费', type: 'number', input: true, expense: true },
-    { field: 'tool_investment', label: '工具投资', type: 'number', input: true, expense: true },
-    { field: 'equipment', label: '设备', type: 'number', input: true, expense: true },
-    { field: 'renovation', label: '装修', type: 'number', input: true, expense: true },
-    { field: 'misc_fee', label: '杂费', type: 'number', input: true, expense: true },
-    { field: 'shipping_fee', label: '运费', type: 'number', input: true, expense: true },
-    { field: 'social_insurance', label: '社保', type: 'number', input: true, expense: true },
-    { field: 'tax', label: '税收', type: 'number', input: true, expense: true },
+    { field: 'rent', label: '房租', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+    { field: 'utility_fee', label: '水电费', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+    { field: 'tool_investment', label: '工具投资', type: 'number', input: true, expense: true, currency: true },
+    { field: 'equipment', label: '设备', type: 'number', input: true, expense: true, currency: true },
+    { field: 'renovation', label: '装修', type: 'number', input: true, expense: true, currency: true },
+    { field: 'misc_fee', label: '杂费', type: 'number', input: true, expense: true, currency: true },
+    { field: 'shipping_fee', label: '运费', type: 'number', input: true, expense: true, currency: true },
+    { field: 'social_insurance', label: '社保', type: 'number', input: true, expense: true, currency: true },
+    { field: 'tax', label: '税收', type: 'number', input: true, expense: true, currency: true },
   ],
 
   // 共享计算字段
@@ -42,18 +42,21 @@ module.exports = {
   ],
 
   // 导入时需要跳过的 Excel 列名（不属于任何字段的 label/alias）
-  skipColumns: ['结余金额', '结余%'],
+  skipColumns: ['结余金额', '结余%',
+    '每台机平均产值', '平均每台结余', '总工资占产值%', '原料比率', '外发利润率%', '占比率',
+    '不含税比润', '含税总比润', '生产工资结余', '生产工资结余(含1.13)', '预估车间利润',
+    '外发人工结余', '外发结余比例'],
 
   departments: {
     beer: {
       tableName: 'beer_records',
       label: '啤机部',
-      workshops: ['兴信A', '兴信B', '华登', '邵阳'],
+      workshops: ['兴信A', '兴信B', '华登A', '邵阳华登'],
       sharedFieldAliases: {},
       uniqueFields: [
         // 台数组
-        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false },
-        { field: 'running_machines', label: '开机台数', type: 'integer', input: true, expense: false },
+        { field: 'total_machines', label: '总台数', type: 'number', input: true, expense: false, fixedExpense: true },
+        { field: 'running_machines', label: '开机台数', type: 'number', calc: true },
         { field: 'run_hours', label: '开机时间', type: 'number', input: true, expense: false },
         { field: 'machine_rate', label: '开机率', type: 'ratio', calc: true,
           skipAliases: ['开机率'] },
@@ -63,54 +66,55 @@ module.exports = {
         // 产值组（output_tax_incl 从输入改为计算字段）
         { field: 'output_tax_incl', label: '不含税产值', type: 'number', calc: true,
           skipAliases: ['不含税产值', '不含税产值（含税产值/1.13）', '不含税产值(含税产值/1.13)', '总产值含税'] },
+        { field: 'per_capita_output', label: '人均产值', type: 'number', calc: true },
         { field: 'avg_output_per_machine', label: '每台机平均产值', type: 'number', calc: true,
           skipAliases: ['每台机平均产值'] },
         // 工资组
-        { field: 'misc_worker_wage', label: '杂工工资/天', type: 'number', input: true, expense: true },
+        { field: 'misc_worker_wage', label: '杂工工资/天', type: 'number', input: true, expense: true, currency: true },
         { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
           skipAliases: ['总工资（包管工）占产值%', '总工资(包管工)占产值%'] },
         // 结余组
         { field: 'avg_balance_per_machine', label: '平均每台结余', type: 'number', calc: true,
           skipAliases: ['平均每台结余'] },
         // 独有费用-维修
-        { field: 'machine_repair', label: '机器维修', type: 'number', input: true, expense: true },
-        { field: 'mold_repair', label: '模具维修', type: 'number', input: true, expense: true },
+        { field: 'machine_repair', label: '机器维修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'mold_repair', label: '模具维修', type: 'number', input: true, expense: true, currency: true },
         { field: 'mold_cost_ratio', label: '模具维修占产值比%', type: 'ratio', calc: true,
           skipAliases: ['模具费用占产值比%', '模具维修占产值比%'] },
         // 独有费用-物料
-        { field: 'materials', label: '物料', type: 'number', input: true, expense: true },
-        { field: 'material_supplement', label: '原料补料', type: 'number', input: true, expense: true },
+        { field: 'materials', label: '物料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'material_supplement', label: '原料补料', type: 'number', input: true, expense: true, currency: true },
         // 独有费用-水口
-        { field: 'gate_processing_fee', label: '批水口加工费', type: 'number', input: true, expense: true,
+        { field: 'gate_processing_fee', label: '批水口加工费', type: 'number', input: true, expense: true, currency: true,
           aliases: ['批水口加工费（全包）', '批水口加工费(全包)'] },
         { field: 'gate_cost_ratio', label: '批水口费用占产值比%', type: 'ratio', calc: true,
           skipAliases: ['批水口费用占产值比%'] },
-        { field: 'assembly_gate_parts_fee', label: '装配批水口配件费', type: 'number', input: true, expense: true,
-          aliases: ['装配帮啤机批水口加工配件费用', '装配帮啤机批水口配件费用'] },
-        { field: 'recoverable_gate_fee', label: '可回收批水口费', type: 'number', input: true, expense: false,
-          aliases: ['可回收外厂批水口加工费'] },
+        { field: 'assembly_gate_parts_fee', label: '装配批水口配件费', shortLabel: '装配水口', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['装配帮啤机批水口加工配件费用', '装配帮啤机批水口配件费用', '装配水口'] },
+        { field: 'outsource_nozzle', label: '外发批水口加工费', shortLabel: '外发水口', tooltip: '外发批水口加工费', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['外发批水口费用'] },
       ]
     },
 
     print: {
       tableName: 'print_records',
       label: '印喷部',
-      workshops: ['兴信A', '华登', '邵阳'],
+      workshops: ['兴信A', '华登A', '邵阳华登'],
       sharedFieldAliases: {
         tool_investment: ['工具'],
         shipping_fee: ['运费_1'],
       },
       uniqueFields: [
         // 台数组
-        { field: 'pad_total_machines', label: '移印机总台数', type: 'integer', input: true, expense: false,
+        { field: 'pad_total_machines', label: '移印机总台数', type: 'number', input: true, expense: false,
           aliases: ['移印总台数', '移印机总台数'] },
-        { field: 'pad_running_machines', label: '每天开机台数', type: 'integer', input: true, expense: false,
+        { field: 'pad_running_machines', label: '每天开机台数', type: 'number', input: true, expense: false,
           aliases: ['移印开机台数'] },
         { field: 'pad_machine_rate', label: '移印开机率', type: 'ratio', calc: true,
           skipAliases: ['开机率'] },
-        { field: 'spray_total_machines', label: '喷油机总台数', type: 'integer', input: true, expense: false,
+        { field: 'spray_total_machines', label: '喷油机总台数', type: 'number', input: true, expense: false,
           aliases: ['喷油总台数', '喷油机总台数'] },
-        { field: 'spray_running_machines', label: '每天开机台数_1', type: 'integer', input: true, expense: false },
+        { field: 'spray_running_machines', label: '每天开机台数_1', type: 'number', input: true, expense: false },
         { field: 'spray_machine_rate', label: '喷油开机率', type: 'ratio', calc: true,
           skipAliases: ['开机率_1'] },
         // 人数组
@@ -118,7 +122,7 @@ module.exports = {
         // 时间组（产值前）
         { field: 'work_hours', label: '员工工时', type: 'number', input: true, expense: false,
           aliases: ['工作时间', '工时'] },
-        { field: 'total_hours', label: '总工时', type: 'number', input: true, expense: false,
+        { field: 'total_hours', label: '总工时', type: 'number', calc: true,
           aliases: ['总时间'] },
         // 产值组
         { field: 'avg_output_per_worker', label: '员工人均产值', type: 'number', calc: true,
@@ -126,44 +130,46 @@ module.exports = {
         // 工资组
         { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
           skipAliases: ['总工资占产值%'] },
+        { field: 'subsidy', label: '补贴', type: 'number', input: true, expense: true, currency: true },
         // 独有费用-维修
-        { field: 'repair_fee', label: '维修费', type: 'number', input: true, expense: true },
+        { field: 'repair_fee', label: '维修费', type: 'number', input: true, expense: true, currency: true },
         // 独有费用-物料+其他
-        { field: 'materials', label: '物料（原子灰、胶头、油墨、喷码溶剂）', type: 'number', input: true, expense: true,
+        { field: 'materials', label: '物料（原子灰、胶头、油墨、喷码溶剂）', type: 'number', input: true, expense: true, currency: true,
           aliases: ['物料(原子灰、胶头、油墨、喷码溶剂)'] },
-        { field: 'oil_water_amount', label: '油水金额', type: 'number', input: true, expense: true },
-        { field: 'subsidy', label: '补贴', type: 'number', input: true, expense: true },
-        { field: 'no_output_wage', label: '无产值工资', type: 'number', input: true, expense: true,
+        { field: 'oil_water_amount', label: '油水金额', type: 'number', input: true, expense: true, currency: true },
+        { field: 'actual_material', label: '实际使用原料金额', shortLabel: '实际用料', tooltip: '实际使用原料金额', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['实际用原料金额'] },
+        { field: 'no_output_wage', label: '无产值工资', type: 'number', input: true, expense: true, currency: true,
           aliases: ['无产出工资'] },
-        { field: 'assembly_wage_paid', label: '付装配工资', type: 'number', input: true, expense: true,
+        { field: 'assembly_wage_paid', label: '付装配工资', type: 'number', input: true, expense: true, currency: true,
           aliases: ['装配工资代付'] },
         // 独有-做办
-        { field: 'office_wage', label: '做办工资', type: 'number', input: true, expense: true,
+        { field: 'office_wage', label: '做办工资', type: 'number', input: true, expense: false, currency: true,
           aliases: ['办公室工资'] },
         { field: 'office_wage_ratio', label: '做办工资占比%', type: 'ratio', calc: true,
           skipAliases: ['所占比例'] },
         // 独有-可回收
-        { field: 'recoverable_wage', label: '可收回工资', type: 'number', input: true, expense: false,
+        { field: 'recoverable_wage', label: '可收回工资', type: 'number', input: true, expense: false, income: true, currency: true,
           aliases: ['可回收工资'] },
-        { field: 'dept_recoverable_wage', label: '车发部回收工资', type: 'number', input: true, expense: false,
+        { field: 'dept_recoverable_wage', label: '车发部回收工资', type: 'number', input: true, expense: false, income: true, currency: true,
           aliases: ['部门可回收工资'] },
-        { field: 'recoverable_indonesia_wage', label: '可收回印尼工资', type: 'number', input: true, expense: false,
+        { field: 'recoverable_indonesia_wage', label: '可收回印尼工资', type: 'number', input: true, expense: false, income: true, currency: true,
           aliases: ['可回收印尼工资'] },
-        { field: 'recoverable_tool_fee', label: '可收回工具费', type: 'number', input: true, expense: false,
+        { field: 'recoverable_tool_fee', label: '可收回工具费', type: 'number', input: true, expense: false, income: true, currency: true,
           aliases: ['可回收工具费'] },
-        { field: 'non_recoverable_tool_fee', label: '不可回收工具费', type: 'number', input: true, expense: true },
-        { field: 'recoverable_paint', label: '可回收油漆金额', type: 'number', input: true, expense: false,
+        { field: 'non_recoverable_tool_fee', label: '不可回收工具费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'recoverable_paint', label: '可回收油漆金额', type: 'number', input: true, expense: false, income: true, currency: true,
           aliases: ['可回收油漆'] },
         // 独有-模费
-        { field: 'auto_mold_fee', label: '自动机模费', type: 'number', input: true, expense: true,
+        { field: 'auto_mold_fee', label: '自动机模费', type: 'number', input: true, expense: false, currency: true,
           aliases: ['自动模费'] },
         { field: 'mold_fee_ratio', label: '自动机模费占产值%', type: 'ratio', calc: true,
           skipAliases: ['模费占产值%', '模费占产值%_1'] },
-        { field: 'hunan_mold_fee', label: '发湖南模费', type: 'number', input: true, expense: true,
+        { field: 'hunan_mold_fee', label: '发湖南模费', type: 'number', input: true, expense: false, currency: true,
           aliases: ['湖南模费'] },
         { field: 'hunan_mold_ratio', label: '发湖南模费占产值%', type: 'ratio', calc: true,
           skipAliases: ['发湖南模费占产值%'] },
-        { field: 'indonesia_mold_fee', label: '发印尼模费', type: 'number', input: true, expense: true,
+        { field: 'indonesia_mold_fee', label: '发印尼模费', type: 'number', input: true, expense: false, currency: true,
           aliases: ['印尼模费'] },
         { field: 'indonesia_mold_ratio', label: '发印尼模费占产值%', type: 'ratio', calc: true,
           skipAliases: ['发印尼模费占产值%'] },
@@ -176,49 +182,348 @@ module.exports = {
     assembly: {
       tableName: 'assembly_records',
       label: '装配部',
-      workshops: ['兴信A', '兴信B', '华登', '邵阳'],
+      workshops: ['兴信A', '兴信B', '华登A', '华嘉', '邵阳华登'],
       sharedFieldAliases: {},
       uniqueFields: [
         // 产值组
         { field: 'avg_output_per_worker', label: '人均产值', type: 'number', calc: true, importable: true },
         // 工资组
-        { field: 'planned_wage_tax', label: '计划总工资含*1.13', type: 'number', input: true, expense: false,
+        { field: 'planned_wage_tax', label: '计划总工资含*1.13', type: 'number', input: true, expense: false, currency: true,
           aliases: ['计划工资含税'] },
-        { field: 'actual_wage', label: '实际总工资', type: 'number', input: true, expense: true,
+        { field: 'actual_wage', label: '实际总工资', type: 'number', input: true, expense: true, currency: true,
           aliases: ['实际工资'] },
-        // 结余后
-        { field: 'hunan_social_insurance', label: '湖南社保', type: 'number', input: true, expense: true },
-        { field: 'hunan_tax', label: '湖南税收', type: 'number', input: true, expense: true },
+        { field: 'hunan_social_insurance', label: '湖南社保', type: 'number', input: true, expense: true, currency: true },
+        { field: 'hunan_tax', label: '湖南税收', type: 'number', input: true, expense: true, currency: true },
+        { field: 'housing_subsidy', label: '外宿补贴', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['住房补贴'] },
         // 独有-维修
-        { field: 'workshop_repair', label: '车间维修费', type: 'number', input: true, expense: true,
+        { field: 'workshop_repair', label: '车间维修费', type: 'number', input: true, expense: true, currency: true,
           aliases: ['车间维修'] },
-        { field: 'electrical_repair', label: '机电部维修费', type: 'number', input: true, expense: true,
+        { field: 'electrical_repair', label: '机电部维修费', type: 'number', input: true, expense: true, currency: true,
           aliases: ['电工维修'] },
         // 独有-物料
-        { field: 'workshop_materials', label: '车间物料费', type: 'number', input: true, expense: true,
+        { field: 'workshop_materials', label: '车间物料费', type: 'number', input: true, expense: true, currency: true,
           aliases: ['车间物料'] },
-        { field: 'stretch_film', label: '拉伸膜', type: 'number', input: true, expense: true },
-        { field: 'tape', label: '胶纸', type: 'number', input: true, expense: true,
+        { field: 'stretch_film', label: '拉伸膜', type: 'number', input: true, expense: true, currency: true },
+        { field: 'tape', label: '胶纸', type: 'number', input: true, expense: false, currency: true,
           aliases: ['胶带'] },
         { field: 'balance_minus_tape', label: '结余减胶纸', type: 'number', calc: true,
           skipAliases: ['结余减胶纸'] },
         { field: 'balance_tape_ratio', label: '减胶纸后结余占计划工资%', type: 'ratio', calc: true,
           skipAliases: ['减胶纸后结余占计划工资%'] },
         // 独有-可回收
-        { field: 'recoverable_electricity', label: '可回收电费', type: 'number', input: true, expense: false },
+        { field: 'recoverable_electricity', label: '可回收电费', type: 'number', input: true, expense: false, income: true, currency: true },
         // 独有-工具投资
-        { field: 'workshop_tool_investment', label: '车间工具投资', type: 'number', input: true, expense: true },
-        { field: 'fixture_tool_investment', label: '夹具部工具投资', type: 'number', input: true, expense: true },
+        { field: 'workshop_tool_investment', label: '车间工具投资', type: 'number', input: true, expense: true, currency: true },
+        { field: 'fixture_tool_investment', label: '夹具部工具投资', type: 'number', input: true, expense: true, currency: true },
         { field: 'tool_invest_ratio', label: '工具投资占计划工资%', type: 'ratio', calc: true,
           skipAliases: ['工具投资占计划工资%'] },
         // 独有-其他
-        { field: 'housing_subsidy', label: '外宿补贴', type: 'number', input: true, expense: false,
-          aliases: ['住房补贴'] },
-        { field: 'supplement', label: '补料', type: 'number', input: true, expense: true },
-        { field: 'borrowed_worker_wage', label: '外借人员工资', type: 'number', input: true, expense: true,
+        { field: 'supplement', label: '补料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'borrowed_worker_wage', label: '外借人员工资', type: 'number', input: true, expense: false, currency: true,
           aliases: ['借调工人工资'] },
         { field: 'borrowed_wage_ratio', label: '外借人员工资占计划工资%', type: 'ratio', calc: true,
           skipAliases: ['外借人员工资占计划工资%'] },
+      ]
+    },
+
+    bags: {
+      tableName: 'bags_records',
+      label: '胶袋部',
+      workshops: ['胶袋'],
+      selfContained: true,  // 自包含：共享字段已搬入 uniqueFields，不再从 sharedFields 动态合并
+      sharedFieldAliases: {},
+      uniqueFields: [
+        // === 共享字段（从 sharedFields 复制，selfContained 模式下直接定义在此） ===
+        { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false, fixedExpense: true },
+        { field: 'worker_count', label: '员工人数', type: 'integer', input: true, expense: false,
+          aliases: ['员工人数(不包杂工)'] },
+        { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false, currency: true,
+          aliases: ['产值'] },
+        { field: 'worker_wage', label: '员工工资/天', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['员工工资'] },
+        { field: 'supervisor_wage', label: '管工工资/天', type: 'number', input: true, expense: true, currency: true, fixedExpense: true,
+          aliases: ['生产管工工资'] },
+        { field: 'rent', label: '房租', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'utility_fee', label: '水电费', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'tool_investment', label: '工具投资', type: 'number', input: true, expense: true, currency: true },
+        { field: 'equipment', label: '设备', type: 'number', input: true, expense: true, currency: true },
+        { field: 'renovation', label: '装修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'misc_fee', label: '杂费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'shipping_fee', label: '运费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'social_insurance', label: '社保', type: 'number', input: true, expense: true, currency: true },
+        { field: 'tax', label: '税收', type: 'number', input: true, expense: true, currency: true },
+        // 机台组
+        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false },
+        { field: 'running_machines', label: '开机台数', type: 'integer', input: true, expense: false },
+        { field: 'machine_rate', label: '开机率', type: 'ratio', calc: true,
+          skipAliases: ['开机率'] },
+        // 人数组
+        { field: 'misc_workers', label: '杂工人数', type: 'integer', input: true, expense: false },
+        // 产值组
+        { field: 'per_capita_output', label: '人均产值', type: 'number', calc: true,
+          skipAliases: ['人均产值'] },
+        { field: 'scrap_income', label: '边角料(收入)', type: 'number', input: true, expense: false, income: true, currency: true,
+          aliases: ['边角料（收入）'] },
+        { field: 'avg_output_per_machine', label: '每台机平均产值', type: 'number', calc: true,
+          skipAliases: ['每台机平均产值'] },
+        // 工资组
+        { field: 'misc_worker_wage', label: '杂工工资/天', type: 'number', input: true, expense: true, currency: true },
+        { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
+          skipAliases: ['总工资（包管工）占产值%', '总工资(包管工)占产值%'] },
+        // 费用组
+        { field: 'raw_material_cost', label: '原料成本', type: 'number', input: true, expense: true, currency: true },
+        { field: 'diesel', label: '柴油', type: 'number', input: true, expense: true, currency: true },
+        { field: 'machine_repair', label: '机器维修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'material_supplement', label: '原料补料/损耗', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['原料补料'] },
+        { field: 'gate_processing_fee', label: '批水口加工费', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['批水口加工费用'] },
+        // 结余组
+        { field: 'avg_balance_per_machine', label: '平均每台结余', type: 'number', calc: true,
+          skipAliases: ['平均每台结余'] },
+        // 外发组
+        { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit', label: '利润', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit_ratio', label: '占比率', type: 'ratio', calc: true,
+          skipAliases: ['占比率'] },
+      ]
+    },
+
+    color: {
+      tableName: 'color_records',
+      label: '配色部',
+      workshops: ['配色'],
+      selfContained: true,  // 自包含：共享字段已搬入 uniqueFields，不再从 sharedFields 动态合并
+      sharedFieldAliases: {},
+      uniqueFields: [
+        // === 共享字段（从 sharedFields 复制，selfContained 模式下直接定义在此） ===
+        { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false, fixedExpense: true },
+        { field: 'worker_count', label: '员工人数', type: 'integer', input: true, expense: false,
+          aliases: ['员工人数(不包杂工)'] },
+        { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false, currency: true,
+          aliases: ['产值'] },
+        { field: 'worker_wage', label: '员工工资/天', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['员工工资'] },
+        { field: 'supervisor_wage', label: '管工工资/天', type: 'number', input: true, expense: true, currency: true, fixedExpense: true,
+          aliases: ['生产管工工资'] },
+        { field: 'rent', label: '房租', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'utility_fee', label: '水电费', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'tool_investment', label: '工具投资', type: 'number', input: true, expense: true, currency: true },
+        { field: 'equipment', label: '设备', type: 'number', input: true, expense: true, currency: true },
+        { field: 'renovation', label: '装修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'misc_fee', label: '杂费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'shipping_fee', label: '运费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'social_insurance', label: '社保', type: 'number', input: true, expense: true, currency: true },
+        { field: 'tax', label: '税收', type: 'number', input: true, expense: true, currency: true },
+        // 工资组
+        { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
+          skipAliases: ['总工资（包管工）占产值%', '总工资(包管工)占产值%'] },
+        // 费用组
+        { field: 'hq_allocation', label: '总部分摊', type: 'number', input: true, expense: true, currency: true },
+        { field: 'raw_material_cost', label: '原料成本', type: 'number', input: true, expense: true, currency: true },
+        { field: 'color_powder', label: '色粉', type: 'number', input: true, expense: true, currency: true },
+        { field: 'hk_expense', label: '税收/香港开支', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['税收、香港开支'] },
+        // 外发组
+        { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_tax', label: '税收(外发)', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit', label: '利润', type: 'number', input: true, expense: false, currency: true },
+        { field: 'total_profit', label: '总利润', type: 'number', calc: true, expense: false,
+          skipAliases: ['总利润', '外发总利润'] },
+        { field: 'profit_ratio_ex_tax', label: '不含税比润', type: 'ratio', calc: true,
+          skipAliases: ['不含税比润'] },
+        { field: 'profit_ratio_inc_tax', label: '含税总比润', type: 'ratio', calc: true,
+          skipAliases: ['含税总比润'] },
+      ]
+    },
+
+    blister: {
+      tableName: 'blister_records',
+      label: '吸塑部',
+      workshops: ['吸塑'],
+      selfContained: true,  // 自包含：共享字段已搬入 uniqueFields，不再从 sharedFields 动态合并
+      sharedFieldAliases: {},
+      uniqueFields: [
+        // === 共享字段（从 sharedFields 复制，selfContained 模式下直接定义在此） ===
+        { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false, fixedExpense: true },
+        { field: 'worker_count', label: '员工人数', type: 'integer', input: true, expense: false,
+          aliases: ['员工人数(不包杂工)'] },
+        { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false, currency: true,
+          aliases: ['产值'] },
+        { field: 'worker_wage', label: '员工工资/天', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['员工工资'] },
+        { field: 'supervisor_wage', label: '管工工资/天', type: 'number', input: true, expense: true, currency: true, fixedExpense: true,
+          aliases: ['生产管工工资'] },
+        { field: 'rent', label: '房租', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'utility_fee', label: '水电费', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'tool_investment', label: '工具投资', type: 'number', input: true, expense: true, currency: true },
+        { field: 'equipment', label: '设备', type: 'number', input: true, expense: true, currency: true },
+        { field: 'renovation', label: '装修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'misc_fee', label: '杂费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'shipping_fee', label: '运费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'social_insurance', label: '社保', type: 'number', input: true, expense: true, currency: true },
+        { field: 'tax', label: '税收', type: 'number', input: true, expense: true, currency: true },
+        // 机台组
+        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false },
+        { field: 'running_machines', label: '开机台数', type: 'integer', input: true, expense: false },
+        { field: 'machine_rate', label: '开机率', type: 'ratio', calc: true,
+          skipAliases: ['开机率'] },
+        // 人数组
+        { field: 'misc_workers', label: '杂工人数', type: 'integer', input: true, expense: false },
+        // 产值组
+        { field: 'avg_output_per_machine', label: '每台机平均产值', type: 'number', calc: true,
+          skipAliases: ['每台机平均产值'] },
+        // 工资组
+        { field: 'misc_worker_wage', label: '杂工工资/天', type: 'number', input: true, expense: true, currency: true },
+        { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
+          skipAliases: ['总工资（包管工）占产值%', '总工资(包管工)占产值%'] },
+        // 费用组
+        { field: 'raw_material', label: '原料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'raw_material_ratio', label: '原料比率', type: 'ratio', calc: true,
+          skipAliases: ['原料比率'] },
+        { field: 'supplies', label: '用料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'materials', label: '物料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'machine_repair', label: '机器维修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'gate_processing_fee', label: '批水口加工费', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['批水口加工费用'] },
+        { field: 'material_supplement', label: '原料补料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'cartons', label: '纸箱', type: 'number', input: true, expense: true, currency: true },
+        { field: 'plastic_bags', label: '胶袋', type: 'number', input: true, expense: true, currency: true },
+        { field: 'scrap_income', label: '边角料(收入)', type: 'number', input: true, expense: false, income: true, currency: true,
+          aliases: ['边角料'] },
+        // 结余组
+        { field: 'avg_balance_per_machine', label: '平均每台结余', type: 'number', calc: true,
+          skipAliases: ['平均每台结余'] },
+        // 外发组
+        { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit', label: '外发利润', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_profit_ratio', label: '外发利润率%', type: 'ratio', calc: true,
+          skipAliases: ['外发利润率%'] },
+      ]
+    },
+
+    electronic: {
+      tableName: 'electronic_records',
+      label: '电子部',
+      workshops: ['登信'],
+      selfContained: true,  // 自包含：只用部分共享字段，已搬入 uniqueFields，不再从 sharedFields 动态合并
+      sharedFieldAliases: {
+        rent: ['厂租', '厂 租'],
+        tool_investment: ['工具', '工 具'],
+      },
+      uniqueFields: [
+        // === 共享字段（从 sharedFields 选取9个，selfContained 模式下直接定义在此）
+        // 电子部不含：worker_wage, supervisor_wage, social_insurance, tax, shipping_fee ===
+        { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false, fixedExpense: true },
+        { field: 'worker_count', label: '员工人数', type: 'integer', input: true, expense: false,
+          aliases: ['员工人数(不包杂工)'] },
+        { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false, currency: true,
+          aliases: ['产值'] },
+        { field: 'rent', label: '房租', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'utility_fee', label: '水电费', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'tool_investment', label: '工具投资', type: 'number', input: true, expense: true, currency: true },
+        { field: 'equipment', label: '设备', type: 'number', input: true, expense: true, currency: true },
+        { field: 'renovation', label: '装修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'misc_fee', label: '杂费(含差旅/招待/应酬/车支出)', type: 'number', input: true, expense: true, currency: true },
+        // 子部门结余（手工输入，来自车间收支表，参与结余+）
+        { field: 'bonding_balance', label: '帮定结余', type: 'number', input: true, expense: false, income: true, currency: true },
+        { field: 'smt_balance', label: '贴片结余', type: 'number', input: true, expense: false, income: true, currency: true },
+        { field: 'plugin_balance', label: '插件结余', type: 'number', input: true, expense: false, income: true, currency: true },
+        // 工资结余（手工输入，来自车间收支表，参与结余+）
+        { field: 'production_wage_balance', label: '生产工资结余', type: 'number', input: true, expense: false, income: true, currency: true },
+        { field: 'production_wage_balance_tax', label: '生产工资结余(含1.13)', type: 'number', input: true, expense: false, income: true, currency: true },
+        // 预估利润（自动计算，参与结余+）
+        { field: 'estimated_workshop_profit', label: '预估车间利润', type: 'number', calc: true, income: true,
+          skipAliases: ['预估车间利润（产值*0.05）'] },
+        // 工资组（固定费用，参与结余-）
+        { field: 'production_supervisor_wage', label: '生产管工工资', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'office_supervisor_wage', label: '办公室管工工资', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'shared_staff_wage', label: '共用人员工资', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        // 自动计算费用（按系数算，参与结余-）
+        { field: 'hk_expense', label: '香港支出', type: 'number', calc: true, expense: true,
+          skipAliases: ['香港支出(占产值约1.0%)', '香港支出'] },
+        // 手工输入费用（参与结余-）
+        { field: 'severance_fee', label: '离职补贴费用', type: 'number', input: true, expense: true, currency: true },
+        { field: 'excess_material', label: '超出原材料', type: 'number', input: true, expense: true, currency: true },
+        // 自动计算费用（按系数算，参与结余-）
+        { field: 'transport_packing_fee', label: '运输包装费', type: 'number', calc: true, expense: true,
+          skipAliases: ['运输包装费'] },
+        // 固定费用（参与结余-）
+        { field: 'payable_tax', label: '应缴税收', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        // 自动计算费用（按系数算，参与结余-）
+        { field: 'hq_allocation', label: '总部支出', type: 'number', calc: true, expense: true,
+          skipAliases: ['总部支出（占产值）0.0029', '总部支出'] },
+        // 自动计算（不参与结余）
+        { field: 'estimated_tax', label: '预计税金', type: 'number', calc: true,
+          skipAliases: ['预计税金'] },
+        // 外发组
+        { field: 'outsource_output', label: '外发产值', type: 'number', input: true, expense: false, currency: true,
+          aliases: ['外发产值($)'] },
+        { field: 'outsource_planned_wage', label: '外发计划工资(含1.13)', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_actual_wage', label: '外发实际工资', type: 'number', input: true, expense: false, currency: true },
+        { field: 'outsource_wage_balance', label: '外发人工结余/汇率', type: 'number', input: true, expense: false, currency: true,
+          aliases: ['外发人工结余'] },
+        { field: 'outsource_balance_ratio', label: '外发结余比例', type: 'ratio', calc: true,
+          skipAliases: ['外发结余比例'] },
+      ]
+    },
+
+    clothing: {
+      tableName: 'clothing_records',
+      label: '车衣部',
+      workshops: ['华登B-A', '华登B-B'],
+      selfContained: true,  // 自包含：共享字段已搬入 uniqueFields，不再从 sharedFields 动态合并
+      sharedFieldAliases: {},
+      uniqueFields: [
+        // 人数
+        { field: 'supervisor_count', label: '管工人数', type: 'integer', input: true, expense: false, fixedExpense: true },
+        { field: 'misc_workers', label: '杂工人数', type: 'integer', input: true, expense: false },
+        { field: 'worker_count', label: '员工人数(含临时工)', type: 'integer', input: true, expense: false },
+        // 产值
+        { field: 'daily_output', label: '总产值/天', type: 'number', input: true, expense: false, currency: true,
+          aliases: ['产值'] },
+        // 隐藏但保留（折叠组）
+        { field: 'total_machines', label: '总台数', type: 'integer', input: true, expense: false, collapsible: '更多费用' },
+        { field: 'running_machines', label: '开机台数', type: 'integer', input: true, expense: false, collapsible: '更多费用' },
+        { field: 'machine_rate', label: '开机率', type: 'ratio', calc: true, collapsible: '更多费用',
+          skipAliases: ['开机率'] },
+        { field: 'other_income', label: '其他收入', type: 'number', input: true, expense: false, income: true, currency: true, collapsible: '更多费用' },
+        { field: 'avg_output_per_machine', label: '每台机平均产值', type: 'number', calc: true, collapsible: '更多费用',
+          skipAliases: ['每台机平均产值'] },
+        { field: 'non_production_wage', label: '非生产工资', type: 'number', input: true, expense: true, currency: true, collapsible: '更多费用' },
+        // 工资
+        { field: 'worker_wage', label: '员工工资/天', type: 'number', input: true, expense: true, currency: true,
+          aliases: ['员工工资'] },
+        { field: 'hq_allocation_wage', label: '总部分摊工资', type: 'number', input: true, expense: true, currency: true, fixedExpense: true },
+        { field: 'supervisor_wage', label: '管工工资/天', type: 'number', input: true, expense: true, currency: true, fixedExpense: true,
+          aliases: ['生产管工工资'] },
+        { field: 'wage_ratio', label: '总工资占产值%', type: 'ratio', calc: true,
+          skipAliases: ['总工资占产值%', '总工资占产值'] },
+        // 费用（显示）
+        { field: 'raw_material_cost', label: '原料成本', type: 'number', input: true, expense: true, currency: true },
+        { field: 'tax_expense', label: '税费(产值3%)', type: 'number', calc: true, expense: true,
+          skipAliases: ['税费', '税费(产值3%)'] },
+        { field: 'general_expense', label: '总务费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'hk_daily_expense', label: '香港日常开支(产值1%)', type: 'number', calc: true, expense: true,
+          skipAliases: ['香港日常开支', '香港日常开支(产值1%)'] },
+        { field: 'social_insurance_fund', label: '社保基金', type: 'number', input: true, expense: true, currency: true },
+        { field: 'misc_fee', label: '杂费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'tool_investment', label: '工具投资', type: 'number', input: true, expense: true, currency: true },
+        { field: 'equipment', label: '设备', type: 'number', input: true, expense: true, currency: true },
+        { field: 'materials', label: '物料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'raw_materials', label: '原材料', type: 'number', input: true, expense: true, currency: true },
+        { field: 'repair_fee', label: '维修费', type: 'number', input: true, expense: true, currency: true },
+        { field: 'renovation', label: '装修', type: 'number', input: true, expense: true, currency: true },
+        { field: 'outsource_processing', label: '外发加工', type: 'number', input: true, expense: true, currency: true },
+        { field: 'temp_worker_hours', label: '临时工工时', type: 'number', input: true, expense: true, currency: true },
+        { field: 'shipping_fee', label: '运费', type: 'number', input: true, expense: true, currency: true },
+        // 费用（折叠）
+        { field: 'rent', label: '房租', type: 'number', input: true, expense: true, currency: true, fixedExpense: true, collapsible: '更多费用' },
+        { field: 'utility_fee', label: '水电费', type: 'number', input: true, expense: true, currency: true, fixedExpense: true, collapsible: '更多费用' },
+        // 结余（balance 和 balance_ratio 由代码自动补充，不在此定义，避免与 records.js 硬编码重复）
+        { field: 'avg_balance_per_machine', label: '平均每台结余', type: 'number', calc: true, collapsible: '更多费用',
+          skipAliases: ['平均每台结余'] },
       ]
     },
   }

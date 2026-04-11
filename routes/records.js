@@ -3,8 +3,9 @@ const router = express.Router();
 const { getAll, getOne, query } = require('../db/postgres');
 const { authenticate, modulePermission, checkDataLock } = require('../middleware/auth');
 const { logAction } = require('../middleware/audit');
-const { DEPT_CONFIG, getAllInputFields } = require('../modules');
-const { calculateRecord } = require('../modules/balance/calc');
+const { DEPT_CONFIG, getAllInputFields, getFixedExpenseFields } = require('../modules');
+const { calculateRecord, loadConstants, loadFixedExpenses, applyExchangeRate, applyFixedExpenses } = require('../modules/balance/calc');
+const { recalcRatios } = require('../modules/balance/export-columns');
 const asyncHandler = require('../utils/async-handler');
 
 // 验证部门参数
@@ -45,8 +46,56 @@ router.post('/:dept/records', authenticate, modulePermission('balance'), validat
   const records = Array.isArray(req.body) ? req.body : [req.body];
   const inserted = [];
 
+  // 查询当月汇率（取第一条记录的日期）
+  const firstDate = records[0]?.record_date;
+  const constants = await loadConstants(firstDate);
+  const exchangeRate = constants.exchange_rate;
+  if (!exchangeRate) {
+    return res.status(400).json({ success: false, message: '请先在系统设置中配置当月汇率（exchange_rate）' });
+  }
+
+  // 加载固定费用配置
+  const fixedConfig = await loadFixedExpenses(dept, firstDate);
+
   for (const raw of records) {
-    const calculated = await calculateRecord(dept, raw);
+    // 第一步：计算依赖字段（开机台数、总工时）— 在转换前用原始值计算
+    let processed = { ...raw };
+
+    // 啤机：开机台数 = 开机时间 / 24
+    if (dept === 'beer') {
+      const runHours = parseFloat(processed.run_hours) || 0;
+      processed.running_machines = runHours > 0 ? runHours / 24 : 0;
+    }
+    // 印喷：总工时 = 员工人数 × 员工工时
+    if (dept === 'print') {
+      processed.total_hours = (parseFloat(processed.worker_count) || 0) * (parseFloat(processed.work_hours) || 0);
+    }
+
+    // 第二步：代入固定费用（使用开机台数等已计算的值）
+    processed = applyFixedExpenses(dept, processed, fixedConfig, exchangeRate);
+
+    // 第三步：装配部 planned_wage_tax 特殊处理（×1.13 后再转港币）
+    if (dept === 'assembly' && processed.planned_wage_tax) {
+      processed.planned_wage_tax = parseFloat(processed.planned_wage_tax) * 1.13 / exchangeRate;
+    }
+
+    // 第四步：汇率转换
+    // 必须跳过已在前面步骤中转换过的字段，避免重复除以汇率
+    const skipFields = [
+      ...getFixedExpenseFields(dept),   // 固定费用字段已在 step2 转换
+      ...(dept === 'assembly' ? ['planned_wage_tax'] : []),  // 装配部已在 step3 特殊处理
+    ];
+    processed = applyExchangeRate(dept, processed, exchangeRate, skipFields);
+
+    // 第五步：补充 region 信息（装配部按区域使用不同结余公式）
+    if (processed.workshop_id) {
+      const ws = await getOne('SELECT region FROM workshops WHERE id = ?', [processed.workshop_id]);
+      if (ws) processed.region = ws.region;
+    }
+
+    // 第六步：计算结余等衍生字段
+    const calculated = await calculateRecord(dept, processed);
+
     const allFields = [...inputFields, ...config.uniqueCalcFields, 'balance', 'balance_ratio',
                        'record_date', 'workshop_id', 'created_by', 'updated_by'];
     calculated.created_by = req.user.id;
@@ -75,6 +124,11 @@ router.put('/:dept/records/:id', authenticate, modulePermission('balance'), vali
   if (!old) return res.status(404).json({ success: false, message: '记录不存在' });
 
   const merged = { ...old, ...req.body };
+  // 补充 region 信息（装配部按区域使用不同结余公式）
+  if (merged.workshop_id) {
+    const ws = await getOne('SELECT region FROM workshops WHERE id = ?', [merged.workshop_id]);
+    if (ws) merged.region = ws.region;
+  }
   const calculated = await calculateRecord(dept, merged);
   calculated.updated_by = req.user.id;
   calculated.updated_at = new Date().toISOString();
@@ -127,11 +181,12 @@ router.get('/:dept/summary', authenticate, validateDept, asyncHandler(async (req
   const config = DEPT_CONFIG[dept];
   const { start_date, end_date } = req.query;
 
-  // 从 DEPT_CONFIG 获取部门独有字段，动态生成 SUM 子句
+  // 从 DEPT_CONFIG 获取部门独有字段（输入+费用+计算），动态生成 SUM 子句
   const uniqueInputFields = config.uniqueInputFields || [];
   const uniqueExpenseFields = config.uniqueExpenseFields || [];
-  // 合并独有输入字段和独有费用字段（去重）
-  const allUniqueFields = [...new Set([...uniqueInputFields, ...uniqueExpenseFields])];
+  const uniqueCalcFields = config.uniqueCalcFields || [];
+  // 合并所有独有字段（去重），包含计算字段以便 recalcRatios 能使用
+  const allUniqueFields = [...new Set([...uniqueInputFields, ...uniqueExpenseFields, ...uniqueCalcFields])];
   const uniqueSumClauses = allUniqueFields
     .map(field => `SUM(r.${field}) as ${field}`)
     .join(',\n             ');
@@ -161,8 +216,15 @@ router.get('/:dept/summary', authenticate, validateDept, asyncHandler(async (req
   sql += ` GROUP BY w.id, w.name, w.region, w.sort_order ORDER BY w.sort_order`;
 
   const rows = await getAll(sql, params);
+  // 将 SUM 结果中的字符串转为数值，然后用 recalcRatios 重算所有比率字段
   rows.forEach(r => {
-    r.balance_ratio = r.daily_output > 0 ? r.balance / r.daily_output : 0;
+    for (const [k, v] of Object.entries(r)) {
+      if (v !== null && k !== 'workshop_name' && k !== 'region' && k !== 'workshop_id') {
+        r[k] = parseFloat(v) || 0;
+      }
+    }
+    const recalced = recalcRatios(dept, r);
+    Object.assign(r, recalced);
   });
 
   res.json({ success: true, data: rows });
